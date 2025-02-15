@@ -41,7 +41,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-graph-generator",
-        version = "0.1.0"
+        version = "0.1.1"
     )
 
     // Configure POM metadata for the published artifact

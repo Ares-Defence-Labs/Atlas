@@ -10,15 +10,18 @@ class AtlasDIProcessor : Plugin<Project> {
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/kotlin"))
         }
 
+        // ✅ Ensure `generateDependencyGraph` runs before **any** Kotlin compilation
         project.tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
             dependsOn(task)
         }
 
-        project.tasks.named("compileKotlinMetadata").configure {
+        // ✅ Ensure the task runs for **Android Projects** (Application & Library)
+        project.tasks.matching { it.name.contains("compile") && it.name.contains("Kotlin") && it.name.contains("Android") }.configureEach {
             dependsOn(task)
         }
 
-        project.tasks.named("compileKotlinAndroid").configure {
+        // ✅ Ensure the task runs before **Metadata Compilation (Multiplatform)**
+        project.tasks.named("compileKotlinMetadata").configure {
             dependsOn(task)
         }
     }

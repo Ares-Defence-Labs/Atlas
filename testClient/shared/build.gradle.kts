@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
 
-    id("io.github.thearchitect123.atlasGraphGenerator") version "0.0.8"
+    id("io.github.thearchitect123.atlasGraphGenerator") version "0.1.0"
 }
 
 kotlin {
