@@ -14,5 +14,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Atlas"
+rootProject.name = "AtlasTestClient"
+include(":androidApp")
 include(":shared")
+
+include(":atlas-core")
+project(":atlas-core").projectDir = File("../shared")

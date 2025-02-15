@@ -11,18 +11,7 @@ plugins {
     id("kotlin-parcelize")
 }
 
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17)) // ✅ Enforce Java 17
-    }
-}
-
-
 kotlin {
-
     kotlin.applyDefaultHierarchyTemplate()
     androidTarget {
         compilations.all {
@@ -62,9 +51,10 @@ kotlin {
 
     sourceSets {
         val commonMain by getting {
-            kotlin.srcDirs("build/generated/commonMain")
             dependencies {
-                implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0") // Use the same Kotlin version as your project
+                implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.1.10") // Kotlin Compiler API
+
+                implementation("com.squareup.okio:okio:3.7.0")
             }
         }
 
@@ -73,19 +63,18 @@ kotlin {
         }
 
         val jvmMain by getting {
-            dependsOn(commonMain)
             dependencies {
 
             }
         }
         val androidMain by getting {
-            dependsOn(commonMain)
-
             dependencies {
                 implementation("androidx.core:core:1.15.0")
                 implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
                 implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
-
+                implementation("androidx.fragment:fragment:1.8.5")
+                implementation("androidx.activity:activity:1.10.0")
+                implementation("androidx.appcompat:appcompat:1.7.0")
             }
         }
 
@@ -96,12 +85,6 @@ kotlin {
             dependencies {
             }
         }
-    }
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions {
-        freeCompilerArgs += listOf("-Xjvm-default=all", "-Xopt-in=kotlin.RequiresOptIn")
     }
 }
 
@@ -117,30 +100,35 @@ android {
     }
 }
 
-tasks.named("compileKotlinMetadata") {
+//tasks.named("compileKotlinMetadata") {
+//    dependsOn("generateDependencyGraph")
+//}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     dependsOn("generateDependencyGraph")
 }
+
 tasks.register("generateDependencyGraph") {
     group = "code generation"
     description = "Generates AtlasContainer at compile time for all modules"
 
-    val projectRoot = project.rootDir
     val outputDir = layout.buildDirectory.dir("generated/commonMain")
     val outputFile = File(outputDir.get().asFile, "AtlasContainer.kt")
 
-    doFirst {
-        // Ensure output directory exists
-        val outputFolder = outputDir.get().asFile
-        if (!outputFolder.exists()) {
-            outputFolder.mkdirs()
-            println("📂 Created output directory: ${outputFolder.absolutePath}")
-        }
+    val androidOutputDir = layout.buildDirectory.dir("generated/androidMain")
+    val androidOutputFile = File(androidOutputDir.get().asFile, "ViewModelExtensions.kt")
 
-        // Delete old AtlasContainer.kt before regenerating
-        if (outputFile.exists()) {
-            outputFile.delete()
-            println("🗑️ Deleted old AtlasContainer.kt to ensure a fresh build")
-        }
+    doFirst {
+        val outputFolder = outputDir.get().asFile
+        val androidOutputFolder = androidOutputDir.get().asFile
+
+        if (!outputFolder.exists()) outputFolder.mkdirs()
+        if (!androidOutputFolder.exists()) androidOutputFolder.mkdirs()
+
+        println("📂 Created output directories: ${outputFolder.absolutePath}, ${androidOutputFolder.absolutePath}")
+
+        if (outputFile.exists()) outputFile.delete()
+        if (androidOutputFile.exists()) androidOutputFile.delete()
     }
 
     doLast {
@@ -150,7 +138,6 @@ tasks.register("generateDependencyGraph") {
         val viewModels = mutableSetOf<String>()
         val modules = mutableSetOf<String>()
 
-        // Fully qualified annotation names from your shared module
         val annotationMappings = mapOf(
             "com.architect.atlas.container.annotations.Singleton" to singletons,
             "com.architect.atlas.container.annotations.Factory" to factories,
@@ -159,43 +146,33 @@ tasks.register("generateDependencyGraph") {
             "com.architect.atlas.container.annotations.Module" to modules
         )
 
-        // Scan all modules for Kotlin source files
-        projectRoot.walkTopDown()
+        project.rootDir.walkTopDown()
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
             .forEach { sourceDir ->
                 println("🔍 Scanning: ${sourceDir.absolutePath}")
                 sourceDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
                     val content = file.readText()
 
-                    // Process annotations correctly
                     annotationMappings.forEach { (annotation, collection) ->
-                        val annotationSimpleName = annotation.substringAfterLast(".") // Extract 'Singleton' from full path
+                        val annotationSimpleName = annotation.substringAfterLast(".")
                         val annotationRegex = "@$annotationSimpleName\\s+class\\s+(\\w+)".toRegex()
 
                         annotationRegex.findAll(content).forEach { match ->
                             val className = match.groupValues[1]
-
-                            // Ensure the annotation actually comes from `com.architect.atlas.container.annotations`
                             if (content.contains("import $annotation")) {
-                                collection.add(className) // Ensures uniqueness
+                                collection.add(className)
                             }
                         }
                     }
                 }
             }
 
-        // Ensure output directory exists before writing the file
-        if (!outputFile.parentFile.exists()) {
-            outputFile.parentFile.mkdirs()
-        }
-
-        // Properly formatted dependency registrations
         val formattedSingletons = singletons.joinToString("\n        ") { "singletons[${it}::class] = ${it}()" }
         val formattedFactories = factories.joinToString("\n        ") { "factories[${it}::class] = { ${it}() }" }
         val formattedScopedInstances = scopedInstances.joinToString("\n        ") { "scoped[${it}::class] = mutableMapOf()" }
         val formattedViewModels = viewModels.joinToString("\n        ") { "viewModels[${it}::class] = lazy { ${it}() }" }
 
-        // Generate clean and formatted `AtlasContainer.kt`
+        // ✅ Generate `AtlasContainer.kt`
         val formattedCode = """
             package com.architect.atlas.container
 
@@ -208,59 +185,68 @@ tasks.register("generateDependencyGraph") {
                 private val viewModels: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
 
                 init {
-                    // ✅ Singleton instances (shared across the entire app)
                     ${if (singletons.isNotEmpty()) "        $formattedSingletons" else "        // No singletons registered"}
-
-                    // ✅ Factory instances (new instance every request)
                     ${if (factories.isNotEmpty()) "        $formattedFactories" else "        // No factories registered"}
-
-                    // ✅ Scoped instances (unique instance per scope)
                     ${if (scopedInstances.isNotEmpty()) "        $formattedScopedInstances" else "        // No scoped instances registered"}
-
-                    // ✅ ViewModel instances (created once per class)
                     ${if (viewModels.isNotEmpty()) "        $formattedViewModels" else "        // No ViewModels registered"}
                 }
 
-                /**
-                 * Resolves a dependency.
-                 * - Returns a Singleton if available.
-                 * - If not, creates a new instance using Factory.
-                 * - If not found, tries ViewModel storage.
-                 * - Throws an exception if no matching class is found.
-                 */
                 fun <T : Any> resolve(clazz: KClass<T>): T {
                     return (singletons[clazz]
                         ?: factories[clazz]?.invoke()
                         ?: viewModels[clazz]?.value) as? T
                         ?: throw IllegalArgumentException("No provider found for " + clazz.simpleName)
                 }
-
-                /**
-                 * Resolves a Scoped instance per scope ID.
-                 * - If the scope exists, returns the existing instance.
-                 * - If not, creates a new instance and stores it in the scope.
-                 */
-                fun <T : Any> resolveScoped(clazz: KClass<T>, scopeId: String): T {
-                    val scope = scoped[clazz] ?: throw IllegalArgumentException("No scope found for dependency")
-                    return scope.getOrPut(scopeId) { (factories[clazz]?.invoke() ?: throw IllegalArgumentException("No factory found for scoped class")) } as T
-                }
             }
         """.trimIndent()
 
         outputFile.writeText(formattedCode)
+        println("✅ Generated AtlasContainer.kt at: ${outputFile.absolutePath}")
 
-        println("✅ Generated dependency graph at: ${outputFile.absolutePath}")
+        // ✅ Generate Android-specific ViewModel Delegate Extensions
+        val androidCode = """
+            package com.architect.atlas.container.android
+
+            import androidx.activity.ComponentActivity
+            import androidx.fragment.app.Fragment
+            import androidx.appcompat.app.AppCompatActivity
+            import kotlin.properties.ReadOnlyProperty
+
+            inline fun <reified T : Any> Fragment.viewModels(): ReadOnlyProperty<Fragment, T> {
+                return ReadOnlyProperty { thisRef, _ ->
+                    AtlasContainer.resolve(T::class)
+                }
+            }
+
+            inline fun <reified T : Any> AppCompatActivity.viewModels(): ReadOnlyProperty<AppCompatActivity, T> {
+                return ReadOnlyProperty { thisRef, _ ->
+                    AtlasContainer.resolve(T::class)
+                }
+            }
+
+            inline fun <reified T : Any> ComponentActivity.viewModels(): ReadOnlyProperty<ComponentActivity, T> {
+                return ReadOnlyProperty { thisRef, _ ->
+                    AtlasContainer.resolve(T::class)
+                }
+            }
+        """.trimIndent()
+
+        androidOutputFile.writeText(androidCode)
+        println("✅ Generated ViewModelExtensions.kt at: ${androidOutputFile.absolutePath}")
     }
 }
 
-
 afterEvaluate {
+    tasks.named("generateDependencyGraph").configure {
+        dependsOn("compileKotlinMetadata")
+    }
+
     mavenPublishing {
         // Define coordinates for the published artifact
         coordinates(
             groupId = "io.github.thearchitect123",
-            artifactId = "atlasCore",
-            version = "0.0.1"
+            artifactId = "atlas-core",
+            version = "0.0.5"
         )
 
         // Configure POM metadata for the published artifact
@@ -299,16 +285,16 @@ afterEvaluate {
         signAllPublications()
     }
 }
-
-signing {
-    val privateKeyFile = project.properties["signing.privateKeyFile"] as? String
-        ?: error("No Private key file found")
-    val passphrase = project.properties["signing.password"] as? String
-        ?: error("No Passphrase found for signing")
-
-    // Read the private key from the file
-    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
-
-    useInMemoryPgpKeys(privateKey, passphrase)
-    sign(publishing.publications)
-}
+//
+//signing {
+//    val privateKeyFile = project.properties["signing.privateKeyFile"] as? String
+//        ?: error("No Private key file found")
+//    val passphrase = project.properties["signing.password"] as? String
+//        ?: error("No Passphrase found for signing")
+//
+//    // Read the private key from the file
+//    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
+//
+//    useInMemoryPgpKeys(privateKey, passphrase)
+//    sign(publishing.publications)
+//}

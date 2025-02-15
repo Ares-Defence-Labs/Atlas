@@ -4,11 +4,11 @@ plugins {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
+    //implementation(kotlin("stdlib"))
 
     // ✅ Include KSP API
-    implementation("com.google.devtools.ksp:symbol-processing-api:2.1.10-1.0.29")
-    ksp(files("${buildDir}/libs/atlas-graph-generator-1.0.0.jar"))
+//    implementation("com.google.devtools.ksp:symbol-processing-api:2.1.10-1.0.29")
+//    ksp(files("${buildDir}/libs/atlas-graph-generator-1.0.0.jar"))
 }
 
 java {
