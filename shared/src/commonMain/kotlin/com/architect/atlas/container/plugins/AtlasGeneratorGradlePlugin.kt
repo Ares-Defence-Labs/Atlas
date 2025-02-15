@@ -1,23 +1,20 @@
 package com.architect.atlas.container.plugins
 
-import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.util.kotlinFqName
-import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
-import org.jetbrains.kotlin.config.CompilerConfiguration
+import kotlin.reflect.KClass
 
-/**
- * Kotlin Multiplatform Compiler Plugin to generate AtlasContainer at compile time
- */
-class AtlasCompilerPlugin : IrGenerationExtension {
-    override fun generate(moduleFragment: org.jetbrains.kotlin.ir.declarations.IrModuleFragment, pluginContext: org.jetbrains.kotlin.backend.common.IrPluginContext) {
-        val classes = moduleFragment.files.flatMap { it.declarations.filterIsInstance<IrClass>() }
+object DependencyGraphGenerator {
+    private val singletons = mutableSetOf<KClass<*>>()
 
-        val annotatedClasses = classes.filter { cls ->
-            cls.annotations.any { it.type.classFqName?.asString() == "com.architect.atlas.container.annotations.Singleton" }
-        }
+    fun registerSingleton(clazz: KClass<*>) {
+        println("IT WORKS, IT ACTUALLY WORKS!!! AHAHAH!")
+        singletons.add(clazz)
+    }
 
-        val generatedCode = buildString {
+    /**
+     * Generates the final AtlasContainer.kt at compile time
+     */
+    fun generateAtlasContainer(): String {
+        return buildString {
             appendLine("package com.architect.atlas.container")
             appendLine("import kotlin.reflect.KClass")
             appendLine()
@@ -25,8 +22,8 @@ class AtlasCompilerPlugin : IrGenerationExtension {
             appendLine("    private val singletons: MutableMap<KClass<*>, Any> = mutableMapOf()")
             appendLine()
             appendLine("    init {")
-            for (cls in annotatedClasses) {
-                appendLine("        singletons[${cls.kotlinFqName}::class] = ${cls.kotlinFqName}()")
+            for (cls in singletons) {
+                appendLine("        singletons[${cls.simpleName}::class] = ${cls.simpleName}()")
             }
             appendLine("    }")
             appendLine()
@@ -35,12 +32,16 @@ class AtlasCompilerPlugin : IrGenerationExtension {
             appendLine("    }")
             appendLine("}")
         }
-
-        // Writes `AtlasContainer.kt` to the build directory
-        pluginContext.irFactory.createFile(
-            moduleFragment.descriptor, // Module
-            "AtlasContainer.kt",       // File Name
-            generatedCode              // Contents
-        )
     }
+}
+
+
+// This is automatically generated at compile-time
+val generatedAtlasContainer = DependencyGraphGenerator.generateAtlasContainer()
+
+// Writes the generated container to the project (or IDE memory)
+@OptIn(ExperimentalStdlibApi::class)
+fun compileTimeRegister() {
+    println("🔧 Registering AtlasContainer at compile time...")
+    println(generatedAtlasContainer)
 }

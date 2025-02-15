@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Atlas"
 include(":shared")
+include(":atlas-graph-generator")

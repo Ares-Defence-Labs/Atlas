@@ -16,6 +16,34 @@ class Greeting {
 class Comps{
     var q = "hello"
     fun test(){
-        q = "mAHAHAH"
+        q = "testing"
+    }
+}
+
+
+@Singleton
+class CompsTestStatus{
+    var q = "hello"
+    fun test(){
+        q = "testing124"
+    }
+}
+
+
+
+@Singleton
+class HELLOTHERE{
+    var q = "hello"
+    fun test(){
+        q = "testing12452356"
+    }
+}
+
+
+@Singleton
+class CompsTestNUMBERONEStatus{
+    var q = "hello"
+    fun test(){
+        q = "testing49921814"
     }
 }
