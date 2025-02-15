@@ -79,16 +79,16 @@ mavenPublishing {
     // Enable GPG signing for all publications
     signAllPublications()
 }
-
-signing {
-    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
-        ?: error("No Private key file found")
-    val passphrase = project.findProperty("signing.password") as? String
-        ?: error("No Passphrase found for signing")
-
-    // Read the private key from the file
-    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
-
-    useInMemoryPgpKeys(privateKey, passphrase)
-    sign(publishing.publications)
-}
+//
+//signing {
+//    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
+//        ?: error("No Private key file found")
+//    val passphrase = project.findProperty("signing.password") as? String
+//        ?: error("No Passphrase found for signing")
+//
+//    // Read the private key from the file
+//    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
+//
+//    useInMemoryPgpKeys(privateKey, passphrase)
+//    sign(publishing.publications)
+//}
