@@ -16,7 +16,7 @@ annotation class Scoped
 
 @Target(AnnotationTarget.CLASS, AnnotationTarget.CONSTRUCTOR, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.SOURCE)
-annotation class ViewModel
+annotation class ViewModels
 
 @Target(AnnotationTarget.CLASS, AnnotationTarget.CONSTRUCTOR, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.SOURCE)

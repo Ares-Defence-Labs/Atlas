@@ -9,6 +9,12 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.29.0"
     id("signing")
 }
+//
+//repositories {
+//    google()
+//    mavenCentral()
+//    gradlePluginPortal() // Local Testing Only
+//}
 
 java {
     toolchain {
@@ -41,7 +47,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-graph-generator",
-        version = "0.1.1"
+        version = "0.2.5"
     )
 
     // Configure POM metadata for the published artifact
@@ -80,15 +86,15 @@ mavenPublishing {
     signAllPublications()
 }
 //
-//signing {
-//    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
-//        ?: error("No Private key file found")
-//    val passphrase = project.findProperty("signing.password") as? String
-//        ?: error("No Passphrase found for signing")
-//
-//    // Read the private key from the file
-//    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
-//
-//    useInMemoryPgpKeys(privateKey, passphrase)
-//    sign(publishing.publications)
-//}
+signing {
+    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
+        ?: error("No Private key file found")
+    val passphrase = project.findProperty("signing.password") as? String
+        ?: error("No Passphrase found for signing")
+
+    // Read the private key from the file
+    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
+
+    useInMemoryPgpKeys(privateKey, passphrase)
+    sign(publishing.publications)
+}

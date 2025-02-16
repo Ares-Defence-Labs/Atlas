@@ -43,4 +43,13 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.androidx.activity.compose)
     debugImplementation(libs.compose.ui.tooling)
+
+    implementation("io.github.thearchitect123:atlas-core:0.0.7")
+    implementation("androidx.core:core:1.15.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.fragment:fragment:1.8.5")
+    implementation("androidx.activity:activity:1.10.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+
 }

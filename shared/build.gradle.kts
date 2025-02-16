@@ -51,11 +51,12 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+
             }
         }
 
         commonTest.dependencies {
-            implementation(libs.kotlin.test)
         }
 
         val jvmMain by getting {
@@ -65,6 +66,9 @@ kotlin {
         }
         val androidMain by getting {
             dependencies {
+                implementation("androidx.core:core:1.15.0")
+                implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+                implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
             }
         }
 
@@ -96,7 +100,7 @@ android {
 //        coordinates(
 //            groupId = "io.github.thearchitect123",
 //            artifactId = "atlas-core",
-//            version = "0.0.6"
+//            version = "0.0.8"
 //        )
 //
 //        // Configure POM metadata for the published artifact
