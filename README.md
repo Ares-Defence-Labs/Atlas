@@ -17,7 +17,7 @@ Atlas is a powerful Kotlin Multiplatform (KMP) SDK that provides a complete ecos
   </a>
 
   <a href="https://github.com/TheArchitect123/Atlas">
-    ![Platforms](https://img.shields.io/badge/Platforms-Android%20|%20AppleWatch%20|%20iOS%20|%20WASM%20|%20JS%20|%20NodeJS%20|%20JVM-blue?style=for-the-badge&logo=kotlin)
+    <img alt="GitHub" src="https://img.shields.io/badge/_Android,_AppleWatch,_iOS-white.svg,_Wasm,_JS,_NodeJS,_JVM">
   </a>
 </p>
 
