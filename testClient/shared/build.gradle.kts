@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
 
-    id("io.github.thearchitect123.atlasGraphGenerator") version "0.2.3"
+    id("io.github.thearchitect123.atlasGraphGenerator") version "0.3.1"
   //  id("io.github.thearchitect123.atlasGraphGenerator")
 }
 
@@ -29,7 +29,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             //put your multiplatform dependencies here
-            implementation("io.github.thearchitect123:atlas-core:0.0.8")
+            implementation("io.github.thearchitect123:atlas-core:0.1.0")
 
 
 //            implementation("io.github.thearchitect123:atlas-core:0.0.")

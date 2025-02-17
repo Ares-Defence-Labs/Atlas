@@ -15,7 +15,7 @@ plugins {
 //    mavenCentral()
 //    gradlePluginPortal() // Local Testing Only
 //}
-
+//
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))  // ✅ Ensure Java 17
@@ -47,7 +47,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-graph-generator",
-        version = "0.2.5"
+        version = "0.3.1"
     )
 
     // Configure POM metadata for the published artifact

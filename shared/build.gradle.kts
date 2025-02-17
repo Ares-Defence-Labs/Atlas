@@ -1,4 +1,5 @@
 import com.vanniktech.maven.publish.SonatypeHost
+import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -35,7 +36,16 @@ kotlin {
     tvosSimulatorArm64()
 
     // browser (Kotlin/JS)
-    js().browser()
+    js(IR) { // Kotlin JS with IR (default)
+        browser() // Browser Target
+        nodejs() // Node.js Target
+    }
+
+    // 🟢 WebAssembly (WASM) - Experimental
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs()
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmWasi()
 
     listOf(
         iosX64(),
@@ -52,7 +62,6 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
-
             }
         }
 
@@ -93,14 +102,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-//
+////
 //afterEvaluate {
 //    mavenPublishing {
 //        // Define coordinates for the published artifact
 //        coordinates(
 //            groupId = "io.github.thearchitect123",
 //            artifactId = "atlas-core",
-//            version = "0.0.8"
+//            version = "0.1.0"
 //        )
 //
 //        // Configure POM metadata for the published artifact
@@ -139,7 +148,6 @@ android {
 //        signAllPublications()
 //    }
 //}
-//
 //
 //signing {
 //    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
