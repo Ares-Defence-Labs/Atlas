@@ -62,7 +62,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             }
 
             // ✅ Ensure parent class is fully resolved
-            val resolvedParentClass = classHierarchy[parentClass] ?: simpleToFqName[parentClass] ?: parentClass
+            val resolvedParentClass =
+                classHierarchy[parentClass] ?: simpleToFqName[parentClass] ?: parentClass
             logger.lifecycle("✅ Parent resolved to: $resolvedParentClass")
 
             currentClass = resolvedParentClass
@@ -122,8 +123,51 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             logger.lifecycle("⚠️ No Android merged resources found.")
         }
 
-        val classHierarchy = mutableMapOf<String, String?>() // Fully Qualified Class Name -> Superclass
+        val classHierarchy =
+            mutableMapOf<String, String?>() // Fully Qualified Class Name -> Superclass
         val simpleToFqName = mutableMapOf<String, String>() // Simple Name -> Fully Qualified Name
+
+        // check provides annotations
+        val importMappings = mutableMapOf<String, String>() // Stores (SimpleName → Fully Qualified Name)
+        val providesReturnTypes = mutableMapOf<String, String>() // Stores (Return Type → Fully Qualified Name)
+
+        projectRootDir.get().asFile.walkTopDown()
+            .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
+            .forEach { sourceDir ->
+                sourceDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
+                    val content = file.readText()
+
+                    val packageMatch = Regex("""^package\s+([\w.]+)""").find(content)
+                    val packageName = packageMatch?.groupValues?.get(1)?.trim() ?: ""
+
+                    // ✅ Extract Imports (Simple Name → Fully Qualified Name)
+                    val importRegex = Regex("""import\s+([\w.]+)""")
+                    importRegex.findAll(content).forEach { match ->
+                        val fullyQualifiedName = match.groupValues[1]
+                        val simpleName = fullyQualifiedName.substringAfterLast(".")
+                        importMappings[simpleName] = fullyQualifiedName
+                    }
+
+                    // ✅ Scan for @Provides functions **after extracting imports**
+                    if (content.contains("@Provides")) {
+                        val providesRegex = Regex("""@Provides\s+fun\s+\w+\s*\([^)]*\)\s*:\s*([\w.]+)""")
+                        providesRegex.findAll(content).forEach { match ->
+                            val returnType = match.groupValues[1] // ✅ Extract return type (e.g., `DNSTest`)
+
+                            // ✅ Use imports to resolve the fully qualified name instead of assuming the package
+                            val fullyQualifiedReturnType = importMappings[returnType] ?: "$packageName.$returnType"
+
+                            providesReturnTypes[returnType] = fullyQualifiedReturnType // ✅ Store correct package mapping
+                            logger.lifecycle("🔍 @Provides detected: Function returns $returnType → Fully qualified as $fullyQualifiedReturnType")
+                        }
+                    }
+                }
+            }
+
+
+        logger.lifecycle("🔍 Return Types for Provides ${providesReturnTypes.map { "${it.key} : ${it.value}\n" }}")
+
+
 
         // ✅ First pass: Collect all class declarations across all files
         projectRootDir.get().asFile.walkTopDown()
@@ -139,7 +183,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                     classRegex.findAll(content).forEach { match ->
                         val className = match.groupValues[1]
                         val fullyQualifiedClassName = "$packageName.$className"
-                        val baseClassRaw = match.groupValues.getOrNull(2)?.split("<")?.firstOrNull()?.trim() // Ignore generics
+                        val baseClassRaw = match.groupValues.getOrNull(2)?.split("<")?.firstOrNull()
+                            ?.trim() // Ignore generics
 
                         // Store class mappings
                         classHierarchy[fullyQualifiedClassName] = null
@@ -197,7 +242,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                                 }
 
                                 if (annotation == "com.architect.atlas.container.annotations.Module") {
-                                    val providesRegex = "@Provides[\\s\\n]+fun\\s+(\\w+)\\s*\\(.*\\)\\s*:\\s*([\\w.]+)".toRegex()
+                                    val providesRegex =
+                                        "@Provides[\\s\\n]+fun\\s+(\\w+)\\s*\\(.*\\)\\s*:\\s*([\\w.]+)".toRegex()
                                     providesRegex.findAll(content).forEach { match ->
                                         val methodName = match.groupValues[1]
                                         val returnType = match.groupValues[2]
@@ -221,7 +267,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 scopedInstances,
                 viewModels,
                 modules,
-                provides
+                provides,
+                providesReturnTypes
             )
         )
         androidOutputFile.writeText(generateAndroidExtensions())
@@ -237,18 +284,31 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         scopedInstances: Set<String>,
         viewModels: Set<String>,
         modules: Set<String>,
-        provides: Map<String, Pair<String, String>>
+        provides: Map<String, Pair<String, String>>,
+        providesReturnTypes: Map<String, String>
     ): String {
-        val imports = (classToPackage.entries.map { "import ${it.value}.${it.key}" } +
-                provides.keys.filter { it.contains(".") }
-                    .map { "import ${it}" }) // Filter out invalid imports
+        val allClassesToImport = (
+                singletons +
+                        factories +
+                        scopedInstances +
+                        viewModels +
+                        modules
+                )
+            .mapNotNull { className -> classToPackage[className]?.let { "$it.$className" } } // ✅ Get correct package
             .toSortedSet() // Remove duplicates
-            .joinToString("\n")
+
+        // 🔹 Generate imports for all relevant classes
+        val imports = allClassesToImport.joinToString("\n") { "import $it" }
+        val providesImports = providesReturnTypes.values.joinToString("\n") { "import $it" }
+
+        logger.lifecycle("PROVIDES FOUND ${providesImports}")
+        logger.lifecycle("PROVIDES FOUND MAPS ${providesReturnTypes.values}")
 
         return """
             package com.architect.atlas.container
 
             $imports
+            $providesImports
 
             import kotlin.reflect.KClass
             import com.architect.atlas.container.dsl.AtlasContainerContract
@@ -261,22 +321,29 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 private val modules: MutableMap<KClass<*>, Any> = mutableMapOf()
                 private val provides: MutableMap<KClass<*>, () -> Any> = mutableMapOf()
 
-                init {
+                init {   
                     ${if (singletons.isNotEmpty()) singletons.joinToString("\n        ") { "singletons[${it}::class] = lazy { ${it}() }" } else "// No singletons registered"}
                     ${if (factories.isNotEmpty()) factories.joinToString("\n        ") { "factories[${it}::class] = { lazy { ${it}() }}" } else "// No factories registered"}
                     ${if (scopedInstances.isNotEmpty()) scopedInstances.joinToString("\n        ") { "scoped[${it}::class] = mutableMapOf()" } else "// No scoped instances registered"}
                     ${if (viewModels.isNotEmpty()) viewModels.joinToString("\n        ") { "viewModels[${it}::class] = lazy { ${it}() }" } else "// No ViewModels registered"}
                     ${if (modules.isNotEmpty()) modules.joinToString("\n        ") { "modules[${it}::class] = ${it}()" } else "// No Modules registered"}
-                    ${if (provides.isNotEmpty()) provides.entries.joinToString("\n        ") { "provides[${it.key}::class] = { (modules[${it.value.first}::class] as ${it.value.first}).${it.value.second}() }" } else "// No @Provides registered"}
+                                    ${
+            if (provides.isNotEmpty()) provides.entries.joinToString("\n        ") {
+                val fullyQualifiedReturnType = providesReturnTypes[it.key] ?: it.key
+                val fullyQualifiedModule =
+                    classToPackage[it.value.first]?.let { pkg -> "$pkg.${it.value.first}" } ?: it.value.first
+                "provides[$fullyQualifiedReturnType::class] = { (modules[$fullyQualifiedModule::class] as $fullyQualifiedModule).${it.value.second}() }"
+            } else "// No @Provides registered"
+        }
                 }
 
                 override fun <T : Any> resolve(clazz: KClass<T>): T {
                     return (singletons[clazz]?.value
-                        ?: factories[clazz]?.invoke()
-                        ?: viewModels[clazz]?.value
-                        ?: provides[clazz]?.invoke()
-                        ?: modules[clazz]) as? T
-                        ?: throw IllegalArgumentException("No provider found for " + clazz.simpleName)
+                                ?: factories[clazz]?.invoke()
+                                ?: viewModels[clazz]?.value
+                                ?: provides[clazz]?.invoke()
+                                ?: modules[clazz]) as? T
+                                ?: throw IllegalArgumentException("No provider found for " + clazz.simpleName)
                 }
                 
                 // dynamic registration (invoked by DSL Api)

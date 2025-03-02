@@ -1,11 +1,10 @@
 package com.architect.atlastestclient
 
 import com.architect.atlas.architecture.mvvm.ViewModel
-import com.architect.atlas.container.annotations.Module
-import com.architect.atlas.container.annotations.Provides
 import com.architect.atlas.container.annotations.Singleton
 import com.architect.atlas.container.annotations.ViewModels
 import com.architect.atlas.container.dsl.AtlasDI
+import com.architect.atlastestclient.dns.DNSTest
 
 interface Platform {
     val name: String
@@ -43,19 +42,21 @@ class ReviewProcess{
     }
 }
 
-@Module
-class TestMod{
+class ComponentTest : Hello{
 
-    @Provides
-    fun process() : Sample{
-        return Sample()
-    }
 }
 
+interface Hello{
+
+}
 class Sample{
     fun test() : String{
         return "Provides Successful test"
     }
+}
+
+class DNSComps : DNSTest{
+
 }
 
 @ViewModels

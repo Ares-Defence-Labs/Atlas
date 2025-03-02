@@ -102,14 +102,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-////
+//
 //afterEvaluate {
 //    mavenPublishing {
 //        // Define coordinates for the published artifact
 //        coordinates(
 //            groupId = "io.github.thearchitect123",
 //            artifactId = "atlas-core",
-//            version = "0.1.3"
+//            version = "0.1.4"
 //        )
 //
 //        // Configure POM metadata for the published artifact

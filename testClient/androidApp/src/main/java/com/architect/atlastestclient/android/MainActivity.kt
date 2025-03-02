@@ -12,27 +12,35 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.android.viewModels
 import com.architect.atlas.container.dsl.AtlasDI
+import com.architect.atlas.container.dsl.AtlasDI.container
 import com.architect.atlastestclient.Greeting
+import com.architect.atlastestclient.Hello
 import com.architect.atlastestclient.MainViewModel
 import com.architect.atlastestclient.ReviewApps
 import com.architect.atlastestclient.ReviewProcess
 import com.architect.atlastestclient.ReviewProcessTester
 import com.architect.atlastestclient.Sample
+import com.architect.atlastestclient.TestProcess
+import com.architect.atlastestclient.dns.DNSTest
+import com.architect.atlastestclient.software.MobileTest
 
 
 class MainActivity : ComponentActivity() {
-    val vm : MainViewModel by viewModels()
+    val vm: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         AtlasDI.injectContainer(AtlasContainer)
         AtlasDI.registerSingleton(ReviewProcess())
-        //AtlasDI.registerSingleton(ReviewProcessTester());
+        //AtlasDI.registerSingleton(TestProcess::class,  ReviewApps());
 
-        var ts = AtlasDI.resolveService<ReviewProcessTester>()
+        container?.register(TestProcess::class, ReviewApps(), null, null, false)
 
-        Log.i("TEST", "${ts.test()}")
+        var ts = AtlasDI.resolveService<Hello>()
+        var dns = AtlasDI.resolveService<MobileTest>()
+
+        Log.i("TEST", "${dns.helloThere()}")
         setContent {
             MyApplicationTheme {
                 Surface(

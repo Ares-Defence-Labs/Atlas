@@ -21,6 +21,7 @@ object AtlasDI {
             ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
     }
 
+
     /**
      * Fetches a registered service from the AtlasContainer (with class instance type)
      */
@@ -36,6 +37,17 @@ object AtlasDI {
             container?.resolve(T::class)
                 ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
         }
+    }
+
+    /**
+     * Registers an interface to a service dynamically into the AtlasContainer so that resolve<Interface> can be called.
+     */
+    inline fun <reified T : Any> registerInterfaceToInstance(
+        clazz: KClass<T>,
+        instance: T,
+    ) {
+        container?.register(clazz, instance, null, null, false)
+            ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
     }
 
     /**
