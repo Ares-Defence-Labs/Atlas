@@ -33,6 +33,45 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         androidResources.from(project.layout.projectDirectory.dir("androidApp/build/intermediates/res/merged/debug"))
     }
 
+    private fun checkIfExtendsValidViewModel(
+        fullyQualifiedClassName: String,
+        classHierarchy: Map<String, String?>,
+        simpleToFqName: Map<String, String>
+    ): Boolean {
+        val validBaseViewModels = setOf(
+            "com.architect.atlas.architecture.mvvm.ViewModel",
+            "androidx.lifecycle.ViewModel"
+        )
+
+        var currentClass: String? = fullyQualifiedClassName
+
+        while (currentClass != null) {
+            logger.lifecycle("✅ Checking class: $currentClass")
+
+            // ✅ If the current class is a valid ViewModel, return true
+            if (validBaseViewModels.contains(currentClass)) {
+                logger.lifecycle("✅ Found valid ViewModel: $currentClass")
+                return true
+            }
+
+            // Resolve parent class properly
+            val parentClass = classHierarchy[currentClass]
+            if (parentClass == null || parentClass == currentClass) {
+                logger.lifecycle("✅ Reached top of hierarchy: $parentClass (no further parent)")
+                break
+            }
+
+            // ✅ Ensure parent class is fully resolved
+            val resolvedParentClass = classHierarchy[parentClass] ?: simpleToFqName[parentClass] ?: parentClass
+            logger.lifecycle("✅ Parent resolved to: $resolvedParentClass")
+
+            currentClass = resolvedParentClass
+        }
+
+        logger.lifecycle("❌ No valid ViewModel found for: $fullyQualifiedClassName")
+        return false
+    }
+
     @TaskAction
     fun generateGraph() {
         logger.lifecycle("🚀 Running generateDependencyGraph task...")
@@ -71,7 +110,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             "com.architect.atlas.container.annotations.Factory" to factories,
             "com.architect.atlas.container.annotations.Scoped" to scopedInstances,
             "com.architect.atlas.container.annotations.ViewModels" to viewModels,
-            "com.architect.atlas.container.annotations.Module" to modules
+            "com.architect.atlas.container.annotations.Module" to modules,
         )
 
         logger.lifecycle("📂 Ensured directories exist: ${atlasContainerDir.absolutePath}, ${androidContainerDir.absolutePath}")
@@ -83,6 +122,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             logger.lifecycle("⚠️ No Android merged resources found.")
         }
 
+        val classHierarchy = mutableMapOf<String, String?>() // Fully Qualified Class Name -> Superclass
+        val simpleToFqName = mutableMapOf<String, String>() // Simple Name -> Fully Qualified Name
+
+        // ✅ First pass: Collect all class declarations across all files
         projectRootDir.get().asFile.walkTopDown()
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
             .forEach { sourceDir ->
@@ -90,7 +133,43 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                     val content = file.readText()
 
                     val packageMatch = Regex("""^package\s+([\w.]+)""").find(content)
-                    val packageName = packageMatch?.groupValues?.get(1) ?: ""
+                    val packageName = packageMatch?.groupValues?.get(1)?.trim() ?: ""
+
+                    val classRegex = Regex("""class\s+(\w+)\s*(?::\s*([\w.<>]+))?""")
+                    classRegex.findAll(content).forEach { match ->
+                        val className = match.groupValues[1]
+                        val fullyQualifiedClassName = "$packageName.$className"
+                        val baseClassRaw = match.groupValues.getOrNull(2)?.split("<")?.firstOrNull()?.trim() // Ignore generics
+
+                        // Store class mappings
+                        classHierarchy[fullyQualifiedClassName] = null
+                        simpleToFqName[className] = fullyQualifiedClassName
+
+                        if (baseClassRaw != null) {
+                            // ✅ If the base class is a simple name (e.g., `ViewModel`), resolve it
+                            val resolvedBaseClass = simpleToFqName[baseClassRaw]
+                                ?: when (baseClassRaw) {
+                                    "ViewModel" -> "androidx.lifecycle.ViewModel"
+                                    "BaseViewModel" -> "com.architect.atlas.architecture.mvvm.ViewModel"
+                                    else -> baseClassRaw
+                                }
+
+                            classHierarchy[fullyQualifiedClassName] = resolvedBaseClass
+                            logger.lifecycle("✅ Mapping: $fullyQualifiedClassName extends $resolvedBaseClass")
+                        }
+                    }
+                }
+            }
+
+        // ✅ Second pass: Process annotations and verify hierarchy
+        projectRootDir.get().asFile.walkTopDown()
+            .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
+            .forEach { sourceDir ->
+                sourceDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
+                    val content = file.readText()
+
+                    val packageMatch = Regex("""^package\s+([\w.]+)""").find(content)
+                    val packageName = packageMatch?.groupValues?.get(1)?.trim() ?: ""
 
                     annotationMappings.forEach { (annotation, collection) ->
                         val annotationSimpleName = annotation.substringAfterLast(".")
@@ -98,40 +177,36 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
                         annotationRegex.findAll(content).forEach { match ->
                             val className = match.groupValues[1]
+                            val fullyQualifiedClassName = "$packageName.$className"
+
                             if (content.contains("import $annotation")) {
-                                collection.add(className)
+                                collection.add(fullyQualifiedClassName)
                                 classToPackage[className] = packageName
 
                                 if (isAndroidTarget && annotation == "com.architect.atlas.container.annotations.ViewModels") {
-                                    val extendsViewModel =
-                                        content.contains("class $className") && content.contains(": ViewModel")
-                                    if (!extendsViewModel) {
+                                    val extendsValidViewModel = checkIfExtendsValidViewModel(
+                                        fullyQualifiedClassName,
+                                        classHierarchy,
+                                        simpleToFqName
+                                    )
+                                    if (!extendsValidViewModel) {
                                         throw IllegalArgumentException(
-                                            "🚨 ERROR: Class `$className` marked with @ViewModels must extend `androidx.lifecycle.ViewModel` or `com.architect.atlas.architecture.mvvm.ViewModel` when targeting Android."
+                                            "🚨 ERROR: Class `$fullyQualifiedClassName` marked with @ViewModels must extend `com.architect.atlas.architecture.mvvm.ViewModel` or `androidx.lifecycle.ViewModel` directly or indirectly."
                                         )
                                     }
                                 }
-                                logger.lifecycle("✅ Found $annotation in ${file.name}: $className (package: $packageName)")
-                            }
-                        }
-                    }
 
-                    // ✅ Scan for @Provides functions inside @Module classes
-                    if (content.contains("@Module")) {
-                        val moduleMatch = Regex("@Module[\\s\\n]+class\\s+(\\w+)").find(content)
-                        val moduleName = moduleMatch?.groupValues?.get(1)
+                                if (annotation == "com.architect.atlas.container.annotations.Module") {
+                                    val providesRegex = "@Provides[\\s\\n]+fun\\s+(\\w+)\\s*\\(.*\\)\\s*:\\s*([\\w.]+)".toRegex()
+                                    providesRegex.findAll(content).forEach { match ->
+                                        val methodName = match.groupValues[1]
+                                        val returnType = match.groupValues[2]
+                                        provides[returnType] = Pair(className, methodName)
+                                        classToPackage[returnType] = packageName
+                                    }
+                                }
 
-                        if (moduleName != null) {
-                            val providesRegex =
-                                "@Provides[\\s\\n]+(?:suspend\\s+|inline\\s+|private\\s+|protected\\s+|public\\s+)?fun\\s+(\\w+)\\s*\\(.*\\)\\s*:\\s*([\\w.]+)".toRegex()
-                            providesRegex.findAll(content).forEach { match ->
-                                val methodName = match.groupValues[1]
-                                val returnType = match.groupValues[2]
-
-                                provides[returnType] = Pair(moduleName, methodName)
-                                classToPackage[returnType] = packageName
-
-                                logger.lifecycle("✅ Found @Provides method `$methodName` returning `$returnType` in module `$moduleName` (${file.name})")
+                                logger.lifecycle("✅ Found $annotation in ${file.name}: $fullyQualifiedClassName (package: $packageName)")
                             }
                         }
                     }
@@ -179,7 +254,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             import com.architect.atlas.container.dsl.AtlasContainerContract
 
             object AtlasContainer : AtlasContainerContract {
-                private val singletons: MutableMap<KClass<*>, Any> = mutableMapOf()
+                private val singletons: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
                 private val factories: MutableMap<KClass<*>, () -> Any> = mutableMapOf()
                 private val scoped: MutableMap<KClass<*>, MutableMap<String, Any>> = mutableMapOf()
                 private val viewModels: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
@@ -187,8 +262,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 private val provides: MutableMap<KClass<*>, () -> Any> = mutableMapOf()
 
                 init {
-                    ${if (singletons.isNotEmpty()) singletons.joinToString("\n        ") { "singletons[${it}::class] = ${it}()" } else "// No singletons registered"}
-                    ${if (factories.isNotEmpty()) factories.joinToString("\n        ") { "factories[${it}::class] = { ${it}() }" } else "// No factories registered"}
+                    ${if (singletons.isNotEmpty()) singletons.joinToString("\n        ") { "singletons[${it}::class] = lazy { ${it}() }" } else "// No singletons registered"}
+                    ${if (factories.isNotEmpty()) factories.joinToString("\n        ") { "factories[${it}::class] = { lazy { ${it}() }}" } else "// No factories registered"}
                     ${if (scopedInstances.isNotEmpty()) scopedInstances.joinToString("\n        ") { "scoped[${it}::class] = mutableMapOf()" } else "// No scoped instances registered"}
                     ${if (viewModels.isNotEmpty()) viewModels.joinToString("\n        ") { "viewModels[${it}::class] = lazy { ${it}() }" } else "// No ViewModels registered"}
                     ${if (modules.isNotEmpty()) modules.joinToString("\n        ") { "modules[${it}::class] = ${it}()" } else "// No Modules registered"}
@@ -196,7 +271,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 }
 
                 override fun <T : Any> resolve(clazz: KClass<T>): T {
-                    return (singletons[clazz]
+                    return (singletons[clazz]?.value
                         ?: factories[clazz]?.invoke()
                         ?: viewModels[clazz]?.value
                         ?: provides[clazz]?.invoke()
@@ -215,7 +290,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             ) {
                 when {
                     instance != null -> {
-                        singletons[clazz] = instance
+                        singletons[clazz] = lazy { instance }
                     }
                     factory != null -> {
                         factories[clazz] = factory

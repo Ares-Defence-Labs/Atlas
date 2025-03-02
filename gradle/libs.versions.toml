@@ -1,9 +1,25 @@
 [versions]
-agp = "8.5.1"
+agp = "8.5.2"
 kotlin = "2.1.0"
+jetbrainsKotlinJvm = "2.1.0"
+fragment = "1.8.6"
+androidCore = "1.15.0"
+androidAppCompat = "1.7.0"
+androidViewModel="2.8.7"
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+jetbrainsKotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
+
+[libraries]
+androidx-fragment = { group = "androidx.fragment", name="fragment", version.ref = "fragment" }
+androidx-core = { group = "androidx.core", name="core", version.ref = "androidCore" }
+androidx-app-compat = { group = "androidx.appcompat", name="appcompat", version.ref = "androidAppCompat" }
+androidx-app-lifecycle-viewmodel = { group = "androidx.lifecycle", name="lifecycle-viewmodel-ktx", version.ref = "androidViewModel" }
+androidx-app-lifecycle-viewmodel-runtime = { group = "androidx.lifecycle", name="lifecycle-runtime-ktx", version.ref = "androidViewModel" }
+
+
+

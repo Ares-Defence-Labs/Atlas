@@ -1,5 +1,5 @@
 import com.vanniktech.maven.publish.SonatypeHost
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -109,7 +109,7 @@ android {
 //        coordinates(
 //            groupId = "io.github.thearchitect123",
 //            artifactId = "atlas-core",
-//            version = "0.1.0"
+//            version = "0.1.3"
 //        )
 //
 //        // Configure POM metadata for the published artifact

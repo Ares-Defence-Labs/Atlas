@@ -9,9 +9,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.android.viewModels
+import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlastestclient.Greeting
 import com.architect.atlastestclient.MainViewModel
+import com.architect.atlastestclient.ReviewApps
+import com.architect.atlastestclient.ReviewProcess
+import com.architect.atlastestclient.ReviewProcessTester
+import com.architect.atlastestclient.Sample
 
 
 class MainActivity : ComponentActivity() {
@@ -20,8 +26,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        vm.test()
-        Log.i("TEST", "${vm.q}")
+        AtlasDI.injectContainer(AtlasContainer)
+        AtlasDI.registerSingleton(ReviewProcess())
+        //AtlasDI.registerSingleton(ReviewProcessTester());
+
+        var ts = AtlasDI.resolveService<ReviewProcessTester>()
+
+        Log.i("TEST", "${ts.test()}")
         setContent {
             MyApplicationTheme {
                 Surface(

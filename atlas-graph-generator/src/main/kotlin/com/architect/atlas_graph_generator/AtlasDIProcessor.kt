@@ -5,8 +5,6 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 
 class AtlasDIProcessor : Plugin<Project> {
-
-
     override fun apply(project: Project) {
         val generateDependencyGraphTask = project.tasks.register(
             "generateDependencyGraph",
@@ -44,7 +42,6 @@ class AtlasDIProcessor : Plugin<Project> {
 
         requiredTasks.forEach { taskName ->
             val dependencyTasks = project.tasks.matching { it.name == taskName }.toList()
-
             if (dependencyTasks.isNotEmpty()) {
                 generateDependencyGraphTask.configure {
                     this.dependsOn(dependencyTasks) // `this` explicitly refers to AtlasDIProcessorGraphTask
