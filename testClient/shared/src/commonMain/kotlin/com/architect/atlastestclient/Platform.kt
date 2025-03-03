@@ -76,3 +76,4 @@ class MainViewModel: BaseComps(){
         q = "Hello there"
     }
 }
+
