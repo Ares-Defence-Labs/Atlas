@@ -1,41 +1,49 @@
 package com.architect.atlastestclient.android
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
+import androidx.navigation.findNavController
 import com.architect.atlas.container.AtlasContainer
-import com.architect.atlas.container.annotations.Provides
 import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlas.container.dsl.AtlasDI.container
-import com.architect.atlastestclient.ComponentTest
-import com.architect.atlastestclient.DNSComps
-import com.architect.atlastestclient.Greeting
-import com.architect.atlastestclient.Hello
-import com.architect.atlastestclient.MainViewModel
+import com.architect.atlas.viewBinding.architecture.lifecycle.AtlasActivity
 import com.architect.atlastestclient.ReviewApps
 import com.architect.atlastestclient.ReviewProcess
-import com.architect.atlastestclient.ReviewProcessTester
-import com.architect.atlastestclient.Sample
 import com.architect.atlastestclient.TestProcess
-import com.architect.atlastestclient.dns.DNSTest
-import com.architect.atlastestclient.services.HelloThereTest
+import com.architect.atlastestclient.android.databinding.TestXmlBinding
 import com.architect.atlastestclient.software.DroidStandard
-import com.architect.atlastestclient.software.MobileTest
 import com.architect.atlastestclient.software.TestHelloThere
 import com.architect.atlastestclient.software.TestSingle
+import kotlin.random.Random
+import kotlin.reflect.KClass
 
+class MainComponents {
+    companion object {
+        lateinit var navController: NavController
+    }
+}
 
-class MainActivity : ComponentActivity() {
-    val vm: DroidStandard by viewModels()
+class MainActivity : AtlasActivity<TestXmlBinding, DroidStandard>() {
+    override val viewModelType: KClass<DroidStandard>
+        get() = DroidStandard::class
+
+    override fun viewBindingInflate(): TestXmlBinding {
+        return TestXmlBinding.inflate(layoutInflater)
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        MainComponents.navController = findNavController(R.id.nav_host_fragment)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setNavigationControllerId(R.id.nav_host_fragment)
         super.onCreate(savedInstanceState)
 
         AtlasDI.injectContainer(AtlasContainer)
@@ -47,21 +55,9 @@ class MainActivity : ComponentActivity() {
         var ts = AtlasDI.resolveService<TestSingle>()
         var tsc = AtlasDI.resolveService<TestHelloThere>()
 
-
-
         Log.i("TEST", "${ts.helloThere()}")
         Log.i("TEST", "${tsc.helloThere()}")
-        Log.i("TEST", "${vm.helloThere()}")
-        setContent {
-            MyApplicationTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    GreetingView(Greeting().greet())
-                }
-            }
-        }
+        Log.i("TEST", "${viewModel.helloThere()}")
     }
 }
 

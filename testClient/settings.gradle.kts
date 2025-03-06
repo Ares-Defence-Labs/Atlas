@@ -19,5 +19,5 @@ rootProject.name = "AtlasTestClient"
 include(":androidApp")
 include(":shared")
 
-//include(":atlas-graph-generator")
-//project(":atlas-graph-generator").projectDir = File("../atlas-graph-generator")
+include(":atlas-droid-mvvm-viewbinding")
+project(":atlas-droid-mvvm-viewbinding").projectDir = File("../atlas-droid-mvvm-viewbinding")

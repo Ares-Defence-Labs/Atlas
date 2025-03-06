@@ -21,6 +21,12 @@ object AtlasDI {
             ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
     }
 
+    /**
+     * Fetches a registered view model from the AtlasContainer (ViewModel)
+     */
+    fun <T : Any> resolveViewModel(clazz: KClass<T>): T? {
+        return container?.resolveViewModel(clazz)
+    }
 
     /**
      * Fetches a registered service from the AtlasContainer (with class instance type)

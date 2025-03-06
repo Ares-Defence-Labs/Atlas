@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/core_graph_nav"
+    app:startDestination="@id/fragmentTest1">
+
+    <fragment
+        android:id="@+id/fragmentTest1"
+        android:name="com.architect.atlastestclient.android.navigation.FragmentTest1"
+        android:label="FragmentTest1" />
+    <fragment
+        android:id="@+id/fragmentTest2"
+        android:name="com.architect.atlastestclient.android.navigation.FragmentTest2"
+        android:label="FragmentTest2" />
+</navigation>

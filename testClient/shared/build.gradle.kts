@@ -14,12 +14,14 @@ kotlin {
             }
         }
     }
-    
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach {
+
+
+
+    val iosX64 = iosX64()
+    val iosArm64 = iosArm64()
+    val iosSimulatorArm64 = iosSimulatorArm64()
+
+    listOf(iosX64, iosArm64, iosSimulatorArm64).forEach {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
@@ -27,25 +29,17 @@ kotlin {
     }
 
     sourceSets {
-        commonMain.dependencies {
-            //put your multiplatform dependencies here
-            implementation("io.github.thearchitect123:atlas-core:0.1.3")
-
-
-//            implementation("io.github.thearchitect123:atlas-core:0.0.")
-
-            //implementation(projects.atlasGraphGenerator)
-        }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
-
-        commonMain {
+        val commonMain by getting {
             kotlin.srcDir("build/generated/commonMain/kotlin")
+            dependencies {
+                implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
+                implementation("io.github.thearchitect123:atlas-core:0.1.9")
+            }
         }
-        androidMain {
+
+        val androidMain by getting {
             kotlin.srcDir("build/generated/androidMain/kotlin")
-            dependencies{
+            dependencies {
                 implementation("androidx.core:core:1.15.0")
                 implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
                 implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
@@ -54,6 +48,15 @@ kotlin {
                 implementation("androidx.appcompat:appcompat:1.7.0")
             }
         }
+
+        val iosMain by creating {
+            dependsOn(commonMain) // ✅ Ensure iOS depends on `commonMain`
+        }
+
+        // ✅ Ensure iOS targets use iosMain
+        val iosX64Main by getting { dependsOn(iosMain) }
+        val iosArm64Main by getting { dependsOn(iosMain) }
+        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
     }
 }
 
@@ -73,4 +76,5 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
+
 

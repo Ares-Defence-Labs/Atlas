@@ -1,4 +1,4 @@
-package com.architect.atlas_droid_mvvm_compose
+package com.architect.atlasflows
 
 import org.junit.Test
 

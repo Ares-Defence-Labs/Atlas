@@ -16,6 +16,7 @@ android {
     }
     buildFeatures {
         compose = true
+        viewBinding = true
     }
     packaging {
         resources {
@@ -38,10 +39,14 @@ android {
 
 dependencies {
     implementation(projects.shared)
+    implementation(projects.atlasDroidMvvmViewbinding)
+
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
     debugImplementation(libs.compose.ui.tooling)
 
     implementation("io.github.thearchitect123:atlas-core:0.0.7")

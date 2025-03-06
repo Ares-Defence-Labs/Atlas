@@ -15,4 +15,19 @@ actual open class ViewModel actual constructor() : ViewModel() {
 
         viewModelScope.cancel()
     }
+    actual open fun onAppearing(){
+
+    }
+    actual open fun onAppeared(){
+
+    }
+    actual open fun onDisappearing(){
+
+    }
+    actual open fun onDisappeared(){
+
+    }
+    actual open fun onInitializing(){
+
+    }
 }

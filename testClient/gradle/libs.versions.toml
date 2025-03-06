@@ -4,6 +4,17 @@ kotlin = "2.1.0"
 compose = "1.5.4"
 compose-material3 = "1.1.2"
 androidx-activityCompose = "1.10.0"
+fragment = "1.8.6"
+androidCore = "1.15.0"
+androidAppCompat = "1.7.0"
+androidJetpack="2.8.7"
+coreKtx = "1.15.0"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+material = "1.12.0"
+navigationFragmentKtx = "2.8.8"
+navigationUiKtx = "2.8.8"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -13,6 +24,21 @@ compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = 
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose" }
 compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "compose" }
 compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
+androidx-live-data = { group = "androidx.lifecycle", name="lifecycle-livedata-ktx", version.ref = "androidJetpack" }
+androidx-fragment = { group = "androidx.fragment", name="fragment", version.ref = "fragment" }
+androidx-fragment-ktx = { group = "androidx.fragment", name="fragment-ktx", version.ref = "fragment" }
+androidx-core = { group = "androidx.core", name="core", version.ref = "androidCore" }
+androidx-app-compat = { group = "androidx.appcompat", name="appcompat", version.ref = "androidAppCompat" }
+androidx-app-lifecycle-viewmodel = { group = "androidx.lifecycle", name="lifecycle-viewmodel-ktx", version.ref = "androidJetpack" }
+androidx-app-lifecycle-viewmodel-runtime = { group = "androidx.lifecycle", name="lifecycle-runtime-ktx", version.ref = "androidJetpack" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
+androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
+
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

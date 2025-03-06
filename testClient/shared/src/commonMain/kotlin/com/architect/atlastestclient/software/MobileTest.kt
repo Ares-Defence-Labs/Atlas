@@ -6,28 +6,36 @@ import com.architect.atlas.container.annotations.Singleton
 import com.architect.atlas.container.annotations.ViewModels
 
 class MobileTest {
-    fun helloThere(): String{
+    fun helloThere(): String {
         return "Component Test Standard"
     }
 }
 
 @Singleton
-class TestSingle{
-    fun helloThere(): String{
+class TestSingle {
+    fun helloThere(): String {
         return "TestSingle Test Standard"
     }
 }
 
 @Factory
-class TestHelloThere{
-    fun helloThere(): String{
+class TestHelloThere {
+    fun helloThere(): String {
         return "TestHelloThereFactory Test Standard"
     }
 }
 
 @ViewModels
-class DroidStandard : ViewModel(){
-    fun helloThere(): String{
-        return "DroidStandard Test Standard"
+class DroidStandard : ViewModel() {
+    init {
+        var t = ""
+    }
+    var q = "";
+    fun helloThere(): String {
+        return q
+    }
+
+    fun setHelloTesting(s: String) {
+        q = s
     }
 }

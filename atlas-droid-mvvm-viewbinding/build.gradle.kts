@@ -1,7 +1,7 @@
 import com.vanniktech.maven.publish.SonatypeHost
 
 plugins {
-    id("com.android.library") // ✅ Make sure this is present
+    id("com.android.library")
     id("org.jetbrains.kotlin.android")
 
     id("org.gradle.maven-publish")
@@ -10,11 +10,17 @@ plugins {
     id("kotlin-parcelize")
 }
 
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
+
 android {
     sourceSets {
         getByName("main") {
-            kotlin.srcDirs("src/main/kotlin") // ✅ Ensure Kotlin is included
-            java.srcDirs("src/main/java", "src/main/kotlin") // ✅ Support Java + Kotlin
+            kotlin.srcDirs("src/main/kotlin")
+            java.srcDirs("src/main/java", "src/main/kotlin")
         }
     }
 
@@ -48,11 +54,14 @@ android {
 
 dependencies {
     implementation(libs.androidx.fragment)
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.core)
     implementation(libs.androidx.app.compat)
-    implementation("io.github.thearchitect123:atlas-core:0.1.2")
+    implementation("io.github.thearchitect123:atlas-core:0.1.9")
     implementation(libs.androidx.app.lifecycle.viewmodel)
     implementation(libs.androidx.app.lifecycle.viewmodel.runtime)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
 }
 //
 //mavenPublishing {
@@ -60,7 +69,7 @@ dependencies {
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-mvvm-view-binding",
-//        version = "0.0.5"
+//        version = "0.1.4"
 //    )
 //
 //    // Configure POM metadata for the published artifact
@@ -111,17 +120,6 @@ dependencies {
 //    useInMemoryPgpKeys(privateKey, passphrase)
 //    sign(publishing.publications)
 //}
-
-//tasks.withType<com.android.build.gradle.tasks.PackageAndroidArtifact>().configureEach {
-//    dependsOn("compileReleaseKotlin") // ✅ Ensure Kotlin is compiled before packaging AAR
-//}
-
-//tasks.named("assembleRelease").configure {
-//    dependsOn("compileReleaseKotlin")
-//}
-////tasks.named("publish").configure {
-////    dependsOn("assembleRelease")
-////}
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     outputs.upToDateWhen { false } // ✅ Always recompile Kotlin sources
