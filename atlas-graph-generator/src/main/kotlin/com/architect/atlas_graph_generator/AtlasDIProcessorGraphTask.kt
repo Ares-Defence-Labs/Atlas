@@ -356,6 +356,11 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                     weakRef = lazy {WeakReference(newInstance)} // ✅ Regenerate and store new instance
                 }
             }
+            
+            fun forceRegenerate(): T {
+                return factory().also { newInstance -> weakRef = lazy { WeakReference(newInstance) }
+            }
+        }
         }
 
         object AtlasContainer : AtlasContainerContract {
@@ -435,7 +440,13 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
           val entry = viewModels[clazz] ?: return null
           return entry.getOrRegenerate() as? T
        }
+       
+       override fun <T : Any> resetViewModel(clazz: KClass<T>): T? {
+        val entry = viewModels[clazz] ?: return null
+        return entry.forceRegenerate() as? T
+       }
     }
+    
         
         
     """.trimIndent()

@@ -29,6 +29,13 @@ object AtlasDI {
     }
 
     /**
+     * Reset ViewModel from the AtlasContainer (ViewModel)
+     */
+    fun <T : Any> resetViewModel(clazz: KClass<T>): T? {
+        return container?.resetViewModel(clazz)
+    }
+
+    /**
      * Fetches a registered service from the AtlasContainer (with class instance type)
      */
     fun <T : Any> resolveServiceNullable(clazz: KClass<T>): T? {

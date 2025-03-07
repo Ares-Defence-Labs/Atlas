@@ -11,3 +11,13 @@ class FragmentTestSecondViewModel : ViewModel(){
         q = "Hello there"
     }
 }
+
+
+@ViewModels
+class FragmentTestThirdViewModel : ViewModel(){
+
+    var q = ""
+    fun processResult(){
+        q = "Hello there"
+    }
+}

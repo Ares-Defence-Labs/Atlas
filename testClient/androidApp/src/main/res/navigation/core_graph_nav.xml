@@ -12,4 +12,8 @@
         android:id="@+id/fragmentTest2"
         android:name="com.architect.atlastestclient.android.navigation.FragmentTest2"
         android:label="FragmentTest2" />
+    <fragment
+        android:id="@+id/fragmentTest3"
+        android:name="com.architect.atlastestclient.android.navigation.FragmentTest3"
+        android:label="FragmentTest3" />
 </navigation>

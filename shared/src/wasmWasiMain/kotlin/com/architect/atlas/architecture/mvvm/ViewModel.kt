@@ -11,19 +11,32 @@ actual open class ViewModel actual constructor() {
     actual open fun onCleared() {
         viewModelScope.cancel()
     }
-    actual open fun onAppearing(){
+
+    actual open fun onAppearing() {
 
     }
-    actual open fun onAppeared(){
+
+    actual open fun onAppeared() {
 
     }
-    actual open fun onDisappearing(){
+
+    actual open fun onDisappearing() {
 
     }
-    actual open fun onDisappeared(){
+
+    actual open fun onDisappeared() {
 
     }
-    actual open fun onInitializing(){
+
+    actual open fun onInitialize() {
+
+    }
+
+    actual open fun onBackground() {
+
+    }
+
+    actual open fun onForeground() {
 
     }
 }

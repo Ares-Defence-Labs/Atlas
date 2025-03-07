@@ -31,10 +31,7 @@ class FragmentTest1 : AtlasFragment<FragmentTestFirstBinding, FragmentTestFirstV
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        if(!isNavigated) {
-            isNavigated = true
-            MainComponents.navController.navigate(R.id.fragmentTest2)
-        }
+        MainComponents.navController.navigate(R.id.fragmentTest2)
     }
 }
 

@@ -43,7 +43,6 @@ class MainActivity : AtlasActivity<TestXmlBinding, DroidStandard>() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setNavigationControllerId(R.id.nav_host_fragment)
         super.onCreate(savedInstanceState)
 
         AtlasDI.injectContainer(AtlasContainer)

@@ -24,7 +24,14 @@ actual open class ViewModel actual constructor() {
     actual open fun onDisappeared(){
 
     }
-    actual open fun onInitializing(){
+    actual open fun onInitialize(){
+
+    }
+    actual open fun onBackground() {
+
+    }
+
+    actual open fun onForeground() {
 
     }
 }
