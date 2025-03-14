@@ -1,4 +1,6 @@
 import com.vanniktech.maven.publish.SonatypeHost
+import org.gradle.kotlin.dsl.support.serviceOf
+import java.util.concurrent.ExecutorService
 
 plugins {
     `kotlin-dsl`
@@ -17,6 +19,9 @@ plugins {
 //}
 
 java {
+    project.serviceOf<ExecOperations>().exec{
+        commandLine("")
+    }
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))  // ✅ Ensure Java 17
     }

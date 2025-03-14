@@ -13,7 +13,7 @@ import kotlin.reflect.KClass
 
 abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment() {
     protected lateinit var binding: Binding
-    val viewModel: VM by lazy {
+    protected val viewModel: VM by lazy {
         ViewModelProvider(this, AtlasViewModelFactory(viewModelType)).get(viewModelType.java)
     }
 

@@ -68,7 +68,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-mvvm-view-binding",
-        version = "0.2.0"
+        version = "0.2.1"
     )
 
     // Configure POM metadata for the published artifact

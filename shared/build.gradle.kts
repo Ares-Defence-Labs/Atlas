@@ -160,3 +160,43 @@ android {
 //    useInMemoryPgpKeys(privateKey, passphrase)
 //    sign(publishing.publications)
 //}
+
+
+abstract class TestInputs : DefaultTask() {
+    @get:Input
+    var results = ""
+}
+
+abstract class HelloTask : DefaultTask() {
+    @TaskAction
+    fun hello() {
+        println("hello from HelloTask")
+    }
+
+    @TaskAction
+    fun helloThere() {
+        println("hellothere from HelloTask")
+    }
+
+    fun test() {
+        println("HAAHAHA ")
+    }
+}
+
+// Register the hello Task with type HelloTask
+//tasks.register<HelloTask>("hello2") {
+//    group = "Custom tasks"
+//    description = "A lovely greeting task."
+//}
+
+tasks.register<HelloTask>("helloThere") {
+    group = "Custom tasks"
+    description = "A lovely greeting task."
+    doFirst {
+        test()
+    }
+}
+
+tasks.register<TestInputs>(""){
+    results = ""
+}
