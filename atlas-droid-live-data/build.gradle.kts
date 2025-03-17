@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.app.compat)
     implementation(libs.material)
+    implementation(libs.coroutines.core)
 }
 //
 //mavenPublishing {

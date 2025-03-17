@@ -30,15 +30,7 @@ actual open class ViewModel actual constructor() : ViewModel() {
 
     }
 
-    actual open fun onAppeared() {
-
-    }
-
     actual open fun onDisappearing() {
-
-    }
-
-    actual open fun onDisappeared() {
 
     }
 
@@ -46,11 +38,7 @@ actual open class ViewModel actual constructor() : ViewModel() {
 
     }
 
-    actual open fun onBackground() {
-
-    }
-
-    actual open fun onForeground() {
+    actual open fun onDestroy(){
 
     }
 }

@@ -4,8 +4,3 @@ plugins {
     alias(libs.plugins.kotlinAndroid).apply(false)
     alias(libs.plugins.jetbrainsKotlinJvm).apply(false)
 }
-
-tasks.register(""){
-
-
-}

@@ -31,8 +31,8 @@ object AtlasDI {
     /**
      * Reset ViewModel from the AtlasContainer (ViewModel)
      */
-    fun <T : Any> resetViewModel(clazz: KClass<T>): T? {
-        return container?.resetViewModel(clazz)
+    fun <T : Any> resetViewModel(clazz: KClass<T>) {
+        container?.resetViewModel(clazz)
     }
 
     /**

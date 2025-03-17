@@ -1,0 +1,2 @@
+1. Users will configure their shared modules resource folder
+2. Plugin will read the folder, and read the xml files, and generate the platform implementations for each package accordingly

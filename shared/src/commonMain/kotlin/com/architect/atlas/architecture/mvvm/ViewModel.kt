@@ -9,12 +9,11 @@ expect open class ViewModel() {
     open fun onCleared()
 
     open fun onAppearing()
-    open fun onAppeared()
     open fun onDisappearing()
-    open fun onDisappeared()
     open fun onInitialize()
+    open fun onDestroy()
 
-    // used mostly for mobile platforms
-    open fun onBackground()
-    open fun onForeground()
+//    // used mostly for mobile platforms
+//    open fun onBackground()
+//    open fun onForeground()
 }

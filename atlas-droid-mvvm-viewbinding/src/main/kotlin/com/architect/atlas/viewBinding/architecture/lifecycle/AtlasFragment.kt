@@ -25,18 +25,7 @@ abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment()
 
     override fun onResume() {
         super.onResume()
-        viewModel.onAppeared()
-    }
-
-    override fun onStart() {
-        super.onStart()
-
         viewModel.onAppearing()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        viewModel.onDisappeared()
     }
 
     override fun onPause() {
@@ -48,6 +37,11 @@ abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment()
         super.onCreate(savedInstanceState)
 
         viewModel.onInitialize()
+    }
+
+    override fun onDestroy() {
+        viewModel.onDestroy()
+        super.onDestroy()
     }
 
     override fun onCreateView(

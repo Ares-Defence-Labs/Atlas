@@ -32,25 +32,17 @@ abstract class AtlasActivity<Binding : ViewBinding, VM : ViewModel> : FragmentAc
     }
 
     override fun onDestroy() {
-        viewModel.onCleared()
+        viewModel.onDestroy()
         supportFragmentManager.unregisterFragmentLifecycleCallbacks(fragmentLifecycleHandler)
+        if(!isChangingConfigurations){
+            viewModel.onCleared()
+        }
         super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
-        viewModel.onAppeared()
-    }
-
-    override fun onStart() {
-        super.onStart()
-
         viewModel.onAppearing()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        viewModel.onDisappeared()
     }
 
     override fun onPause() {

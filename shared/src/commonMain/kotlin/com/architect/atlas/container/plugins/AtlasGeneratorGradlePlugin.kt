@@ -6,7 +6,6 @@ object DependencyGraphGenerator {
     private val singletons = mutableSetOf<KClass<*>>()
 
     fun registerSingleton(clazz: KClass<*>) {
-        println("IT WORKS, IT ACTUALLY WORKS!!! AHAHAH!")
         singletons.add(clazz)
     }
 

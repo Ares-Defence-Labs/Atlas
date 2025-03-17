@@ -6,6 +6,7 @@ import org.gradle.api.Task
 
 class AtlasDIProcessor : Plugin<Project> {
     override fun apply(project: Project) {
+        val isDebugMode = project.tasks.any { it.name.contains("debug") }
         val generateDependencyGraphTask = project.tasks.register(
             "generateDependencyGraph",
             AtlasDIProcessorGraphTask::class.java
