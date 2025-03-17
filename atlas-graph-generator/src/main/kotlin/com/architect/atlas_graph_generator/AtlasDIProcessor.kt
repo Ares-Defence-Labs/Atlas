@@ -6,7 +6,7 @@ import org.gradle.api.Task
 
 class AtlasDIProcessor : Plugin<Project> {
     override fun apply(project: Project) {
-        val isDebugMode = project.tasks.any { it.name.contains("debug") }
+        val isDebugMode = project.tasks.any { it.name.contains("debug", ignoreCase = true) }
         val generateDependencyGraphTask = project.tasks.register(
             "generateDependencyGraph",
             AtlasDIProcessorGraphTask::class.java
@@ -52,7 +52,7 @@ class AtlasDIProcessor : Plugin<Project> {
             }
         }
 
-        val androidTasks = listOf(
+        val androidTasks = mutableListOf(
             "mergeDebugResources",
             "debugAssetsCopyForAGP",
             "generateDebugResValues",
@@ -107,6 +107,11 @@ class AtlasDIProcessor : Plugin<Project> {
             "extractDeepLinksForAarRelease",
             "verifyReleaseResources",
         )
+
+        if(!isDebugMode){
+            // if running on release mode, then add the tasks that are missing from the implementation
+            androidTasks.add("copyReleaseJniLibsProjectOnly")
+        }
 
         if (project.state.executed) {
             // **Project is already evaluated, use taskGraph.whenReady**
