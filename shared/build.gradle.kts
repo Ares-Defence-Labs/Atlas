@@ -1,5 +1,5 @@
 import com.vanniktech.maven.publish.SonatypeHost
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -42,10 +42,10 @@ kotlin {
     }
 
     // 🟢 WebAssembly (WASM) - Experimental
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs()
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmWasi()
+//    @OptIn(ExperimentalWasmDsl::class)
+//    wasmJs()
+//    @OptIn(ExperimentalWasmDsl::class)
+//    wasmWasi()
 
     listOf(
         iosX64(),
@@ -55,13 +55,16 @@ kotlin {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
+
+            @OptIn(ExperimentalKotlinGradlePluginApi::class)
+            transitiveExport = true
         }
     }
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+                implementation(libs.coroutines.core)
             }
         }
 
@@ -103,13 +106,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-////
+////////////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-core",
-//        version = "0.2.6"
+//        version = "0.3.5"
 //    )
 //
 //    // Configure POM metadata for the published artifact

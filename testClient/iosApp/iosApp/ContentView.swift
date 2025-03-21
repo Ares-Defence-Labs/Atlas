@@ -6,9 +6,15 @@ struct ContentView: View {
 
 	var body: some View {
         Text(greet).onAppear{
-            TesterShare.companion.processTest()
+            
+            
+//            TesterShare.companion.processTest()
         }
 	}
+}
+
+class TestComps{
+    
 }
 
 struct ContentView_Previews: PreviewProvider {

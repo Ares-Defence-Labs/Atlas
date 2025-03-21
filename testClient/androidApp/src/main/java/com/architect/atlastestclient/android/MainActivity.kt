@@ -1,6 +1,5 @@
 package com.architect.atlastestclient.android
 
-import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.material3.Text
@@ -19,7 +18,6 @@ import com.architect.atlastestclient.android.databinding.TestXmlBinding
 import com.architect.atlastestclient.software.DroidStandard
 import com.architect.atlastestclient.software.TestHelloThere
 import com.architect.atlastestclient.software.TestSingle
-import kotlin.random.Random
 import kotlin.reflect.KClass
 
 class MainComponents {

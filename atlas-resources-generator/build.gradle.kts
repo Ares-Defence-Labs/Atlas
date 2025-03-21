@@ -37,10 +37,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 //    }
 //}
 
-dependencies {
-    implementation(kotlin("stdlib", "2.0.0")) // Force Kotlin 2.0.0
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0") // Align with Gradle Kotlin DSL
-}
 ////
 //mavenPublishing {
 //    // Define coordinates for the published artifact

@@ -25,6 +25,7 @@ kotlin {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
+            export(projects.atlasCoreShared)
         }
     }
 
@@ -33,7 +34,7 @@ kotlin {
             kotlin.srcDir("build/generated/commonMain/kotlin")
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
-                implementation("io.github.thearchitect123:atlas-core:0.2.6")
+                api(projects.atlasCoreShared)
             }
         }
 

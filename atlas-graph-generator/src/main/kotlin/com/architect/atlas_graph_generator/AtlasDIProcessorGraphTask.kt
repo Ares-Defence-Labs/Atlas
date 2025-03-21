@@ -363,6 +363,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         }
 
         object AtlasContainer : AtlasContainerContract {
+            private val allRegisteredClassDefinitions: Map<String, KClass<*>> by lazy {
+                formatRegisteredKClasses()
+            }
+    
             private val singletons: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
             private val factories: MutableMap<KClass<*>, () -> Lazy<Any>> = mutableMapOf()
             private val scoped: MutableMap<KClass<*>, MutableMap<String, Any>> = mutableMapOf()
@@ -395,6 +399,19 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         }
             }
             
+            private fun formatRegisteredKClasses(): Map<String, KClass<*>> {
+                 val allKClasses = mutableSetOf<KClass<*>>()
+
+                allKClasses += singletons.keys
+                allKClasses += factories.keys
+                allKClasses += viewModels.keys
+                allKClasses += modules.keys
+                allKClasses += provides.keys
+                allKClasses += scoped.keys
+
+                return allKClasses.associateBy { it.qualifiedName ?: it.simpleName ?: "UNKNOWN" }
+            }
+            
             override fun <T : Any> resolve(clazz: KClass<T>): T {
                 return (singletons[clazz]?.value
                             ?: factories[clazz]?.invoke()?.value
@@ -402,6 +419,14 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                             ?: provides[clazz]?.invoke()
                             ?: modules[clazz]) as? T
                             ?: throw IllegalArgumentException("No provider found for " + clazz.simpleName)
+            }
+            
+            override fun <T : Any> resolveByName(clazz: String): T {
+                val kclass = allRegisteredClassDefinitions[clazz]
+                    ?: throw IllegalArgumentException("No registered class found for: " + clazz)
+
+                @Suppress("UNCHECKED_CAST")
+                return resolve(kclass as KClass<T>)
             }
             
             // dynamic registration (invoked by DSL API)

@@ -38,17 +38,21 @@ class AtlasDIProcessor : Plugin<Project> {
             "transformNativeMainDependenciesMetadata",
             "metadataAppleMainProcessResources",
             "metadataIosMainProcessResources",
-            "compileIosMainKotlinMetadata"
+            "compileIosMainKotlinMetadata",
+            "kspKotlinIosArm64",
+            "generateMRiosArm64Main",
+            "kspKotlinIosSimulatorArm64",
+            "generateMRiosSimulatorMain",
+            "xcodeVersion"
         )
 
         requiredTasks.forEach { taskName ->
-            val dependencyTasks = project.tasks.matching { it.name == taskName }.toList()
-            if (dependencyTasks.isNotEmpty()) {
-                generateDependencyGraphTask.configure {
-                    this.dependsOn(dependencyTasks) // `this` explicitly refers to AtlasDIProcessorGraphTask
-                }
+            val dependencyTask = project.tasks.findByName(taskName)
+            if (dependencyTask != null) {
+                //dependencyTask.mustRunAfter(generateDependencyGraphTask)
+                generateDependencyGraphTask.configure { dependsOn(dependencyTask) }
             } else {
-                project.logger.lifecycle("⚠️ Task `$taskName` not found in project `${project.name}`. Skipping dependency assignment.")
+                project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
         }
 
@@ -111,6 +115,11 @@ class AtlasDIProcessor : Plugin<Project> {
         if(!isDebugMode){
             // if running on release mode, then add the tasks that are missing from the implementation
             androidTasks.add("copyReleaseJniLibsProjectOnly")
+            androidTasks.add("writeReleaseLintModelMetadata")
+            androidTasks.add("mergeReleaseAssets")
+            androidTasks.add("extractProguardFiles")
+            androidTasks.add("mergeReleaseShaders")
+            androidTasks.add("compileReleaseShaders")
         }
 
         if (project.state.executed) {

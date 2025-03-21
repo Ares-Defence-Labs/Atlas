@@ -50,7 +50,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core)
-    implementation("io.github.thearchitect123:atlas-core:0.1.7")
+    implementation(libs.atlas.core)
     implementation(libs.androidx.app.lifecycle.viewmodel)
     implementation(libs.androidx.app.lifecycle.viewmodel.runtime)
 

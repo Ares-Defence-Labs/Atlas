@@ -1,6 +1,6 @@
 [versions]
 agp = "8.5.2"
-kotlin = "2.1.0"
+kotlin = "2.0.0"
 compose = "1.5.4"
 compose-material3 = "1.1.2"
 androidx-activityCompose = "1.10.0"
@@ -16,7 +16,10 @@ material = "1.12.0"
 navigationFragmentKtx = "2.8.8"
 navigationUiKtx = "2.8.8"
 
+kotlinCore = "1.8.0"
+
 [libraries]
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinCore" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }
