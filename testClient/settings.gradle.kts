@@ -7,7 +7,7 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
-    includeBuild("../atlas-graph-generator")
+         includeBuild("../atlas-graph-generator")
 }
 
 dependencyResolutionManagement {
@@ -20,9 +20,9 @@ dependencyResolutionManagement {
 rootProject.name = "AtlasTestClient"
 include(":androidApp")
 include(":shared")
-
-include(":atlas-droid-mvvm-viewbinding")
-project(":atlas-droid-mvvm-viewbinding").projectDir = File("../atlas-droid-mvvm-viewbinding")
+//
+//include(":atlas-droid-mvvm-viewbinding")
+//project(":atlas-droid-mvvm-viewbinding").projectDir = File("../atlas-droid-mvvm-viewbinding")
 
 
 include(":atlas-core-shared")

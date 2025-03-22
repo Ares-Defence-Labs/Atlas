@@ -1,5 +1,6 @@
 package com.architect.atlas.container.dsl
 
+import com.architect.atlas.container.platform.interops.SwiftClassGenerator
 import kotlin.reflect.KClass
 
 class AtlasDI {
@@ -48,6 +49,10 @@ class AtlasDI {
          */
         fun <T : Any> resolveServiceNullableByName(clazz: String): T? {
             return container?.resolveByName(clazz)
+        }
+
+        fun resolveServiceNullableByNameService(clazz: Any): String {
+            return SwiftClassGenerator.getClazz(clazz)
         }
 
         /**

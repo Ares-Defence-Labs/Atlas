@@ -15,7 +15,7 @@ navigationFragmentKtx = "2.8.8"
 navigationUiKtx = "2.8.8"
 
 kotlinCore = "1.8.0"
-atlasCore="0.3.4"
+atlasCore="0.3.7"
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

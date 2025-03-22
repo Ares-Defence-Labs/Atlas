@@ -50,7 +50,7 @@ android {
 
 dependencies {
     implementation(projects.shared)
-    implementation(projects.atlasDroidMvvmViewbinding)
+    implementation(libs.atlas.core.binding)
 
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
@@ -60,7 +60,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     debugImplementation(libs.compose.ui.tooling)
 
-    implementation("io.github.thearchitect123:atlas-core:0.0.7")
+    implementation(libs.atlas.core)
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")

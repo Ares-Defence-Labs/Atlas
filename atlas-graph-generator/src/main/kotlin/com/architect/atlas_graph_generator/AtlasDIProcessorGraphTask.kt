@@ -363,9 +363,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         }
 
         object AtlasContainer : AtlasContainerContract {
-            private val allRegisteredClassDefinitions: Map<String, KClass<*>> by lazy {
-                formatRegisteredKClasses()
-            }
+            private var allRegisteredClassDefinitions = mutableMapOf<String, KClass<*>>()
     
             private val singletons: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
             private val factories: MutableMap<KClass<*>, () -> Lazy<Any>> = mutableMapOf()
@@ -397,6 +395,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             """.trimIndent()
             } else "// No @Provides registered"
         }
+            formatRegisteredKClasses()
             }
             
             private fun formatRegisteredKClasses(): Map<String, KClass<*>> {
@@ -410,6 +409,24 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 allKClasses += scoped.keys
 
                 return allKClasses.associateBy { it.qualifiedName ?: it.simpleName ?: "UNKNOWN" }
+            }
+            
+            private fun forceRefreshNamedDependencies() {
+                val allKClasses = buildSet {
+                    addAll(singletons.keys)
+                    addAll(factories.keys)
+                    addAll(viewModels.keys)
+                    addAll(modules.keys)
+                    addAll(provides.keys)
+                    addAll(scoped.keys)
+                }
+
+               for (kclass in allKClasses) {
+                  val key = kclass.qualifiedName ?: kclass.simpleName ?: "UNKNOWN"
+                  if (key !in allRegisteredClassDefinitions) {
+                     allRegisteredClassDefinitions[key] = kclass
+                  }
+               }  
             }
             
             override fun <T : Any> resolve(clazz: KClass<T>): T {
@@ -458,6 +475,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                         throw IllegalArgumentException("❌ Could not register this type. No valid type specified")
                     }
                 }
+                
+                forceRefreshNamedDependencies()
             }
                  
         override fun <T : Any> resolveViewModel(clazz: KClass<T>): T? {

@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
 
-    //id("io.github.thearchitect123.atlasGraphGenerator") version "0.3.3"
+    //id("io.github.thearchitect123.atlasGraphGenerator") version "0.5.8"
     id("io.github.thearchitect123.atlasGraphGenerator")
 }
 
@@ -15,8 +15,6 @@ kotlin {
         }
     }
 
-
-
     val iosX64 = iosX64()
     val iosArm64 = iosArm64()
     val iosSimulatorArm64 = iosSimulatorArm64()
@@ -25,7 +23,7 @@ kotlin {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
-            export(projects.atlasCoreShared)
+            export(libs.atlas.core)
         }
     }
 
@@ -34,7 +32,9 @@ kotlin {
             kotlin.srcDir("build/generated/commonMain/kotlin")
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
-                api(projects.atlasCoreShared)
+                //api(projects.atlasCoreShared)
+
+                api(libs.atlas.core)
             }
         }
 

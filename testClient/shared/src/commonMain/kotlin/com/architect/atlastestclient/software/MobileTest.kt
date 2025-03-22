@@ -14,6 +14,7 @@ class MobileTest {
 @Singleton
 class TestSingle {
     fun helloThere(): String {
+
         return "TestSingle Test Standard"
     }
 }

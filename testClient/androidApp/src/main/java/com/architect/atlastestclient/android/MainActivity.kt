@@ -7,9 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
-import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.dsl.AtlasDI
-import com.architect.atlas.container.dsl.AtlasDI.container
 import com.architect.atlas.viewBinding.architecture.lifecycle.AtlasActivity
 import com.architect.atlastestclient.ReviewApps
 import com.architect.atlastestclient.ReviewProcess
@@ -43,16 +41,20 @@ class MainActivity : AtlasActivity<TestXmlBinding, DroidStandard>() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        AtlasDI.injectContainer(AtlasContainer)
+        AtlasDI.injectContainer(com.architect.atlas.container.AtlasContainer)
         AtlasDI.registerSingleton(ReviewProcess())
+
+        AtlasDI.registerInterfaceToInstance(TestProcess::class, ReviewApps())
+
+        val test = AtlasDI.resolveServiceNullableByName("com.architect.atlastestclient.TestProcess") as? TestProcess
         //AtlasDI.registerSingleton(TestProcess::class,  ReviewApps());
 
-        container?.register(TestProcess::class, ReviewApps(), null, null, false)
+       // container?.register(TestProcess::class, ReviewApps(), null, null, false)
 
         var ts = AtlasDI.resolveService<TestSingle>()
         var tsc = AtlasDI.resolveService<TestHelloThere>()
 
-        Log.i("TEST", "${ts.helloThere()}")
+        Log.i("TEST", "${test?.test()}")
         Log.i("TEST", "${tsc.helloThere()}")
         Log.i("TEST", "${viewModel.helloThere()}")
     }

@@ -17,6 +17,8 @@ navigationFragmentKtx = "2.8.8"
 navigationUiKtx = "2.8.8"
 
 kotlinCore = "1.8.0"
+atlasCore = "0.3.7"
+atlasViewBinding = "0.3.0"
 
 [libraries]
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinCore" }
@@ -42,6 +44,8 @@ material = { group = "com.google.android.material", name = "material", version.r
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
 androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
 
+atlas-core = { group = "io.github.thearchitect123", name = "atlas-core", version.ref = "atlasCore" }
+atlas-core-binding = { group = "io.github.thearchitect123", name = "atlas-mvvm-view-binding", version.ref = "atlasViewBinding" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
