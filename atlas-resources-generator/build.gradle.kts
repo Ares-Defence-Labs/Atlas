@@ -27,15 +27,15 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
         jvmTarget = "17"
     }
 }
-//
-//gradlePlugin {
-//    plugins {
-//        create("dependencyGraphPlugin") {
-//            id = "io.github.thearchitect123.atlasGraphGenerator"
-//            implementationClass = "com.architect.atlasGraphGenerator.AtlasDIProcessor"
-//        }
-//    }
-//}
+
+gradlePlugin {
+    plugins {
+        create("resourcesGeneratorGraphPlugin") {
+            id = "io.github.thearchitect123.atlasResourcesGenerator"
+            implementationClass = "com.architect.atlasResGen.plugins.AtlasResourceGenPlugin"
+        }
+    }
+}
 
 ////
 //mavenPublishing {
@@ -43,7 +43,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-res-generator",
-//        version = "0.0.1"
+//        version = "0.0.4"
 //    )
 //
 //    // Configure POM metadata for the published artifact

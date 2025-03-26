@@ -1,0 +1,7 @@
+<AtlasStrings>
+    <string key="greeting">Hello there</string>
+    <string key="farewell">Goodbye</string>
+    <string key="welcomeMessage">Welcome to the app!</string>
+    <string key="errorMessage">Something went wrong</string>
+    <string key="confirm">Are you sure you want to continue?</string>
+</AtlasStrings>

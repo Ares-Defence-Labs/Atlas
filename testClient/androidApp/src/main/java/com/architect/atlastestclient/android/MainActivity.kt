@@ -1,62 +1,22 @@
 package com.architect.atlastestclient.android
 
 import android.os.Bundle
-import android.util.Log
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.NavController
+import androidx.fragment.app.FragmentActivity
 import androidx.navigation.findNavController
-import com.architect.atlas.container.dsl.AtlasDI
-import com.architect.atlas.viewBinding.architecture.lifecycle.AtlasActivity
-import com.architect.atlastestclient.ReviewApps
-import com.architect.atlastestclient.ReviewProcess
-import com.architect.atlastestclient.TestProcess
-import com.architect.atlastestclient.android.databinding.TestXmlBinding
-import com.architect.atlastestclient.software.DroidStandard
-import com.architect.atlastestclient.software.TestHelloThere
-import com.architect.atlastestclient.software.TestSingle
-import kotlin.reflect.KClass
+import com.architect.atlas.resources.colors.AtlasColors
+import com.architect.atlas.resources.strings.AtlasStrings
 
-class MainComponents {
-    companion object {
-        lateinit var navController: NavController
-    }
-}
-
-class MainActivity : AtlasActivity<TestXmlBinding, DroidStandard>() {
-    override val viewModelType: KClass<DroidStandard>
-        get() = DroidStandard::class
-
-    override fun viewBindingInflate(): TestXmlBinding {
-        return TestXmlBinding.inflate(layoutInflater)
-    }
-
-    override fun onStart() {
-        super.onStart()
-
-        MainComponents.navController = findNavController(R.id.nav_host_fragment)
-    }
+class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        AtlasDI.injectContainer(com.architect.atlas.container.AtlasContainer)
-        AtlasDI.registerSingleton(ReviewProcess())
+        val res = AtlasStrings.confirm
+        val q = AtlasStrings.farewell
 
-        AtlasDI.registerInterfaceToInstance(TestProcess::class, ReviewApps())
-
-        val test = AtlasDI.resolveServiceNullableByName("com.architect.atlastestclient.TestProcess") as? TestProcess
-        //AtlasDI.registerSingleton(TestProcess::class,  ReviewApps());
-
-       // container?.register(TestProcess::class, ReviewApps(), null, null, false)
-
-        var ts = AtlasDI.resolveService<TestSingle>()
-        var tsc = AtlasDI.resolveService<TestHelloThere>()
-
-        Log.i("TEST", "${test?.test()}")
-        Log.i("TEST", "${tsc.helloThere()}")
-        Log.i("TEST", "${viewModel.helloThere()}")
     }
 }
 

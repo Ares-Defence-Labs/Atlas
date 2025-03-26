@@ -26,6 +26,7 @@ class ReviewApps : TestProcess{
 class ReviewProcessTester{
 
     init {
+
         var q = "hello"
     }
     var rs = AtlasDI.resolveLazyService<Comps>()

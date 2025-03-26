@@ -1,6 +1,5 @@
 package com.architect.atlastestclient
 
-import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlastestclient.software.TestSingle
 
@@ -15,7 +14,7 @@ class Greeting {
 class CompTestStandard{
     companion object{
         fun getTestSingle(name: String) : TestSingle?{
-            AtlasDI.injectContainer(AtlasContainer)
+            ///AtlasDI.injectContainer(AtlasContainer)
             return AtlasDI.resolveServiceNullableByName(name)
         }
     }
