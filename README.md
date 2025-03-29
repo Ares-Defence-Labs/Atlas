@@ -131,6 +131,18 @@ Then add the values into your xml files like this:
 </AtlasStrings>
 ```
 
+You can then access your strings/colors like this:
+```
+val myString = AtlasStrings.greeting
+val colorResource = AtlasColors.primary
+```
+
+You can also directly access the resources in Swift, like this:
+```
+val myString = AtlasStrings.companion.greeting
+val colorResource = AtlasColors.companion.primary
+```
+
 Make sure as well that your app supports a minimum of version 2.0.0 of kotlin. 
 This is so the kotlin coroutines will work (when using @ViewModels)
 
