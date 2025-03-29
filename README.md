@@ -103,6 +103,30 @@ To generate resources for your project, please make sure to add the xml file int
 1. **shared/resources/strings/strings.xml**
 2. **shared/resources/colors/colors.xml**
 
+**In each of your shared module's source sets, please make sure to add the generated (output) folders so they can be compiled:**
+```
+ val commonMain by getting {
+            kotlin.srcDirs("build/generated/commonMain/kotlin", "build/generated/commonMain/resources")
+      }
+val androidMain by getting {
+            kotlin.srcDirs("build/generated/androidMain/kotlin", "build/generated/androidMain/resources")
+      }
+val iosMain by creating {
+            kotlin.srcDirs("build/generated/iosMain/kotlin", "build/generated/iosMain/resources")
+       }
+```
+
+Register the following tasks into your compile (this is so resources plugin runs before gradle compiler):
+```
+private val stringsGenTask = "generateAtlasStringsGraph"
+private val colorGenTask = "generateAtlasColorsGraph"
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(stringsGenTask)
+    dependsOn(colorGenTask)
+}
+```
+            
+
 **Your folder structure should like this:**
 
 <img width="289" alt="Screenshot 2025-03-30 at 7 04 49 am" src="https://github.com/user-attachments/assets/9b2e8207-5de5-406b-93c0-857be4bff83a" />
@@ -131,13 +155,13 @@ Then add the values into your xml files like this:
 </AtlasStrings>
 ```
 
-You can then access your strings/colors like this:
+**You can then access your strings/colors like this:**
 ```
 val myString = AtlasStrings.greeting
 val colorResource = AtlasColors.primary
 ```
 
-You can also directly access the resources in Swift, like this:
+**You can also directly access the resources in Swift, like this:**
 ```
 val myString = AtlasStrings.companion.greeting
 val colorResource = AtlasColors.companion.primary
