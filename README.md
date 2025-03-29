@@ -81,6 +81,7 @@ To import the plugin please write in your **shared.gradle** file:
 ```
 plugins {
     id("io.github.thearchitect123.atlasGraphGenerator") // get latest version
+    id("io.github.thearchitect123.atlasResourcesGenerator")
 }
 
  kotlin {
