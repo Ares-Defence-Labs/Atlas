@@ -34,6 +34,7 @@ Full documentation will be developed once the SDK is finished.
 
 **Currently supported features**:
 1. Compile Time Dependency Injection either via DSL or with Annotations.
+2. Resource Generator for Strings & Colors
 
 Supported Annotations:
 ```
@@ -95,6 +96,39 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     dependsOn("generateDependencyGraph")
 }
 
+```
+
+Resource Generation:
+To generate resources for your project, please make sure to add the xml file into your 
+1. **shared/resources/strings/strings.xml**
+2. **shared/resources/colors/colors.xml**
+
+**Your folder structure should like this:**
+
+<img width="289" alt="Screenshot 2025-03-30 at 7 04 49 am" src="https://github.com/user-attachments/assets/9b2e8207-5de5-406b-93c0-857be4bff83a" />
+
+Then add the values into your xml files like this:
+
+**colors.xml**
+```
+<Colors>
+    <color key="black">#000000</color>
+    <color key="white">#FFFFFF</color>
+    <color key="primary">#FF5722</color>
+    <color key="green">#00FF00</color>
+    <color key="secondary">#03A9F4</color>
+</Colors>
+```
+
+**strings.xml**
+```
+<AtlasStrings>
+    <string key="greeting">Hello there</string>
+    <string key="farewell">Goodbye</string>
+    <string key="welcomeMessage">Welcome to the app!</string>
+    <string key="errorMessage">Something went wrong</string>
+    <string key="confirm">Are you sure you want to continue?</string>
+</AtlasStrings>
 ```
 
 Make sure as well that your app supports a minimum of version 2.0.0 of kotlin. 
