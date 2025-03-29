@@ -97,13 +97,13 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 ```
 
-Make sure as well that your app supports a minimum of version 2.1.0 of kotlin. 
+Make sure as well that your app supports a minimum of version 2.0.0 of kotlin. 
 This is so the kotlin coroutines will work (when using @ViewModels)
 
 If you're using a toml file, please write:
 ```
 [versions]
-kotlin = "2.1.0"  
+kotlin = "2.0.0"  
 ```
 
 To initialize the DSL and Atlas Container, please use (after first compiling your project):
