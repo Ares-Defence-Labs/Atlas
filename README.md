@@ -34,6 +34,7 @@ Full documentation will be developed once the SDK is finished.
 
 **Currently supported features**:
 1. Compile Time Dependency Injection either via DSL or with Annotations.
+2. Resource Generator for Strings & Colors
 
 Supported Annotations:
 ```
@@ -80,6 +81,7 @@ To import the plugin please write in your **shared.gradle** file:
 ```
 plugins {
     id("io.github.thearchitect123.atlasGraphGenerator") // get latest version
+    id("io.github.thearchitect123.atlasResourcesGenerator")
 }
 
  kotlin {
@@ -97,13 +99,82 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 ```
 
-Make sure as well that your app supports a minimum of version 2.1.0 of kotlin. 
+Resource Generation:
+To generate resources for your project, please make sure to add the xml file into your 
+1. **shared/resources/strings/strings.xml**
+2. **shared/resources/colors/colors.xml**
+
+**In each of your shared module's source sets, please make sure to add the generated (output) folders so they can be compiled:**
+```
+ val commonMain by getting {
+            kotlin.srcDirs("build/generated/commonMain/kotlin", "build/generated/commonMain/resources")
+      }
+val androidMain by getting {
+            kotlin.srcDirs("build/generated/androidMain/kotlin", "build/generated/androidMain/resources")
+      }
+val iosMain by creating {
+            kotlin.srcDirs("build/generated/iosMain/kotlin", "build/generated/iosMain/resources")
+       }
+```
+
+Register the following tasks into your compile (this is so resources plugin runs before gradle compiler):
+```
+private val stringsGenTask = "generateAtlasStringsGraph"
+private val colorGenTask = "generateAtlasColorsGraph"
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(stringsGenTask)
+    dependsOn(colorGenTask)
+}
+```
+            
+
+**Your folder structure should like this:**
+
+<img width="289" alt="Screenshot 2025-03-30 at 7 04 49 am" src="https://github.com/user-attachments/assets/9b2e8207-5de5-406b-93c0-857be4bff83a" />
+
+Then add the values into your xml files like this:
+
+**colors.xml**
+```
+<Colors>
+    <color key="black">#000000</color>
+    <color key="white">#FFFFFF</color>
+    <color key="primary">#FF5722</color>
+    <color key="green">#00FF00</color>
+    <color key="secondary">#03A9F4</color>
+</Colors>
+```
+
+**strings.xml**
+```
+<AtlasStrings>
+    <string key="greeting">Hello there</string>
+    <string key="farewell">Goodbye</string>
+    <string key="welcomeMessage">Welcome to the app!</string>
+    <string key="errorMessage">Something went wrong</string>
+    <string key="confirm">Are you sure you want to continue?</string>
+</AtlasStrings>
+```
+
+**You can then access your strings/colors like this:**
+```
+val myString = AtlasStrings.greeting
+val colorResource = AtlasColors.primary
+```
+
+**You can also directly access the resources in Swift, like this:**
+```
+val myString = AtlasStrings.companion.greeting
+val colorResource = AtlasColors.companion.primary
+```
+
+Make sure as well that your app supports a minimum of version 2.0.0 of kotlin. 
 This is so the kotlin coroutines will work (when using @ViewModels)
 
 If you're using a toml file, please write:
 ```
 [versions]
-kotlin = "2.1.0"  
+kotlin = "2.0.0"  
 ```
 
 To initialize the DSL and Atlas Container, please use (after first compiling your project):
