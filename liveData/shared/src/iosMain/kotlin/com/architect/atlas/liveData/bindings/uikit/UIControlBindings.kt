@@ -1,6 +1,7 @@
 package com.architect.atlas.liveData.bindings.uikit
 
 import com.architect.atlas.liveData.Closeable
+import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction
 import platform.Foundation.NSSelectorFromString
@@ -27,6 +28,7 @@ private class UIControlTarget(
     val control: UIControl,
     val block: UIControl.() -> Unit
 ) : NSObject() {
+    @OptIn(BetaInteropApi::class)
     @Suppress("unused")
     @ObjCAction
     fun invoke() {

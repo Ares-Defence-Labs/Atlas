@@ -3,7 +3,6 @@ package com.architect.atlas.liveData
 import androidx.lifecycle.MutableLiveData
 
 actual open class MutableLiveData<T> : LiveData<T> {
-
     actual constructor(initialValue: T) : super(MutableLiveData<T>().apply { value = initialValue })
     constructor(mutableLiveData: MutableLiveData<T>) : super(mutableLiveData)
 

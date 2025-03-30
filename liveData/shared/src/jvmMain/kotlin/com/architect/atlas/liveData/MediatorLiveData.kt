@@ -1,11 +1,7 @@
 package com.architect.atlas.liveData
 
-import androidx.lifecycle.MediatorLiveData
-
 actual open class MediatorLiveData<T> actual constructor(initialValue: T) :
-    MutableLiveData<T>(
-        MediatorLiveData<T>().apply { value = initialValue }
-    ) {
+    MutableLiveData<T>(initialValue) {
 
     actual fun <IT> addSource(
         liveData: LiveData<IT>,
