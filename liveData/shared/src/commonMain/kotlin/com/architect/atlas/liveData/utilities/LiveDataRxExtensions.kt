@@ -1,6 +1,5 @@
 package com.architect.atlas.liveData.utilities
 
-
 import com.architect.atlas.liveData.LiveData
 import com.architect.atlas.liveData.MutableLiveData
 import kotlinx.coroutines.CoroutineScope

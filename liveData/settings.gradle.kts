@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "atlas-live-data"
 include(":shared")
-include(":atlas-livedata-other")

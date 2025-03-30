@@ -49,11 +49,6 @@ kotlin {
 
             @OptIn(ExperimentalKotlinGradlePluginApi::class)
             transitiveExport = true
-
-            val swiftExtras = project.file("src/iosMain/resources/swift")
-            if (swiftExtras.exists()) {
-                linkerOpts("-F$swiftExtras")
-            }
         }
     }
 
@@ -71,13 +66,30 @@ kotlin {
             }
         }
 
-        val iosArm64Main by getting
-        val iosX64Main by getting
-        val iosSimulatorArm64Main by getting
         val iosMain by creating {
+            dependsOn(commonMain)
             dependencies {
+
             }
         }
+
+        val iosX64Main by getting { dependsOn(iosMain) }
+        val iosArm64Main by getting { dependsOn(iosMain) }
+        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
+
+
+//        //
+//        val watchosMain by creating {
+//            dependsOn(commonMain)
+//            dependencies {
+//
+//            }
+//        }
+//
+//        val watchosX64Main by getting { dependsOn(watchosMain) }
+//        val watchosArm32Main by getting { dependsOn(watchosMain) }
+//        val watchosArm64Main by getting { dependsOn(watchosMain) }
+//        val watchosSimulatorArm64Main by getting { dependsOn(watchosMain) }
     }
 }
 
