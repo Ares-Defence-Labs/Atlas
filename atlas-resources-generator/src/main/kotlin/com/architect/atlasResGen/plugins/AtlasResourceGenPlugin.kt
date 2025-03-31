@@ -62,6 +62,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     generateImagesResources.get(),
                     androidTasks
                 )
+             //   project.configureKmpGeneratedSourceSets()
             }
         } else {
             // **Project is not yet evaluated, use `afterEvaluate`**
@@ -81,6 +82,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     generateImagesResources.get(),
                     androidTasks
                 )
+             //   project.configureKmpGeneratedSourceSets()
             }
         }
     }

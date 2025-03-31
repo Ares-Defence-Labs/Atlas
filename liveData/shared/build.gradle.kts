@@ -144,7 +144,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-live-data",
-        version = "0.0.2"
+        version = "0.0.3"
     )
 
     // Configure POM metadata for the published artifact

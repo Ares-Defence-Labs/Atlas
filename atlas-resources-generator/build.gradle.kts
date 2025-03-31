@@ -10,11 +10,11 @@ plugins {
     id("signing")
 }
 ////
-//repositories {
-//    google()
-//    mavenCentral()
-//    gradlePluginPortal() // Local Testing Only
-//}
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
 
 java {
     toolchain {
@@ -35,6 +35,10 @@ gradlePlugin {
             implementationClass = "com.architect.atlasResGen.plugins.AtlasResourceGenPlugin"
         }
     }
+}
+
+dependencies{
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
 }
 
 ////

@@ -14,9 +14,9 @@ val copySwiftExtensionsDebug by tasks.registering(Copy::class) {
     from(swiftFile)
     into(frameworkModulesDir)
 }
-tasks.named("linkDebugFrameworkIosX64") {
-    finalizedBy(copySwiftExtensionsDebug)
-}
+//tasks.named("linkDebugFrameworkIosX64") {
+//    finalizedBy(copySwiftExtensionsDebug)
+//}
 
 kotlin {
     androidTarget {
@@ -78,16 +78,6 @@ kotlin {
         val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
     }
 }
-
-
-private val stringsGenTask = "generateAtlasStringsGraph"
-private val colorGenTask = "generateAtlasColorsGraph"
-private val imageGenTask = "generateAtlasImagesGraph"
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    dependsOn(stringsGenTask)
-    dependsOn(colorGenTask)
-}
-
 
 android {
     namespace = "com.architect.atlastestclient"

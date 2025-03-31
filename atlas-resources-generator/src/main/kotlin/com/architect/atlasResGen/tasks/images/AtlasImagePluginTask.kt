@@ -1,18 +1,14 @@
 package com.architect.atlasResGen.tasks.images
 
+import com.architect.atlasResGen.helpers.ResPluginHelpers
 import org.gradle.api.DefaultTask
+import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.tasks.CacheableTask
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputDirectory
-import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import java.io.File
-import javax.xml.parsers.DocumentBuilderFactory
 
 @CacheableTask
 abstract class AtlasImagePluginTask : DefaultTask() {
@@ -26,6 +22,10 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
 
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val projectBuildDir: DirectoryProperty
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val androidResources: ConfigurableFileCollection
@@ -38,55 +38,97 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
     init {
         group = "AtlasStrings"
-        description = "Generates a resource class file based on the xml specified"
+        description = "Generates platform-specific image class files based on images in commonMain/resources/images"
         outputs.upToDateWhen { false }
         androidResources.from(project.layout.projectDirectory.dir("androidApp/build/intermediates/res/merged/debug"))
     }
 
     @TaskAction
     fun generateImagesClass() {
-        val inputXmlFile = File(projectRootDir.get().asFile, "src/commonMain/resources/strings/images.xml")
-
-        if (!inputXmlFile.exists()) {
-            logger.warn("❗️No images.xml file found at: ${inputXmlFile.absolutePath}")
+        val imageDir = File(projectRootDir.get().asFile, "src/commonMain/resources/images")
+        if (!imageDir.exists()) {
+            logger.warn("\u2757\ufe0f No images folder found at: \${imageDir.absolutePath}")
             return
         }
 
-        // 🧹 Clean the output directory first (to force regeneration)
-        val outputBase = outputDir.get().asFile
-        if (outputBase.exists()) {
-            outputBase.deleteRecursively()
-        }
-        outputBase.mkdirs()
+        val imageFiles = imageDir.walk()
+            .filter {
+                it.isFile && it.extension.lowercase() in listOf("svg", "png", "jpg", "jpeg", "webp")
+            }
+            .toList()
 
-        val docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-        val document = docBuilder.parse(inputXmlFile)
-
-        val stringElements = document.getElementsByTagName("string")
-
-        val stringBuilder = StringBuilder()
-        stringBuilder.appendLine("package com.architect.atlas.resources.strings")
-        stringBuilder.appendLine("")
-        stringBuilder.appendLine("class AtlasStrings {")
-        stringBuilder.appendLine("    companion object {")
-
-        for (i in 0 until stringElements.length) {
-            val node = stringElements.item(i)
-            val key = node.attributes?.getNamedItem("key")?.nodeValue ?: continue
-            val value = node.textContent.trim().replace("\"", "\\\"")
-
-            stringBuilder.appendLine("        const val $key = \"$value\"")
+        if (imageFiles.isEmpty()) {
+            logger.warn("\u26a0\ufe0f No image files found in \${imageDir.absolutePath}")
+            return
         }
 
-        stringBuilder.appendLine("    }")
-        stringBuilder.appendLine("}")
+        val snakeToPath = imageFiles.associate { file ->
+            val snakeName = ResPluginHelpers.toSnakeCase(file.nameWithoutExtension)
+            snakeName to "images/${file.name}" // safe because file is explicitly named
+        }
 
-        val outputPath = File(outputDir.get().asFile, "atlas/generated/strings")
-        outputPath.mkdirs()
+        generateAndroidActualObject(snakeToPath)
+        generateIosActualObject(snakeToPath)
+        copyImagesToAndroidAssets(imageFiles)
+    }
 
-        val outputFile = File(outputPath, "AtlasStrings.kt")
-        outputFile.writeText(stringBuilder.toString())
+    private fun generateAndroidActualObject(entries: Map<String, String>) {
+        val builder = StringBuilder()
+        builder.appendLine("package com.architect.atlas.resources.images")
+        builder.appendLine()
+        builder.appendLine("import android.content.Context")
+        builder.appendLine("import android.graphics.drawable.Drawable")
+        builder.appendLine()
+        builder.appendLine("object AtlasImages {")
 
-        logger.lifecycle("✅ AtlasStrings.kt generated at: ${outputFile.absolutePath}")
+        for ((name, path) in entries) {
+            builder.appendLine("    fun $name(context: Context): Drawable =")
+            builder.appendLine("        context.assets.open(\"$path\").use { input ->")
+            builder.appendLine("            Drawable.createFromStream(input, null) ?: error(\"Image not found: $path\")")
+            builder.appendLine("        }")
+        }
+
+        builder.appendLine("}")
+
+        val file = File(androidOutputDir.get().asFile, "AtlasImages.kt")
+        file.parentFile.mkdirs()
+        file.writeText(builder.toString())
+    }
+
+    private fun generateIosActualObject(entries: Map<String, String>) {
+        val builder = StringBuilder()
+        builder.appendLine("package com.architect.atlas.resources.images")
+        builder.appendLine()
+        builder.appendLine("import platform.UIKit.UIImage")
+        builder.appendLine("import platform.Foundation.NSBundle")
+        builder.appendLine("import platform.Foundation.stringByAppendingPathComponent")
+        builder.appendLine()
+        builder.appendLine("object AtlasImages {")
+
+        for ((name, path) in entries) {
+            builder.appendLine("    val $name: UIImage?")
+            builder.appendLine("        get() = NSBundle.mainBundle.resourcePath")
+            builder.appendLine("            ?.stringByAppendingPathComponent(\"$path\")")
+            builder.appendLine("            ?.let { UIImage.imageWithContentsOfFile(it) }")
+        }
+
+        builder.appendLine("}")
+
+        val file = File(outputIosDir.get().asFile, "AtlasImages.kt")
+        file.parentFile.mkdirs()
+        file.writeText(builder.toString())
+    }
+
+    private fun copyImagesToAndroidAssets(imageFiles: List<File>) {
+        val targetDir = File(projectBuildDir.asFile.get().path, "generated/assets/images")
+        logger.lifecycle("TARGET PATH $targetDir")
+        targetDir.mkdirs()
+
+        imageFiles.forEach { sourceFile ->
+            val targetFile = File(targetDir, sourceFile.name)
+            sourceFile.copyTo(targetFile, overwrite = true)
+        }
+
+        logger.lifecycle("✅ Copied ${imageFiles.size} images to Android assets: ${targetDir.absolutePath}")
     }
 }

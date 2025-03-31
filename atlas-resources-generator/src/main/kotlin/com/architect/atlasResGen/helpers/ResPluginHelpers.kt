@@ -3,10 +3,12 @@ package com.architect.atlasResGen.helpers
 import com.architect.atlasResGen.tasks.colors.AtlasColorsPluginTask
 import com.architect.atlasResGen.tasks.images.AtlasImagePluginTask
 import com.architect.atlasResGen.tasks.strings.AtlasStringPluginTask
-import org.gradle.api.DefaultTask
+import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 
 internal object ResPluginHelpers {
     private val stringsGenTask = "generateAtlasStringsGraph"
@@ -138,6 +140,7 @@ internal object ResPluginHelpers {
             imageGenTask,
             AtlasImagePluginTask::class.java
         ) {
+            projectBuildDir.set(project.layout.buildDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
@@ -161,12 +164,39 @@ internal object ResPluginHelpers {
         }
     }
 
-    fun prepareResourcesDirectory(project: Project){
+    fun prepareResourcesDirectory(project: Project) {
         // 🧹 Clean the output directory first (to force regeneration)
-        val outputBase = project.layout.buildDirectory.dir("generated/commonMain/resources").get().asFile
+        val outputBase =
+            project.layout.buildDirectory.dir("generated/commonMain/resources").get().asFile
         if (outputBase.exists()) {
             outputBase.deleteRecursively()
         }
         outputBase.mkdirs() // destroy the tasks
+    }
+
+
+    fun toSnakeCase(name: String): String {
+        return name.replace(Regex("([a-z])([A-Z])"), "$1_$2")
+            .replace(Regex("[^a-zA-Z0-9]"), "_")
+            .replace(Regex("_+"), "_")
+            .lowercase()
+    }
+
+    fun Project.configureKotlinSourceSets() {
+        val kotlinExt = extensions.findByName("kotlin") ?: return
+        (kotlinExt as? org.gradle.api.plugins.ExtensionAware)?.let {
+            val sourceSets = it.extensions.getByName("sourceSets") as NamedDomainObjectContainer<*>
+
+            // Find androidMain and iosMain and add generated source dirs
+            (sourceSets.findByName("androidMain") as? KotlinSourceSet)?.kotlin?.srcDir("$buildDir/generated/androidMain")
+            (sourceSets.findByName("iosMain") as? KotlinSourceSet)?.kotlin?.srcDir("$buildDir/generated/iosMain")
+        }
+    }
+
+    fun Project.configureKmpGeneratedSourceSets() {
+        extensions.findByType(KotlinMultiplatformExtension::class.java)?.let { kmp ->
+            kmp.sourceSets.findByName("androidMain")?.kotlin?.srcDir("$buildDir/generated/androidMain")
+            kmp.sourceSets.findByName("iosMain")?.kotlin?.srcDir("$buildDir/generated/iosMain")
+        }
     }
 }
