@@ -6,14 +6,14 @@ plugins {
     //id("io.github.thearchitect123.atlasGraphGenerator")
     id("io.github.thearchitect123.atlasResourcesGenerator")
 }
-
-val copySwiftExtensionsDebug by tasks.registering(Copy::class) {
-    val swiftFile = file("src/iosMain/swift")
-    val frameworkModulesDir = buildDir.resolve("bin/iosX64/debugFramework/Shared.framework/Modules")
-
-    from(swiftFile)
-    into(frameworkModulesDir)
-}
+//
+//val copySwiftExtensionsDebug by tasks.registering(Copy::class) {
+//    val swiftFile = file("src/iosMain/swift")
+//    val frameworkModulesDir = buildDir.resolve("bin/iosX64/debugFramework/Shared.framework/Modules")
+//
+//    from(swiftFile)
+//    into(frameworkModulesDir)
+//}
 //tasks.named("linkDebugFrameworkIosX64") {
 //    finalizedBy(copySwiftExtensionsDebug)
 //}
@@ -46,7 +46,6 @@ kotlin {
 
     sourceSets {
         val commonMain by getting {
-            kotlin.srcDirs("build/generated/commonMain/kotlin", "build/generated/commonMain/resources")
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
                 //api(projects.atlasCoreShared)
@@ -56,7 +55,6 @@ kotlin {
         }
 
         val androidMain by getting {
-            kotlin.srcDirs("build/generated/androidMain/kotlin", "build/generated/androidMain/resources")
             dependencies {
                 implementation("androidx.core:core:1.15.0")
                 implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -68,7 +66,6 @@ kotlin {
         }
 
         val iosMain by creating {
-            kotlin.srcDirs("build/generated/iosMain/kotlin", "build/generated/iosMain/resources")
             dependsOn(commonMain) // ✅ Ensure iOS depends on `commonMain`
         }
 

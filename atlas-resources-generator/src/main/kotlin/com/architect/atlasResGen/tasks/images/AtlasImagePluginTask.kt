@@ -1,13 +1,10 @@
 package com.architect.atlasResGen.tasks.images
 
 import com.architect.atlasResGen.helpers.ResPluginHelpers
+import net.coobird.thumbnailator.Thumbnails
 import org.gradle.api.DefaultTask
-import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.Project
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.*
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import java.io.File
 
 @CacheableTask
@@ -26,9 +23,14 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectBuildDir: DirectoryProperty
 
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val androidResources: ConfigurableFileCollection
+    @get:OutputDirectory
+    abstract val androidAssetImageDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val androidResourcesDrawableDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract var androidResourcePackageRef: String
 
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
@@ -37,10 +39,10 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     abstract var isAndroidTarget: Boolean
 
     init {
-        group = "AtlasStrings"
-        description = "Generates platform-specific image class files based on images in commonMain/resources/images"
+        group = "AtlasImages"
+        description =
+            "Generates platform-specific image class files based on images in commonMain/resources/images"
         outputs.upToDateWhen { false }
-        androidResources.from(project.layout.projectDirectory.dir("androidApp/build/intermediates/res/merged/debug"))
     }
 
     @TaskAction
@@ -57,19 +59,30 @@ abstract class AtlasImagePluginTask : DefaultTask() {
             }
             .toList()
 
-        if (imageFiles.isEmpty()) {
-            logger.warn("\u26a0\ufe0f No image files found in \${imageDir.absolutePath}")
-            return
-        }
-
         val snakeToPath = imageFiles.associate { file ->
             val snakeName = ResPluginHelpers.toSnakeCase(file.nameWithoutExtension)
             snakeName to "images/${file.name}" // safe because file is explicitly named
         }
 
-        generateAndroidActualObject(snakeToPath)
-        generateIosActualObject(snakeToPath)
-        copyImagesToAndroidAssets(imageFiles)
+        val nonSvgFiles = imageFiles.filter { it.extension.lowercase() != "svg" }
+        val svgFiles = imageFiles.filter { it.extension.lowercase() == "svg" }
+
+        if (isAndroidTarget) {
+            generateAndroidActualObject(snakeToPath)
+            prepareSvgFilesForAssetManager(svgFiles)
+            generateScaledDrawablesWithThumbnailator(nonSvgFiles)
+        } else {
+            generateIosActualObject(snakeToPath)
+        }
+    }
+
+    private fun prepareSvgFilesForAssetManager(svgImageFiles: List<File>) {
+        if (svgImageFiles.isEmpty()) {
+            logger.warn("\u26a0\ufe0f No image files found in \${imageDir.absolutePath}")
+            return
+        }
+
+        copyImagesToAndroidAssets(svgImageFiles)
     }
 
     private fun generateAndroidActualObject(entries: Map<String, String>) {
@@ -78,14 +91,22 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         builder.appendLine()
         builder.appendLine("import android.content.Context")
         builder.appendLine("import android.graphics.drawable.Drawable")
+        builder.appendLine("import androidx.appcompat.content.res.AppCompatResources")
+        builder.appendLine("import $androidResourcePackageRef.R")
         builder.appendLine()
         builder.appendLine("object AtlasImages {")
 
         for ((name, path) in entries) {
-            builder.appendLine("    fun $name(context: Context): Drawable =")
-            builder.appendLine("        context.assets.open(\"$path\").use { input ->")
-            builder.appendLine("            Drawable.createFromStream(input, null) ?: error(\"Image not found: $path\")")
-            builder.appendLine("        }")
+            if (path.endsWith("svg")) {
+                builder.appendLine("    fun $name(context: Context): Drawable =")
+                builder.appendLine("        context.assets.open(\"$path\").use { input ->")
+                builder.appendLine("            Drawable.createFromStream(input, null) ?: error(\"Image not found: $path\")")
+                builder.appendLine("        }")
+            } else {
+                builder.appendLine("    fun $name(context: Context): Drawable =")
+                builder.appendLine("        AppCompatResources.getDrawable(context, R.drawable.$name)")
+                builder.appendLine("            ?: error(\"Image not found: R.drawable.image_name\")")
+            }
         }
 
         builder.appendLine("}")
@@ -120,7 +141,7 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     }
 
     private fun copyImagesToAndroidAssets(imageFiles: List<File>) {
-        val targetDir = File(projectBuildDir.asFile.get().path, "generated/assets/images")
+        val targetDir = androidAssetImageDir.asFile.get()
         logger.lifecycle("TARGET PATH $targetDir")
         targetDir.mkdirs()
 
@@ -130,5 +151,47 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         }
 
         logger.lifecycle("✅ Copied ${imageFiles.size} images to Android assets: ${targetDir.absolutePath}")
+    }
+
+    private fun generateScaledDrawablesWithThumbnailator(nonSvgFiles: List<File>) {
+        val baseOutputDir = androidResourcesDrawableDir.asFile.get()
+        val densities = mapOf(
+            "mdpi" to 1.0,
+            "hdpi" to 1.5,
+            "xhdpi" to 2.0,
+            "xxhdpi" to 3.0,
+            "xxxhdpi" to 4.0
+        )
+
+        nonSvgFiles.forEach { imageFile ->
+            densities.forEach { (density, scale) ->
+                val targetDir = File(baseOutputDir, "drawable-$density")
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs()
+                }
+
+                val outputFile = File(targetDir, "${imageFile.nameWithoutExtension}.png")
+                if (outputFile.exists()) { // override and replace the image file, if the name already exists
+                    outputFile.delete()
+                }
+
+                try {
+                    Thumbnails.of(imageFile)
+                        .scale(scale)
+                        .outputFormat("png")
+                        .toFile(outputFile)
+
+                    logger.lifecycle(
+                        "✅ [${density.padEnd(6)}] ${outputFile.name} → ${
+                            targetDir.relativeTo(
+                                baseOutputDir
+                            )
+                        }"
+                    )
+                } catch (e: Exception) {
+                    logger.error("❌ Failed to generate scaled image for: ${imageFile.name}", e)
+                }
+            }
+        }
     }
 }

@@ -39,6 +39,8 @@ gradlePlugin {
 
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
+    implementation("net.coobird:thumbnailator:0.4.20")
+    implementation("com.android.tools.build:gradle:8.2.0")
 }
 
 ////

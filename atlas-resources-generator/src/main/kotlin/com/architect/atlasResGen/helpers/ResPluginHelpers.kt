@@ -1,5 +1,6 @@
 package com.architect.atlasResGen.helpers
 
+import com.android.build.api.dsl.CommonExtension
 import com.architect.atlasResGen.tasks.colors.AtlasColorsPluginTask
 import com.architect.atlasResGen.tasks.images.AtlasImagePluginTask
 import com.architect.atlasResGen.tasks.strings.AtlasStringPluginTask
@@ -135,18 +136,42 @@ internal object ResPluginHelpers {
         }
     }
 
+    private fun getAndroidAppNamespace(androidProject: Project): String {
+        return when (val extension = androidProject.extensions.findByName("android")) {
+            is com.android.build.api.dsl.ApplicationExtension -> extension.namespace
+            is com.android.build.api.dsl.LibraryExtension -> extension.namespace
+            else -> error("Unsupported or missing Android extension in ${androidProject.path}")
+        } ?: error("Namespace not defined in Android module ${androidProject.path}")
+    }
+
     fun getImageResourceTask(project: Project): TaskProvider<AtlasImagePluginTask> {
+        val androidProject = findAndroidModule(project)
+        if (androidProject == null) {
+            project.logger.warn("⚠️ AtlasImagePlugin: Could not locate Android module. Skipping Android asset integration.")
+        }
+
+        val isAndroid = androidProject != null
         return project.tasks.register(
             imageGenTask,
             AtlasImagePluginTask::class.java
         ) {
+            androidResourcePackageRef = if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
+            androidAssetImageDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/assets/images"))
+            androidResourcesDrawableDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/res"))
             projectBuildDir.set(project.layout.buildDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
-            isAndroidTarget = project.plugins.hasPlugin("com.android.application") ||
-                    project.plugins.hasPlugin("com.android.library")
+            if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))
+            isAndroidTarget = isAndroid
+        }
+    }
+
+    fun findAndroidModule(sharedProject: Project): Project? {
+        val root = sharedProject.rootProject
+        return root.subprojects.firstOrNull { androidProj ->
+            androidProj.plugins.hasPlugin("com.android.application") ||
+                    androidProj.plugins.hasPlugin("com.android.library")
         }
     }
 

@@ -1,11 +1,52 @@
 package com.architect.atlasResGen.plugins
 
+import com.android.build.api.dsl.ApplicationExtension
 import com.architect.atlasResGen.helpers.ResPluginHelpers
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 class AtlasResourceGenPlugin : Plugin<Project> {
+    private fun configureBuildFolders(project: Project) {
+        val kmpExt =
+            project.extensions.getByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+                ?: error("Kotlin Multiplatform plugin not applied")
+
+        // android main
+        val androidMain = kmpExt.sourceSets.getByName("androidMain")
+        androidMain.kotlin.srcDirs(
+            project.layout.buildDirectory.dir("generated/androidMain/kotlin").get().asFile,
+            project.layout.buildDirectory.dir("generated/androidMain/resources").get().asFile
+        )
+
+        val iosMain = kmpExt.sourceSets.getByName("iosMain")
+        iosMain.kotlin.srcDirs(
+            project.layout.buildDirectory.dir("generated/iosMain/kotlin").get().asFile,
+            project.layout.buildDirectory.dir("generated/iosMain/resources").get().asFile
+        )
+
+        val commonMain = kmpExt.sourceSets.getByName("commonMain")
+        commonMain.kotlin.srcDirs(
+            project.layout.buildDirectory.dir("generated/commonMain/kotlin").get().asFile,
+            project.layout.buildDirectory.dir("generated/commonMain/resources").get().asFile
+        )
+    }
+
+    private fun platformClientsBuildFolders(project: Project) {
+        val androidProject = ResPluginHelpers.findAndroidModule(project)
+        if (androidProject != null) {
+            val androidExt = androidProject.extensions.getByType(ApplicationExtension::class.java)
+            androidExt.sourceSets.getByName("main").apply {
+                kotlin.srcDirs(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile,
+                    androidProject.layout.buildDirectory.dir("generated/resources").get().asFile,
+                )
+              //  resources.srcDir(androidProject.layout.buildDirectory.dir("generated/resources").get().asFile)
+            }
+        }
+    }
+
     override fun apply(project: Project) {
+        // configure src files (build files for all tasks)
         ResPluginHelpers.prepareResourcesDirectory(project)
 
         val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
@@ -20,7 +61,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
             dependsOn(generateStringsResources, generateColorsResources, generateImagesResources)
         }
 
-        // ✅ Ensure `generateDependencyGraph` runs before **Android Kotlin compilation**
         project.tasks.matching {
             it.name.contains("compile") && it.name.contains("Kotlin") && it.name.contains(
                 "Android"
@@ -62,7 +102,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     generateImagesResources.get(),
                     androidTasks
                 )
-             //   project.configureKmpGeneratedSourceSets()
+                //   project.configureKmpGeneratedSourceSets()
             }
         } else {
             // **Project is not yet evaluated, use `afterEvaluate`**
@@ -82,7 +122,9 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     generateImagesResources.get(),
                     androidTasks
                 )
-             //   project.configureKmpGeneratedSourceSets()
+
+                configureBuildFolders(project)
+                platformClientsBuildFolders(project)
             }
         }
     }
