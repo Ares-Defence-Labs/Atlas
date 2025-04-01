@@ -52,13 +52,15 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
         val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
         val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
+        val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
 
         generateColorsResources.configure { dependsOn(generateStringsResources) }
         generateImagesResources.configure { dependsOn(generateColorsResources) }
+        generateFontsResources.configure { dependsOn(generateImagesResources) }
 
         // specify all tasks for all required resource generators
         project.tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
-            dependsOn(generateStringsResources, generateColorsResources, generateImagesResources)
+            dependsOn(generateStringsResources, generateColorsResources, generateImagesResources, generateFontsResources)
         }
 
         project.tasks.matching {
@@ -66,7 +68,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 "Android"
             )
         }.configureEach {
-            dependsOn(generateStringsResources, generateColorsResources, generateImagesResources)
+            dependsOn(generateStringsResources, generateColorsResources, generateImagesResources, generateFontsResources)
         }
 
         val requiredTasks = ResPluginHelpers.getiOSTaskDependencies()
@@ -76,6 +78,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 generateStringsResources.configure { dependsOn(dependencyTask) }
                 generateColorsResources.configure { dependsOn(dependencyTask) }
                 generateImagesResources.configure { dependsOn(dependencyTask) }
+                generateFontsResources.configure { dependsOn(dependencyTask) }
             } else {
                 project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
@@ -102,6 +105,12 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     generateImagesResources.get(),
                     androidTasks
                 )
+
+                ResPluginHelpers.attachDependenciesToGraph(
+                    project,
+                    generateFontsResources.get(),
+                    androidTasks
+                )
                 //   project.configureKmpGeneratedSourceSets()
             }
         } else {
@@ -120,6 +129,11 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 ResPluginHelpers.attachDependenciesToGraph(
                     project,
                     generateImagesResources.get(),
+                    androidTasks
+                )
+                ResPluginHelpers.attachDependenciesToGraph(
+                    project,
+                    generateFontsResources.get(),
                     androidTasks
                 )
 

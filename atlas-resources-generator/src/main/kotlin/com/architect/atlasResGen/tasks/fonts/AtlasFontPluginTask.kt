@@ -42,7 +42,7 @@ abstract class AtlasFontPluginTask : DefaultTask(){
 
     @TaskAction
     fun generateStringClass() {
-        val inputXmlFile = File(projectRootDir.get().asFile, "src/commonMain/resources/strings/strings.xml")
+        val inputXmlFile = File(projectRootDir.get().asFile, "src/commonMain/resources/fonts/fonts.xml")
         if (!inputXmlFile.exists()) {
             logger.warn("❗️No fonts.xml file found at: ${inputXmlFile.absolutePath}")
             return
@@ -51,12 +51,12 @@ abstract class AtlasFontPluginTask : DefaultTask(){
         val docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
         val document = docBuilder.parse(inputXmlFile)
 
-        val stringElements = document.getElementsByTagName("string")
+        val stringElements = document.getElementsByTagName("fontFamily")
 
         val stringBuilder = StringBuilder()
-        stringBuilder.appendLine("package com.architect.atlas.resources.strings")
+        stringBuilder.appendLine("package com.architect.atlas.resources.fonts")
         stringBuilder.appendLine("")
-        stringBuilder.appendLine("class AtlasStrings {")
+        stringBuilder.appendLine("class AtlasFonts {")
         stringBuilder.appendLine("    companion object {")
 
         for (i in 0 until stringElements.length) {
@@ -70,12 +70,12 @@ abstract class AtlasFontPluginTask : DefaultTask(){
         stringBuilder.appendLine("    }")
         stringBuilder.appendLine("}")
 
-        val outputPath = File(outputDir.get().asFile, "atlas/generated/strings")
+        val outputPath = File(outputDir.get().asFile, "atlas/generated/fonts")
         outputPath.mkdirs()
 
-        val outputFile = File(outputPath, "AtlasStrings.kt")
+        val outputFile = File(outputPath, "AtlasFonts.kt")
         outputFile.writeText(stringBuilder.toString())
 
-        logger.lifecycle("✅ AtlasStrings.kt generated at: ${outputFile.absolutePath}")
+        logger.lifecycle("✅ AtlasFonts.kt generated at: ${outputFile.absolutePath}")
     }
 }

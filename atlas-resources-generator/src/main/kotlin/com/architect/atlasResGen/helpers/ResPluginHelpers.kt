@@ -2,6 +2,7 @@ package com.architect.atlasResGen.helpers
 
 import com.android.build.api.dsl.CommonExtension
 import com.architect.atlasResGen.tasks.colors.AtlasColorsPluginTask
+import com.architect.atlasResGen.tasks.fonts.AtlasFontPluginTask
 import com.architect.atlasResGen.tasks.images.AtlasImagePluginTask
 import com.architect.atlasResGen.tasks.strings.AtlasStringPluginTask
 import org.gradle.api.NamedDomainObjectContainer
@@ -15,6 +16,7 @@ internal object ResPluginHelpers {
     private val stringsGenTask = "generateAtlasStringsGraph"
     private val colorGenTask = "generateAtlasColorsGraph"
     private val imageGenTask = "generateAtlasImagesGraph"
+    private val fontsGenTask = "generateAtlasFontsGraph"
     fun isDebugMode(project: Project) =
         project.tasks.any { it.name.contains("debug", ignoreCase = true) }
 
@@ -172,6 +174,20 @@ internal object ResPluginHelpers {
         return root.subprojects.firstOrNull { androidProj ->
             androidProj.plugins.hasPlugin("com.android.application") ||
                     androidProj.plugins.hasPlugin("com.android.library")
+        }
+    }
+
+    fun getFontsResourceTask(project: Project): TaskProvider<AtlasFontPluginTask> {
+        return project.tasks.register(
+            fontsGenTask,
+            AtlasFontPluginTask::class.java
+        ) {
+           // outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
+            projectRootDir.set(project.layout.projectDirectory)
+            outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
+            androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
+            isAndroidTarget = project.plugins.hasPlugin("com.android.application") ||
+                    project.plugins.hasPlugin("com.android.library")
         }
     }
 
