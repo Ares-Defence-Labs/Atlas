@@ -98,19 +98,6 @@ Resource Generation:
 To generate resources for your project, please make sure to add the xml file into your 
 1. **shared/resources/strings/strings.xml**
 2. **shared/resources/colors/colors.xml**
-
-**In each of your shared module's source sets, please make sure to add the generated (output) folders so they can be compiled:**
-```
- val commonMain by getting {
-            kotlin.srcDirs("build/generated/commonMain/kotlin", "build/generated/commonMain/resources")
-      }
-val androidMain by getting {
-            kotlin.srcDirs("build/generated/androidMain/kotlin", "build/generated/androidMain/resources")
-      }
-val iosMain by creating {
-            kotlin.srcDirs("build/generated/iosMain/kotlin", "build/generated/iosMain/resources")
-       }
-```
             
 **Your folder structure should like this:**
 
