@@ -91,11 +91,6 @@ plugins {
         }      
    }
  }
- 
- // make sure also to add this service (this will activate the plugin that generates your dependency graph at compile time)
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    dependsOn("generateDependencyGraph")
-}
 
 ```
 
@@ -116,18 +111,7 @@ val iosMain by creating {
             kotlin.srcDirs("build/generated/iosMain/kotlin", "build/generated/iosMain/resources")
        }
 ```
-
-Register the following tasks into your compile (this is so resources plugin runs before gradle compiler):
-```
-private val stringsGenTask = "generateAtlasStringsGraph"
-private val colorGenTask = "generateAtlasColorsGraph"
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    dependsOn(stringsGenTask)
-    dependsOn(colorGenTask)
-}
-```
             
-
 **Your folder structure should like this:**
 
 <img width="289" alt="Screenshot 2025-03-30 at 7 04 49 am" src="https://github.com/user-attachments/assets/9b2e8207-5de5-406b-93c0-857be4bff83a" />
