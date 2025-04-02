@@ -178,16 +178,22 @@ internal object ResPluginHelpers {
     }
 
     fun getFontsResourceTask(project: Project): TaskProvider<AtlasFontPluginTask> {
+        val androidProject = findAndroidModule(project)
+        if (androidProject == null) {
+            project.logger.warn("⚠️ AtlasImagePlugin: Could not locate Android module. Skipping Android asset integration.")
+        }
+
+        val isAndroid = androidProject != null
         return project.tasks.register(
             fontsGenTask,
             AtlasFontPluginTask::class.java
         ) {
-           // outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
+            androidResourcesFontsDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/res/font"))
+            androidResourcePackageRef = if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
-            isAndroidTarget = project.plugins.hasPlugin("com.android.application") ||
-                    project.plugins.hasPlugin("com.android.library")
+            if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))
+            isAndroidTarget = isAndroid
         }
     }
 

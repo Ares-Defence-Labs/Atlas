@@ -1,15 +1,16 @@
 package com.architect.atlastestclient.android
 
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.FragmentActivity
-import com.architect.atlas.resources.colors.AtlasColors
-import com.architect.atlas.resources.images.AtlasImages
-import com.architect.atlas.resources.strings.AtlasStrings
+//import com.architect.atlas.resources.fonts.AtlasFonts
 
 //import com.architect.atlas.resources.images.AtlasImages
 
@@ -18,9 +19,9 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.test_xml)
+        //val t = AtlasStrings
 
-        //AtlasString
-
+        R.font.roboto_semicondensed_blackitalic
 
         //com.architect.atlas.resources.strings
       //  val imagec = AtlasImages.android_svg(this)
