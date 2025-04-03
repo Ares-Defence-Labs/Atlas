@@ -32,12 +32,25 @@ internal object ResPluginHelpers {
             "generateMRiosArm64Main",
             "kspKotlinIosSimulatorArm64",
             "generateMRiosSimulatorMain",
-            "xcodeVersion"
+            "xcodeVersion",
+        )
+    }
+
+    fun getExtraTaskDependencies(): List<String> {
+        return listOf(
+            "compileDebugKotlin",
+            "compileReleaseKotlin",
+            "javaPreCompileDebug",
         )
     }
 
     fun getAndroidTaskDependencies(project: Project): List<String> {
         val androidTasks = mutableListOf(
+//            "bundleLibRuntimeToDirDebug",
+//            "bundleLibCompileToJarDebug",
+//            "processDebugJavaRes",
+//            "compileDebugJavaWithJavac",
+//            "compileDebugKotlinAndroid",
             "mergeDebugResources",
             "debugAssetsCopyForAGP",
             "generateDebugResValues",
@@ -157,7 +170,8 @@ internal object ResPluginHelpers {
             imageGenTask,
             AtlasImagePluginTask::class.java
         ) {
-            androidResourcePackageRef = if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
+            androidResourcePackageRef =
+                if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
             androidAssetImageDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/assets/images"))
             androidResourcesDrawableDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/res"))
             projectBuildDir.set(project.layout.buildDirectory)
@@ -177,6 +191,10 @@ internal object ResPluginHelpers {
         }
     }
 
+    fun findAndroidClientApp(sharedProject: Project): Project? {
+        return sharedProject.rootProject.subprojects.firstOrNull { it.name == "androidApp" }
+    }
+
     fun getFontsResourceTask(project: Project): TaskProvider<AtlasFontPluginTask> {
         val androidProject = findAndroidModule(project)
         if (androidProject == null) {
@@ -189,7 +207,8 @@ internal object ResPluginHelpers {
             AtlasFontPluginTask::class.java
         ) {
             androidResourcesFontsDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/res/font"))
-            androidResourcePackageRef = if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
+            androidResourcePackageRef =
+                if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
             if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))

@@ -4,6 +4,8 @@ import com.android.build.api.dsl.ApplicationExtension
 import com.architect.atlasResGen.helpers.ResPluginHelpers
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
+import org.gradle.kotlin.dsl.configure
 
 class AtlasResourceGenPlugin : Plugin<Project> {
     private fun configureBuildFolders(project: Project) {
@@ -40,7 +42,27 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile,
                     androidProject.layout.buildDirectory.dir("generated/resources").get().asFile,
                 )
-              //  resources.srcDir(androidProject.layout.buildDirectory.dir("generated/resources").get().asFile)
+            }
+        }
+    }
+
+    private fun processRegisterTaskDependencies(
+        project: Project,
+        requiredExtraTasks: List<String>,
+        generateStringsResources: Task,
+        generateColorsResources: Task,
+        generateImagesResources: Task,
+        generateFontsResources: Task
+    ) {
+        requiredExtraTasks.forEach { taskName ->
+            val dependencyTask = project.tasks.findByName(taskName)
+            if (dependencyTask != null) {
+                generateStringsResources.dependsOn(dependencyTask)
+                generateColorsResources.dependsOn(dependencyTask)
+                generateImagesResources.dependsOn(dependencyTask)
+                generateFontsResources.dependsOn(dependencyTask)
+            } else {
+                project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
         }
     }
@@ -59,30 +81,41 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         generateFontsResources.configure { dependsOn(generateImagesResources) }
 
         // specify all tasks for all required resource generators
-        project.tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
-            dependsOn(generateStringsResources, generateColorsResources, generateImagesResources, generateFontsResources)
-        }
-
         project.tasks.matching {
-            it.name.contains("compile") && it.name.contains("Kotlin") && it.name.contains(
-                "Android"
-            )
+            it.name.contains(
+                "compileKotlin",
+                ignoreCase = true
+            ) || (it.name.contains("compile") && it.name.contains("kotlin") && it.name.contains(
+                "android", ignoreCase = true
+            ))
         }.configureEach {
-            dependsOn(generateStringsResources, generateColorsResources, generateImagesResources, generateFontsResources)
+            dependsOn(
+                generateStringsResources,
+                generateColorsResources,
+                generateImagesResources,
+                generateFontsResources
+            )
         }
 
-        val requiredTasks = ResPluginHelpers.getiOSTaskDependencies()
-        requiredTasks.forEach { taskName ->
-            val dependencyTask = project.tasks.findByName(taskName)
-            if (dependencyTask != null) {
-                generateStringsResources.configure { dependsOn(dependencyTask) }
-                generateColorsResources.configure { dependsOn(dependencyTask) }
-                generateImagesResources.configure { dependsOn(dependencyTask) }
-                generateFontsResources.configure { dependsOn(dependencyTask) }
-            } else {
-                project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
-            }
-        }
+        // ios dependencies
+        processRegisterTaskDependencies(
+            project,
+            ResPluginHelpers.getiOSTaskDependencies(),
+            generateStringsResources.get(),
+            generateColorsResources.get(),
+            generateImagesResources.get(),
+            generateFontsResources.get(),
+        )
+
+        //extra tasks
+        processRegisterTaskDependencies(
+            project,
+            ResPluginHelpers.getExtraTaskDependencies(),
+            generateStringsResources.get(),
+            generateColorsResources.get(),
+            generateImagesResources.get(),
+            generateFontsResources.get(),
+        )
 
         val androidTasks = ResPluginHelpers.getAndroidTaskDependencies(project)
         project.afterEvaluate {
