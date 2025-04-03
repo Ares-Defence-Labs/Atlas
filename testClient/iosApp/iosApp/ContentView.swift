@@ -6,10 +6,12 @@ struct ContentView: View {
 
 	var body: some View {
         VStack {
-            Text("Centered")
-                .foregroundColor(Color(hex: AtlasColors.companion.green.swiftUIColor()))
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
+//            Text("Centered")
+//                .foregroundColor(Color(hex: AtlasColors.companion.green.swiftUIColor()))
+//                .frame(maxWidth: .infinity)
+//                .multilineTextAlignment(.center)
+        }.onAppear(){
+            
         }
 	}
 }

@@ -4,6 +4,8 @@ import com.android.build.api.dsl.CommonExtension
 import com.architect.atlasResGen.tasks.colors.AtlasColorsPluginTask
 import com.architect.atlasResGen.tasks.fonts.AtlasFontPluginTask
 import com.architect.atlasResGen.tasks.images.AtlasImagePluginTask
+import com.architect.atlasResGen.tasks.platform.XcAssetIDEMigrationTask
+import com.architect.atlasResGen.tasks.platform.XcAssetPackagingTask
 import com.architect.atlasResGen.tasks.strings.AtlasStringPluginTask
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
@@ -170,6 +172,7 @@ internal object ResPluginHelpers {
             imageGenTask,
             AtlasImagePluginTask::class.java
         ) {
+            forceRegenerate = forceRecreateAllFiles(project)
             androidResourcePackageRef =
                 if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
             androidAssetImageDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/assets/images"))
@@ -195,6 +198,10 @@ internal object ResPluginHelpers {
         return sharedProject.rootProject.subprojects.firstOrNull { it.name == "androidApp" }
     }
 
+    fun forceRecreateAllFiles(project: Project): Boolean {
+        return project.findProperty("atlas.forceRegenerate")?.toString()?.toBoolean() ?: false
+    }
+
     fun getFontsResourceTask(project: Project): TaskProvider<AtlasFontPluginTask> {
         val androidProject = findAndroidModule(project)
         if (androidProject == null) {
@@ -206,6 +213,7 @@ internal object ResPluginHelpers {
             fontsGenTask,
             AtlasFontPluginTask::class.java
         ) {
+            forceRegenerate = forceRecreateAllFiles(project)
             androidResourcesFontsDir.set(androidProject?.layout?.projectDirectory?.dir("src/main/res/font"))
             androidResourcePackageRef =
                 if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
@@ -230,6 +238,11 @@ internal object ResPluginHelpers {
         }
     }
 
+    fun isAndroidPlatform(project: Project): Boolean {
+        return project.plugins.hasPlugin("com.android.application") ||
+                project.plugins.hasPlugin("com.android.library")
+    }
+
     fun prepareResourcesDirectory(project: Project) {
         // 🧹 Clean the output directory first (to force regeneration)
         val outputBase =
@@ -240,6 +253,25 @@ internal object ResPluginHelpers {
         outputBase.mkdirs() // destroy the tasks
     }
 
+    fun getAtlasXCAssetFilePackagingTask(project: Project): TaskProvider<XcAssetPackagingTask> {
+        return project.tasks.register(
+            colorGenTask,
+            XcAssetPackagingTask::class.java
+        ) {
+            iosAssetsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
+            projectRootDir.set(project.layout.projectDirectory)
+        }
+    }
+
+    fun getAtlasXCAssetPostPackageMigrationTask(project: Project): TaskProvider<XcAssetIDEMigrationTask> {
+        return project.tasks.register(
+            colorGenTask,
+            XcAssetIDEMigrationTask::class.java
+        ) {
+            xcassetsSourceDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
+            outputScriptFile.set(project.layout.buildDirectory.file("scripts/copyAtlasAssets.sh"))
+        }
+    }
 
     fun toSnakeCase(name: String): String {
         return name.replace(Regex("([a-z])([A-Z])"), "$1_$2")

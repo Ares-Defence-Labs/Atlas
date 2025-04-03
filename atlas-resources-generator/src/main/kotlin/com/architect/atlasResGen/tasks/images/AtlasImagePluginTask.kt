@@ -38,6 +38,9 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     @get:Input
     abstract var isAndroidTarget: Boolean
 
+    @get:Input
+    abstract var forceRegenerate: Boolean
+
     init {
         group = "AtlasImages"
         description =
@@ -71,8 +74,6 @@ abstract class AtlasImagePluginTask : DefaultTask() {
             generateAndroidActualObject(snakeToPath)
             prepareSvgFilesForAssetManager(svgFiles)
             generateScaledDrawablesWithThumbnailator(nonSvgFiles)
-        } else {
-            generateIosActualObject(snakeToPath)
         }
     }
 
@@ -145,7 +146,9 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         logger.lifecycle("TARGET PATH $targetDir")
         targetDir.mkdirs()
 
-        imageFiles.forEach { sourceFile ->
+        val filteredImages =
+            imageFiles.filter { !it.exists() || forceRegenerate }
+        filteredImages.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
             sourceFile.copyTo(targetFile, overwrite = true)
         }
@@ -163,22 +166,22 @@ abstract class AtlasImagePluginTask : DefaultTask() {
             "xxxhdpi" to 4.0
         )
 
-        nonSvgFiles.forEach { imageFile ->
+        val filteredImages =
+            nonSvgFiles.filter { !it.exists() || forceRegenerate }
+        filteredImages.forEach { imageFile ->
             densities.forEach { (density, scale) ->
-                val targetDir = File(baseOutputDir, "drawable-$density")
-                if (!targetDir.exists()) {
-                    targetDir.mkdirs()
-                }
-
-                val outputFile = File(targetDir, "${imageFile.nameWithoutExtension}.png")
-                if (outputFile.exists()) { // override and replace the image file, if the name already exists
-                    outputFile.delete()
-                }
-
                 try {
+                    val targetDir = File(baseOutputDir, "drawable-$density")
+                    if (!targetDir.exists()) {
+                        targetDir.mkdirs()
+                    }
+
+                    val outputFile =
+                        File(targetDir, "${imageFile.nameWithoutExtension}.${imageFile.extension}")
                     Thumbnails.of(imageFile)
                         .scale(scale)
-                        .outputFormat("png")
+                        .outputFormat(imageFile.extension)
+                        .allowOverwrite(true)
                         .toFile(outputFile)
 
                     logger.lifecycle(

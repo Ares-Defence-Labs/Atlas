@@ -45,11 +45,43 @@ class AtlasResourceGenPlugin : Plugin<Project> {
             }
 
             androidExt.sourceSets.named("main").configure {
-                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile)
-                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin/resources").get().asFile)
-                java.srcDir(androidProject.layout.buildDirectory.dir("generated/resources").get().asFile)
-                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin/resources/fonts").get().asFile)
-                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin/resources/images").get().asFile)
+                java.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile
+                )
+                java.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources")
+                        .get().asFile
+                )
+                java.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/resources").get().asFile
+                )
+                java.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/fonts")
+                        .get().asFile
+                )
+                java.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/images")
+                        .get().asFile
+                )
+
+                kotlin.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile
+                )
+                kotlin.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources")
+                        .get().asFile
+                )
+                kotlin.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/resources").get().asFile
+                )
+                kotlin.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/fonts")
+                        .get().asFile
+                )
+                kotlin.srcDir(
+                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/images")
+                        .get().asFile
+                )
             }
 
             project.logger.lifecycle("✅ Added generated sources to androidApp's sourceSets.main")
@@ -64,7 +96,9 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         generateStringsResources: Task,
         generateColorsResources: Task,
         generateImagesResources: Task,
-        generateFontsResources: Task
+        generateFontsResources: Task,
+        generateXCAssetResources: Task,
+        generateXCAssetPostPackagingResources: Task,
     ) {
         requiredExtraTasks.forEach { taskName ->
             val dependencyTask = project.tasks.findByName(taskName)
@@ -73,6 +107,8 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 generateColorsResources.dependsOn(dependencyTask)
                 generateImagesResources.dependsOn(dependencyTask)
                 generateFontsResources.dependsOn(dependencyTask)
+                generateXCAssetResources.dependsOn(dependencyTask)
+                generateXCAssetPostPackagingResources.dependsOn(dependencyTask)
             } else {
                 project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
@@ -88,9 +124,17 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
         val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
 
+        // xcode tasks
+        val generateAtlasXCAssetFileResources =
+            ResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
+        val generateAtlasXCAssetFilePostPackagingMigrationResources =
+            ResPluginHelpers.getAtlasXCAssetPostPackageMigrationTask(project)
+
         generateColorsResources.configure { dependsOn(generateStringsResources) }
         generateImagesResources.configure { dependsOn(generateColorsResources) }
         generateFontsResources.configure { dependsOn(generateImagesResources) }
+        generateAtlasXCAssetFileResources.configure { dependsOn(generateFontsResources) } // apple specific
+        generateAtlasXCAssetFilePostPackagingMigrationResources.configure { dependsOn(generateAtlasXCAssetFileResources) } // apple specific
 
         // specify all tasks for all required resource generators
         project.tasks.matching {
@@ -105,7 +149,9 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 generateStringsResources,
                 generateColorsResources,
                 generateImagesResources,
-                generateFontsResources
+                generateFontsResources,
+                generateAtlasXCAssetFileResources,
+                generateAtlasXCAssetFilePostPackagingMigrationResources
             )
         }
 
@@ -117,6 +163,8 @@ class AtlasResourceGenPlugin : Plugin<Project> {
             generateColorsResources.get(),
             generateImagesResources.get(),
             generateFontsResources.get(),
+            generateAtlasXCAssetFileResources.get(),
+            generateAtlasXCAssetFilePostPackagingMigrationResources.get(),
         )
 
         //extra tasks
@@ -127,6 +175,8 @@ class AtlasResourceGenPlugin : Plugin<Project> {
             generateColorsResources.get(),
             generateImagesResources.get(),
             generateFontsResources.get(),
+            generateAtlasXCAssetFileResources.get(),
+            generateAtlasXCAssetFilePostPackagingMigrationResources.get(),
         )
 
         val androidTasks = ResPluginHelpers.getAndroidTaskDependencies(project)

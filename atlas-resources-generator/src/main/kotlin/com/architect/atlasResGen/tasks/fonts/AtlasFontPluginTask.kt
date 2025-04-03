@@ -38,6 +38,10 @@ abstract class AtlasFontPluginTask : DefaultTask() {
     @get:Input
     abstract var isAndroidTarget: Boolean
 
+
+    @get:Input
+    abstract var forceRegenerate: Boolean
+
     init {
         group = "AtlasFonts"
         description = "Generates a resource class file based on the xml specified"
@@ -101,7 +105,9 @@ abstract class AtlasFontPluginTask : DefaultTask() {
 
         fontFiles.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
-            sourceFile.copyTo(getTrimmedFilePath(targetFile), overwrite = true)
+            if(!targetFile.exists() || forceRegenerate) {
+                sourceFile.copyTo(getTrimmedFilePath(targetFile), overwrite = true)
+            }
         }
 
         logger.lifecycle("✅ Copied ${fontFiles.size} images to Android assets: ${targetDir.absolutePath}")

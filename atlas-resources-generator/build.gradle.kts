@@ -49,7 +49,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-res-generator",
-        version = "0.0.7"
+        version = "0.1.2"
     )
 
     // Configure POM metadata for the published artifact
