@@ -9,12 +9,12 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.29.0"
     id("signing")
 }
-
-repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal() // Local Testing Only
-}
+//
+//repositories {
+//    google()
+//    mavenCentral()
+//    gradlePluginPortal() // Local Testing Only
+//}
 
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
@@ -49,7 +49,7 @@ gradlePlugin {
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-graph-generator",
-//        version = "0.6.2"
+//        version = "0.6.4"
 //    )
 //
 //    // Configure POM metadata for the published artifact
