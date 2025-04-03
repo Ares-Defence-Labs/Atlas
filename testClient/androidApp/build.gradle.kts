@@ -4,7 +4,12 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+
 android {
+//    sourceSets["main"].java.srcDirs(
+//        "${layout.buildDirectory}/generated/kotlin"
+//    )
+
     namespace = "com.architect.atlastestclient.android"
     compileSdk = 35
     defaultConfig {
@@ -23,8 +28,8 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-    signingConfigs{
-        create("release"){
+    signingConfigs {
+        create("release") {
             storeFile = File("my-keystore.jks")
             storePassword = "my_password"
             keyAlias = "my-alias"
@@ -36,7 +41,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {

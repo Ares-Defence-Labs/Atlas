@@ -34,15 +34,27 @@ class AtlasResourceGenPlugin : Plugin<Project> {
     }
 
     private fun platformClientsBuildFolders(project: Project) {
-        val androidProject = ResPluginHelpers.findAndroidModule(project)
+        project.logger.lifecycle("📁 Setting up Android project directories for generated resources")
+
+        val androidProject = ResPluginHelpers.findAndroidClientApp(project)
         if (androidProject != null) {
-            val androidExt = androidProject.extensions.getByType(ApplicationExtension::class.java)
-            androidExt.sourceSets.getByName("main").apply {
-                kotlin.srcDirs(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile,
-                    androidProject.layout.buildDirectory.dir("generated/resources").get().asFile,
-                )
+            val androidExt = androidProject.extensions.findByType(ApplicationExtension::class.java)
+            if (androidExt == null) {
+                project.logger.error("❌ Could not find ApplicationExtension on androidApp project")
+                return
             }
+
+            androidExt.sourceSets.named("main").configure {
+                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile)
+                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin/resources").get().asFile)
+                java.srcDir(androidProject.layout.buildDirectory.dir("generated/resources").get().asFile)
+                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin/resources/fonts").get().asFile)
+                java.srcDir(androidProject.layout.buildDirectory.dir("generated/kotlin/resources/images").get().asFile)
+            }
+
+            project.logger.lifecycle("✅ Added generated sources to androidApp's sourceSets.main")
+        } else {
+            project.logger.warn("⚠️ androidApp module not found – cannot add generated source folders")
         }
     }
 
