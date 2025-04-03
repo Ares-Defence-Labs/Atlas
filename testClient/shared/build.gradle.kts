@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.androidLibrary)
 
     //id("io.github.thearchitect123.atlasGraphGenerator") version "0.5.8"
-    //id("io.github.thearchitect123.atlasGraphGenerator")
+    id("io.github.thearchitect123.atlasGraphGenerator")
     id("io.github.thearchitect123.atlasResourcesGenerator")
 }
 //

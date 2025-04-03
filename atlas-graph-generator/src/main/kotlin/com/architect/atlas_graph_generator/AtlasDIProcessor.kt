@@ -5,6 +5,22 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 
 class AtlasDIProcessor : Plugin<Project> {
+    private val stringsGenTask = "generateAtlasStringsGraph"
+    private val colorGenTask = "generateAtlasColorsGraph"
+    private val imageGenTask = "generateAtlasImagesGraph"
+    private val fontsGenTask = "generateAtlasFontsGraph"
+
+    private fun configureBuildFolders(project: Project) {
+        val kmpExt =
+            project.extensions.getByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+                ?: error("Kotlin Multiplatform plugin not applied")
+
+        val commonMain = kmpExt.sourceSets.getByName("commonMain")
+        commonMain.kotlin.srcDirs(
+            project.layout.buildDirectory.dir("generated/commonMain/kotlin"),
+        )
+    }
+
     override fun apply(project: Project) {
         val isDebugMode = project.tasks.any { it.name.contains("debug", ignoreCase = true) }
         val generateDependencyGraphTask = project.tasks.register(
@@ -112,7 +128,7 @@ class AtlasDIProcessor : Plugin<Project> {
             "verifyReleaseResources",
         )
 
-        if(!isDebugMode){
+        if (!isDebugMode) {
             // if running on release mode, then add the tasks that are missing from the implementation
             androidTasks.add("copyReleaseJniLibsProjectOnly")
             androidTasks.add("writeReleaseLintModelMetadata")
@@ -135,11 +151,56 @@ class AtlasDIProcessor : Plugin<Project> {
         }
     }
 
+    private fun configureResourceModuleTask(
+        project: Project,
+        generateDependencyGraphTask: Task,
+    ) {
+        val stringsResourceTask = project.rootProject.allprojects
+            .mapNotNull { subProject ->
+                subProject.tasks.findByName(stringsGenTask)?.also {
+                    project.logger.lifecycle("🔍 Found `$stringsGenTask` in ${subProject.path}")
+                }
+            }
+            .firstOrNull()
+        val fontsResourceTask = project.rootProject.allprojects
+            .mapNotNull { subProject ->
+                subProject.tasks.findByName(fontsGenTask)?.also {
+                    project.logger.lifecycle("🔍 Found `$fontsGenTask` in ${subProject.path}")
+                }
+            }
+            .firstOrNull()
+        val imagesResourceTask = project.rootProject.allprojects
+            .mapNotNull { subProject ->
+                subProject.tasks.findByName(imageGenTask)?.also {
+                    project.logger.lifecycle("🔍 Found `$imageGenTask` in ${subProject.path}")
+                }
+            }
+            .firstOrNull()
+        val colorsResourceTask = project.rootProject.allprojects
+            .mapNotNull { subProject ->
+                subProject.tasks.findByName(colorGenTask)?.also {
+                    project.logger.lifecycle("🔍 Found `$colorGenTask` in ${subProject.path}")
+                }
+            }
+            .firstOrNull()
+
+        val usingResourceMode =
+            stringsResourceTask != null && fontsResourceTask != null && imagesResourceTask != null && colorsResourceTask != null
+        if (usingResourceMode) { // if using resources module, requires dependency to avoid issues with kotlin compile
+            generateDependencyGraphTask.dependsOn(stringsResourceTask)
+            generateDependencyGraphTask.dependsOn(fontsResourceTask)
+            generateDependencyGraphTask.dependsOn(imagesResourceTask)
+            generateDependencyGraphTask.dependsOn(colorsResourceTask)
+        }
+    }
+
     private fun attachDependenciesToGraph(
         project: Project,
         generateDependencyGraphTask: Task,
         androidTasks: List<String>
     ) {
+        configureBuildFolders(project)
+        configureResourceModuleTask(project, generateDependencyGraphTask)
         project.rootProject.allprojects.forEach { subProject ->
             androidTasks.forEach { taskName ->
                 val dependencyTask: Task? = subProject.tasks.findByName(taskName)

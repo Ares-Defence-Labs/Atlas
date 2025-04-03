@@ -7,7 +7,7 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
-         //includeBuild("../atlas-graph-generator")
+    includeBuild("../atlas-graph-generator")
     includeBuild("../atlas-resources-generator")
 }
 

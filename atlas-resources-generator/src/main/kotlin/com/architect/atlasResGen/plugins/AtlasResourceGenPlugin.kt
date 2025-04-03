@@ -85,61 +85,30 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         }
 
         val androidTasks = ResPluginHelpers.getAndroidTaskDependencies(project)
-        if (project.state.executed) {
-            // **Project is already evaluated, use taskGraph.whenReady**
-            project.gradle.taskGraph.whenReady {
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateStringsResources.get(),
-                    androidTasks
-                )
+        project.afterEvaluate {
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateStringsResources.get(),
+                androidTasks
+            )
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateColorsResources.get(),
+                androidTasks
+            )
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateImagesResources.get(),
+                androidTasks
+            )
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateFontsResources.get(),
+                androidTasks
+            )
 
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateColorsResources.get(),
-                    androidTasks
-                )
-
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateImagesResources.get(),
-                    androidTasks
-                )
-
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateFontsResources.get(),
-                    androidTasks
-                )
-                //   project.configureKmpGeneratedSourceSets()
-            }
-        } else {
-            // **Project is not yet evaluated, use `afterEvaluate`**
-            project.afterEvaluate {
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateStringsResources.get(),
-                    androidTasks
-                )
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateColorsResources.get(),
-                    androidTasks
-                )
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateImagesResources.get(),
-                    androidTasks
-                )
-                ResPluginHelpers.attachDependenciesToGraph(
-                    project,
-                    generateFontsResources.get(),
-                    androidTasks
-                )
-
-                configureBuildFolders(project)
-                platformClientsBuildFolders(project)
-            }
+            configureBuildFolders(project)
+            platformClientsBuildFolders(project)
         }
     }
 }

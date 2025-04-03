@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.FragmentActivity
+import com.architect.atlas.resources.fonts.AtlasFonts
+
 //import com.architect.atlas.resources.fonts.AtlasFonts
 
 //import com.architect.atlas.resources.images.AtlasImages
@@ -21,10 +23,11 @@ class MainActivity : FragmentActivity() {
         setContentView(R.layout.test_xml)
         //val t = AtlasStrings
 
-        R.font.roboto_semicondensed_blackitalic
+        val fonts = AtlasFonts.roboto_semicondensed_blackitalic(this)
 
+        val q = ""
         //com.architect.atlas.resources.strings
-      //  val imagec = AtlasImages.android_svg(this)
+        //  val imagec = AtlasImages.android_svg(this)
 
 //        val image = findViewById<ImageView>(R.id.sample_image);
 //        image.setImageDrawable(imagec)
