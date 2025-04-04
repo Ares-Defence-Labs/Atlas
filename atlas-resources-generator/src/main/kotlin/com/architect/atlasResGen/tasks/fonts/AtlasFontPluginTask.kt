@@ -1,20 +1,16 @@
 package com.architect.atlasResGen.tasks.fonts
 
-import com.architect.atlasResGen.helpers.ResPluginHelpers
+import com.architect.atlasResGen.helpers.FileHelpers
 import org.gradle.api.DefaultTask
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
-import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import java.io.File
-import java.util.Locale
-import javax.xml.parsers.DocumentBuilderFactory
 
 @CacheableTask
 abstract class AtlasFontPluginTask : DefaultTask() {
@@ -29,15 +25,12 @@ abstract class AtlasFontPluginTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
 
+    // platform outputs
     @get:OutputDirectory
     abstract val androidResourcesFontsDir: DirectoryProperty
 
     @get:OutputDirectory
     abstract var androidResourcePackageRef: String
-
-    @get:Input
-    abstract var isAndroidTarget: Boolean
-
 
     @get:Input
     abstract var forceRegenerate: Boolean
@@ -63,14 +56,17 @@ abstract class AtlasFontPluginTask : DefaultTask() {
             .toList()
 
         val snakeToPath = fontFiles.associate { file ->
-            getTrimmedFilePath(file).nameWithoutExtension to "fonts/${getTrimmedFilePath(file).name}" // safe because file is explicitly named
+            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to "fonts/${
+                FileHelpers.getTrimmedFilePath(
+                    file
+                ).name
+            }" // safe because file is explicitly named
         }
 
-        if (isAndroidTarget) {
-            logger.lifecycle("PATHS : $snakeToPath")
-            generateAndroidActualFontObject(snakeToPath)
-            copyFontsToAndroidAssets(fontFiles)
-        }
+        logger.lifecycle("PATHS : $snakeToPath")
+        generateAndroidActualFontObject(snakeToPath)
+        copyFontsToAndroidAssets(fontFiles)
+
     }
 
     private fun generateAndroidActualFontObject(entries: Map<String, String>) {
@@ -105,15 +101,12 @@ abstract class AtlasFontPluginTask : DefaultTask() {
 
         fontFiles.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
-            if(!targetFile.exists() || forceRegenerate) {
-                sourceFile.copyTo(getTrimmedFilePath(targetFile), overwrite = true)
+            if (!targetFile.exists() || forceRegenerate) {
+                sourceFile.copyTo(FileHelpers.getTrimmedFilePath(targetFile), overwrite = true)
             }
         }
 
         logger.lifecycle("✅ Copied ${fontFiles.size} images to Android assets: ${targetDir.absolutePath}")
     }
-
-    private fun getTrimmedFilePath(name: File): File{
-        return File(name.path.replace("-", "_").toLowerCase())
-    }
 }
+

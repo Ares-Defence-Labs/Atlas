@@ -6,6 +6,15 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       buildArchitectures = "Automatic">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Run Script"
+               scriptText = "#!/bin/sh&#10;echo &quot;&#x1f4e6; Injecting fonts from mergedFonts.plist into Info.plist&quot;&#10;&#10;SCRIPT_DIR=&quot;/Users/dangerchcovich/Documents/AerisDefence/Atlas/testClient/shared/build/generated/iosMain/resources/fonts/scripts&quot;&#10;MERGED_PLIST=&quot;$SCRIPT_DIR/../mergedFonts.plist&quot;&#10;TARGET_PLIST=&quot;/Users/dangerchcovich/Documents/AerisDefence/Atlas/testClient/iosApp/iosApp/info.plist&quot;&#10;&#10;if [ ! -f &quot;$MERGED_PLIST&quot; ]; then&#10;  echo &quot;&#x274c; mergedFonts.plist not found at $MERGED_PLIST&quot;&#10;  exit 1&#10;fi&#10;&#10;if [ ! -f &quot;$TARGET_PLIST&quot; ]; then&#10;  echo &quot;&#x274c; Info.plist not found at $TARGET_PLIST&quot;&#10;  exit 1&#10;fi&#10;&#10;/usr/libexec/PlistBuddy -c &quot;Delete :UIAppFonts&quot; &quot;$TARGET_PLIST&quot; 2&gt;/dev/null&#10;/usr/libexec/PlistBuddy -c &quot;Add :UIAppFonts array&quot; &quot;$TARGET_PLIST&quot;&#10;&#10;while IFS= read -r line; do&#10;  FONT_NAME=$(echo &quot;$line&quot; | sed -n &apos;s/.*&lt;string&gt;Fonts\/\(.*\)&lt;\/string&gt;.*/\1/p&apos;)&#10;  if [ ! -z &quot;$FONT_NAME&quot; ]; then&#10;    /usr/libexec/PlistBuddy -c &quot;Add :UIAppFonts: string $FONT_NAME&quot; &quot;$TARGET_PLIST&quot;&#10;  fi&#10;done &lt; &quot;$MERGED_PLIST&quot;&#10;&#10;echo &quot;&#x2705; Fonts injected into Info.plist&quot;&#10;">
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"

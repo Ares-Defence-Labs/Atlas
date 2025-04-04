@@ -1,5 +1,6 @@
 package com.architect.atlasResGen.tasks.images
 
+import com.architect.atlasResGen.helpers.FileHelpers
 import com.architect.atlasResGen.helpers.ResPluginHelpers
 import net.coobird.thumbnailator.Thumbnails
 import org.gradle.api.DefaultTask
@@ -36,9 +37,6 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     abstract val outputIosDir: DirectoryProperty
 
     @get:Input
-    abstract var isAndroidTarget: Boolean
-
-    @get:Input
     abstract var forceRegenerate: Boolean
 
     init {
@@ -63,18 +61,16 @@ abstract class AtlasImagePluginTask : DefaultTask() {
             .toList()
 
         val snakeToPath = imageFiles.associate { file ->
-            val snakeName = ResPluginHelpers.toSnakeCase(file.nameWithoutExtension)
+            val snakeName = FileHelpers.toSnakeCase(file.nameWithoutExtension)
             snakeName to "images/${file.name}" // safe because file is explicitly named
         }
 
         val nonSvgFiles = imageFiles.filter { it.extension.lowercase() != "svg" }
         val svgFiles = imageFiles.filter { it.extension.lowercase() == "svg" }
 
-        if (isAndroidTarget) {
-            generateAndroidActualObject(snakeToPath)
-            prepareSvgFilesForAssetManager(svgFiles)
-            generateScaledDrawablesWithThumbnailator(nonSvgFiles)
-        }
+        generateAndroidActualObject(snakeToPath)
+        prepareSvgFilesForAssetManager(svgFiles)
+        generateScaledDrawablesWithThumbnailator(nonSvgFiles)
     }
 
     private fun prepareSvgFilesForAssetManager(svgImageFiles: List<File>) {

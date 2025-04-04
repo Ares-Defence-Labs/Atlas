@@ -12,6 +12,7 @@ struct ContentView: View {
 //                .multilineTextAlignment(.center)
         }.onAppear(){
             
+            
         }
 	}
 }
