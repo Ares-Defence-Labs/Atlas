@@ -1,36 +1,28 @@
 package com.architect.atlasResGen.helpers
 
 import com.architect.atlasResGen.tasks.fonts.AppleAtlasFontPluginTask
-import com.architect.atlasResGen.tasks.platform.XcAssetIDEMigrationTask
 import com.architect.atlasResGen.tasks.platform.XcAssetPackagingTask
 import com.architect.atlasResGen.tasks.platform.XcFontAssetsPackagingTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
+import java.io.File
 
 object AppleResPluginHelpers {
-
     private val appleFontsGenTask = "appleFontsGenTask"
     private val appleFontsPackagingGenTask = "appleFontsPackagingGenTask"
     private val applePackageXcodeGenTask = "applePackageXcodeGenTask"
-    private val appleMigratePackagedXcodeGenTask = "appleMigratePackagedXcodeGenTask"
 
     fun getAtlasXCAssetFilePackagingTask(project: Project): TaskProvider<XcAssetPackagingTask> {
+        val iosProject = ProjectFinder.findIosClientApp(project)
+        val appName = File(iosProject?.name!!).name
         return project.tasks.register(
             applePackageXcodeGenTask,
             XcAssetPackagingTask::class.java
         ) {
+            xcAssetDirectoryPath = "$iosProject/$appName/Assets.xcassets"
+            outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/images"))
             iosAssetsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
             projectRootDir.set(project.layout.projectDirectory)
-        }
-    }
-
-    fun getAtlasXCAssetPostPackageMigrationTask(project: Project): TaskProvider<XcAssetIDEMigrationTask> {
-        return project.tasks.register(
-            appleMigratePackagedXcodeGenTask,
-            XcAssetIDEMigrationTask::class.java
-        ) {
-            xcassetsSourceDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
-            outputScriptFile.set(project.layout.buildDirectory.file("scripts/copyAtlasAssets.sh"))
         }
     }
 

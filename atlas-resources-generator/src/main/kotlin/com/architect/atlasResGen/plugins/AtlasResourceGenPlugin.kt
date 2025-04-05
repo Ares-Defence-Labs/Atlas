@@ -279,9 +279,11 @@ class AtlasResourceGenPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val generateAppleFontFiles =
             AppleResPluginHelpers.getAppleFontsResourceTask(project)
-
         val generateAppleFontFilesPackaging =
             AppleResPluginHelpers.getAppleFontsPackagingResourceTask(project)
+
+        val generateAtlasXCAssetFileResources =
+            AppleResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
 
         project.gradle.addListener(object : TaskExecutionGraphListener {
             override fun graphPopulated(graph: TaskExecutionGraph) {
@@ -291,11 +293,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
                 val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
                 val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
-
-                val generateAtlasXCAssetFileResources =
-                    AppleResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
-                val generateAtlasXCAssetFilePostPackagingMigrationResources =
-                    AppleResPluginHelpers.getAtlasXCAssetPostPackageMigrationTask(project)
 
                 val isIosBuild = ProjectFinder.isBuildingForIos(project)
                 generateColorsResources.configure { dependsOn(generateStringsResources) }
@@ -312,11 +309,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
 
                     generateAppleFontFilesPackaging.configure {
                         dependsOn(generateAppleFontFiles)
-                    }
-
-                    // XCAssets flow
-                    generateAtlasXCAssetFilePostPackagingMigrationResources.configure {
-                        dependsOn(generateAtlasXCAssetFileResources)
                     }
 
                     // Link or compile task hook
@@ -341,7 +333,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     if (isIosBuild) {
                         dependsOn(
                             generateAtlasXCAssetFileResources,
-                            generateAtlasXCAssetFilePostPackagingMigrationResources,
                             generateAppleFontFiles
                         )
                     } else {

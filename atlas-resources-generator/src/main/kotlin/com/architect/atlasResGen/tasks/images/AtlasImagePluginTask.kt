@@ -113,30 +113,6 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         file.writeText(builder.toString())
     }
 
-    private fun generateIosActualObject(entries: Map<String, String>) {
-        val builder = StringBuilder()
-        builder.appendLine("package com.architect.atlas.resources.images")
-        builder.appendLine()
-        builder.appendLine("import platform.UIKit.UIImage")
-        builder.appendLine("import platform.Foundation.NSBundle")
-        builder.appendLine("import platform.Foundation.stringByAppendingPathComponent")
-        builder.appendLine()
-        builder.appendLine("object AtlasImages {")
-
-        for ((name, path) in entries) {
-            builder.appendLine("    val $name: UIImage?")
-            builder.appendLine("        get() = NSBundle.mainBundle.resourcePath")
-            builder.appendLine("            ?.stringByAppendingPathComponent(\"$path\")")
-            builder.appendLine("            ?.let { UIImage.imageWithContentsOfFile(it) }")
-        }
-
-        builder.appendLine("}")
-
-        val file = File(outputIosDir.get().asFile, "AtlasImages.kt")
-        file.parentFile.mkdirs()
-        file.writeText(builder.toString())
-    }
-
     private fun copyImagesToAndroidAssets(imageFiles: List<File>) {
         val targetDir = androidAssetImageDir.asFile.get()
         logger.lifecycle("TARGET PATH $targetDir")

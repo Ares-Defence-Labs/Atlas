@@ -7,6 +7,8 @@ struct ContentView: View {
 	var body: some View {
         VStack {
             
+            Image(uiImage: AtlasImages.companion.android_svg!) .frame(maxWidth: .infinity)
+                
             Text("Centered")
                 .font(Font(AtlasFonts.companion.roboto_thin(size: 42) as! CTFont))
                 .frame(maxWidth: .infinity)
