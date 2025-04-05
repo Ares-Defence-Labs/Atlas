@@ -1,8 +1,12 @@
 package com.architect.atlasResGen.helpers
 
+import org.apache.fontbox.ttf.TTFParser
 import org.gradle.api.Project
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.awt.Font
+import java.io.FileInputStream
+import java.io.InputStream
 
 object FileHelpers {
     fun getTrimmedFilePath(name: File): File {
@@ -44,6 +48,16 @@ object FileHelpers {
             logger.error("❌ Script failed:\n${error.toString(Charsets.UTF_8)}")
         } else {
             logger.lifecycle("✅ Script succeeded:\n${output.toString(Charsets.UTF_8)}")
+        }
+    }
+
+    fun extractPostScriptName(fontFile: File): String? {
+        return try {
+            val parser = TTFParser()
+            val ttf = parser.parse(fontFile)
+            ttf.name
+        } catch (e: Exception) {
+            null
         }
     }
 }

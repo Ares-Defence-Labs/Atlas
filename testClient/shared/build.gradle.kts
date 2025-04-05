@@ -66,6 +66,10 @@ kotlin {
         }
 
         val iosMain by creating {
+            kotlin.srcDirs(
+                project.layout.buildDirectory.dir("generated/iosMain/kotlin").get().asFile,
+                project.layout.buildDirectory.dir("generated/iosMain/resources").get().asFile
+            )
             dependsOn(commonMain) // ✅ Ensure iOS depends on `commonMain`
         }
 

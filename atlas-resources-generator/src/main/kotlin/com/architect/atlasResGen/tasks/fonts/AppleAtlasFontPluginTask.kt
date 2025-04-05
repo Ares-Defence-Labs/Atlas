@@ -1,6 +1,7 @@
 package com.architect.atlasResGen.tasks.fonts
 
 import com.architect.atlasResGen.helpers.FileHelpers
+import org.apache.fontbox.ttf.TTFParser
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask
@@ -55,23 +56,26 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
 
         logger.info("Font files detected $fontFiles")
         val snakeToPath = fontFiles.associate { file ->
-            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to "Fonts/${
-                FileHelpers.getTrimmedFilePath(
-                    file
-                ).name
-            }" // safe because file is explicitly named
+            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
+                    FileHelpers.getTrimmedFilePath(
+                        file
+                    ).name
         }
 
-        prepareInternalFontInfoPlist(fontFiles) // write the merged manifest info.plist
-        generateiOSActualFontObject(snakeToPath)
+
+        prepareInternalFontInfoPlist(snakeToPath.values.toList()) // write the merged manifest info.plist
+        generateiOSActualFontObject(fontFiles.associate { file ->
+            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
+                    file
+        })
         copyFontsToiOSAssets(fontFiles)
     }
 
-    private fun prepareInternalFontInfoPlist(fontFiles: List<File>) {
+    private fun prepareInternalFontInfoPlist(fontFiles: List<String>) {
         val snippet = buildString {
             appendLine("<array>")
             fontFiles.forEach {
-                val path = "Fonts/${it.name}"
+                val path = it
                 appendLine("    <string>$path</string>")
             }
             appendLine("</array>")
@@ -82,7 +86,7 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
         }
     }
 
-    private fun generateiOSActualFontObject(entries: Map<String, String>) {
+    private fun generateiOSActualFontObject(entries: Map<String, File>) {
         val builder = StringBuilder()
         builder.appendLine("package com.architect.atlas.resources.fonts")
         builder.appendLine()
@@ -91,10 +95,13 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
         builder.appendLine("class AtlasFonts {")
         builder.appendLine("    companion object {")
 
-        for ((name, fontName) in entries) {
-            logger.lifecycle("FONT NAME : $fontName")
+        for ((name, file) in entries) {
+            val fontName = file.name
+            val postName = FileHelpers.extractPostScriptName(file)
+
+            logger.lifecycle("FONT NAME : $postName")
             builder.appendLine("    fun $name(size: Double): UIFont =")
-            builder.appendLine("        UIFont.fontWithName(fontName = \"$fontName\", size = size) ?:")
+            builder.appendLine("        UIFont.fontWithName(fontName = \"$postName\", size = size) ?:")
             builder.appendLine("            error(\"❌ Font not found: $fontName\")")
             builder.appendLine()
         }

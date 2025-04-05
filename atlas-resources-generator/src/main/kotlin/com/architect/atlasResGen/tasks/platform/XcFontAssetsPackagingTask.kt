@@ -74,34 +74,63 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
         }
     }
 
-    private fun generateCopyFontsScript() : File{
+    private fun generateCopyFontsScript(): File {
         val output = copyScriptFile.get().asFile
         output.parentFile.mkdirs()
 
         val appName = File(iOSProjectDirectory).name
-        output.writeText(
-            """
-            #!/bin/sh
-            echo "\uD83D\uDCE6 Copying Atlas Fonts to Xcode..."
 
-            SRC_DIR="$fontDirectory"
-            DST_DIR="$iOSProjectDirectory/$appName/Resources/Fonts"
+        val content = """
+        #!/bin/sh
+        echo "📦 Copying Atlas Fonts to Xcode..."
 
-            rm -rf "${'$'}DST_DIR"
-            mkdir -p "${'$'}DST_DIR"
+        SRC_DIR="$fontDirectory"
+        DST_DIR="$iOSProjectDirectory/$appName/Resources/Fonts"
 
-            cp -R "${'$'}SRC_DIR"/* "${'$'}DST_DIR"
+        echo "🔍 Source Directory: ${'$'}SRC_DIR"
+        echo "📂 Destination Directory: ${'$'}DST_DIR"
 
-            echo "\u2705 Fonts copied to ${'$'}DST_DIR"
-            """.trimIndent()
-        )
+        if [ ! -d "${'$'}SRC_DIR" ]; then
+          echo "❌ Source directory does not exist: ${'$'}SRC_DIR"
+          exit 1
+        fi
+
+        rm -rf "${'$'}DST_DIR"
+        mkdir -p "${'$'}DST_DIR"
+
+        cp -R "${'$'}SRC_DIR"/*.ttf "${'$'}DST_DIR" 2>/dev/null || true
+        cp -R "${'$'}SRC_DIR"/*.otf "${'$'}DST_DIR" 2>/dev/null || true
+
+        echo "✅ Fonts copied to ${'$'}DST_DIR"
+
+        echo "📎 Checking font references in the Xcode project"
+
+        FONT_DIR="${'$'}DST_DIR"
+        PROJECT_FILE="$iOSProjectDirectory/$appName.xcodeproj/project.pbxproj"
+
+        if [ ! -f "${'$'}PROJECT_FILE" ]; then
+          echo "❌ project.pbxproj not found at ${'$'}PROJECT_FILE"
+          exit 1
+        fi
+
+        for fontFile in "${'$'}FONT_DIR"/*.ttf "${'$'}FONT_DIR"/*.otf; do
+          [ -e "${'$'}fontFile" ] || continue
+          FONT_NAME=$(basename "${'$'}fontFile")
+
+          if ! grep -q "${'$'}FONT_NAME" "${'$'}PROJECT_FILE"; then
+            echo "⚠️ Font ${'$'}FONT_NAME not found in project file. You must add it manually in Xcode."
+          else
+            echo "✅ Font ${'$'}FONT_NAME is already referenced in the project."
+          fi
+        done
+    """.trimIndent()
+
+        output.writeText(content)
         output.setExecutable(true)
         logger.lifecycle("✅ Generated font copy script at: ${output.absolutePath}")
-
         return output
     }
-
-    private fun generateInjectPlistScript() : File{
+    private fun generateInjectPlistScript(): File {
         val scriptFile = injectPlistScriptFile.get().asFile
         scriptFile.parentFile.mkdirs()
 
@@ -130,8 +159,9 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
         /usr/libexec/PlistBuddy -c "Add :UIAppFonts array" "${'$'}TARGET_PLIST"
 
         while IFS= read -r line; do
-          FONT_NAME=$(echo "${'$'}line" | sed -n 's/.*<string>Fonts\/\(.*\)<\/string>.*/\1/p')
+          FONT_NAME=$(echo "${'$'}line" | sed -n 's|.*<string>\(.*\.ttf\)</string>.*|\1|p')
           if [ ! -z "${'$'}FONT_NAME" ]; then
+            echo "⮑ Adding font: ${'$'}FONT_NAME"
             /usr/libexec/PlistBuddy -c "Add :UIAppFonts: string ${'$'}FONT_NAME" "${'$'}TARGET_PLIST"
           fi
         done < "${'$'}MERGED_PLIST"
@@ -142,7 +172,6 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
         scriptFile.writeText(content)
         scriptFile.setExecutable(true)
         logger.lifecycle("✅ Font injection script written to: ${scriptFile.absolutePath}")
-
         return scriptFile
     }
 }
