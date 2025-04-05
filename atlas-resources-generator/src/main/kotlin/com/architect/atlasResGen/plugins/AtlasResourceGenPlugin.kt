@@ -103,7 +103,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         generateImagesResources: Task,
         generateFontsResources: Task,
         generateXCAssetResources: Task,
-        generateXCAssetPostPackagingResources: Task,
         generateAppleFontFiles: Task
     ) {
         requiredExtraTasks.forEach { taskName ->
@@ -117,7 +116,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                     generateFontsResources.dependsOn(dependencyTask)
                 } else {
                     generateXCAssetResources.dependsOn(dependencyTask)
-                    generateXCAssetPostPackagingResources.dependsOn(dependencyTask)
                     generateAppleFontFiles.dependsOn(dependencyTask)
                 }
             } else {
@@ -126,220 +124,121 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         }
     }
 
-//    override fun apply(project: Project) {
-//        // xcode tasks
-//        val generateAtlasXCAssetFileResources =
-//            ResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
-//        val generateAtlasXCAssetFilePostPackagingMigrationResources =
-//            ResPluginHelpers.getAtlasXCAssetPostPackageMigrationTask(project)
-//        val generateAppleFontFiles =
-//            ResPluginHelpers.getAppleFontsResourceTask(project)
-//
-//        project.gradle.addListener(object : TaskExecutionGraphListener {
-//            override fun graphPopulated(graph: TaskExecutionGraph) {
-//                // configure src files (build files for all tasks)
-//                ResPluginHelpers.prepareResourcesDirectory(project)
-//
-//                val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
-//                val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
-//
-//                // common main dependencies
-//                generateColorsResources.configure { dependsOn(generateStringsResources) }
-//
-//                // android specific tasks
-//                val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
-//                val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
-//
-//                if (ProjectFinder.isBuildingForIos(project)) { // iOS
-//                    project.logger.lifecycle("RUNNING IOS")
-//                    generateAppleFontFiles.configure {
-//                        dependsOn(
-//                            generateColorsResources
-//                        )
-//                    } // apple specific
-//                    generateAtlasXCAssetFilePostPackagingMigrationResources.configure {
-//                        dependsOn(
-//                            generateAtlasXCAssetFileResources
-//                        )
-//                    } // apple specific
-////                    generateAppleFontFiles.configure {
-////                        dependsOn(
-////                            generateAtlasXCAssetFilePostPackagingMigrationResources
-////                        )
-////                    } // apple specific
-//                } else {
-//                    project.logger.lifecycle("RUNNING ANDROID")
-//                    generateImagesResources.configure { dependsOn(generateColorsResources) }
-//                    generateFontsResources.configure { dependsOn(generateImagesResources) }
-//                }
-//
-//                // specify all tasks for all required resource generators
-//                project.tasks.matching {
-//                    it.name.contains(
-//                        "compileKotlin",
-//                        ignoreCase = true
-//                    ) || (it.name.contains("compile") && it.name.contains("kotlin") && it.name.contains(
-//                        "android", ignoreCase = true
-//                    ))
-//                }.configureEach {
-//                    project.logger.lifecycle("SETUP COMPILE IOS")
-//                    dependsOn(
-//                        generateStringsResources,
-//                        generateColorsResources
-//                    )
-//
-//                    if (!ProjectFinder.isBuildingForIos(project)) {
-//                        dependsOn(
-//                            generateImagesResources,
-//                            generateFontsResources
-//                        )
-//                    } else {
-//                        project.logger.lifecycle("RUNNING IOS ATLAS COMPILE")
-//                        dependsOn(
-//                            generateAtlasXCAssetFileResources,
-//                            generateAtlasXCAssetFilePostPackagingMigrationResources,
-//                            generateAppleFontFiles
-//                        )
-//                    }
-//                }
-//
-//                project.tasks.matching {
-//                    it.name.startsWith("link") &&
-//                            it.name.contains("FrameworkIos", ignoreCase = true)
-//                }.configureEach {
-//                    mustRunAfter(generateAppleFontFiles) // optional, for sequencing
-//                    dependsOn(
-//                        //generateAtlasXCAssetFileResources,
-//                        //generateAtlasXCAssetFilePostPackagingMigrationResources,
-//                        generateAppleFontFiles
-//                    )
-//
-//                    outputs.upToDateWhen { false } // ← force link task to always run
-//
-//                    project.logger.lifecycle("✅ iOS build task '${this.name}' now depends on 'generateAppleFonts'")
-//                }
-//
-//                // ios dependencies
-//                processRegisterTaskDependencies(
-//                    project,
-//                    TaskDefinitions.getiOSTaskDependencies(),
-//                    generateStringsResources.get(),
-//                    generateColorsResources.get(),
-//                    generateImagesResources.get(),
-//                    generateFontsResources.get(),
-//                    generateAtlasXCAssetFileResources.get(),
-//                    generateAtlasXCAssetFilePostPackagingMigrationResources.get(),
-//                    generateAppleFontFiles.get(),
-//                )
-//
-//                //extra tasks
-//                processRegisterTaskDependencies(
-//                    project,
-//                    TaskDefinitions.getExtraTaskDependencies(),
-//                    generateStringsResources.get(),
-//                    generateColorsResources.get(),
-//                    generateImagesResources.get(),
-//                    generateFontsResources.get(),
-//                    generateAtlasXCAssetFileResources.get(),
-//                    generateAtlasXCAssetFilePostPackagingMigrationResources.get(),
-//                    generateAppleFontFiles.get(),
-//                )
-//
-//                val androidTasks = TaskDefinitions.getAndroidTaskDependencies(project)
-//                ResPluginHelpers.attachDependenciesToGraph(
-//                    project,
-//                    generateStringsResources.get(),
-//                    androidTasks
-//                )
-//                ResPluginHelpers.attachDependenciesToGraph(
-//                    project,
-//                    generateColorsResources.get(),
-//                    androidTasks
-//                )
-//
-//                if (!ProjectFinder.isBuildingForIos(project)) {
-//                    ResPluginHelpers.attachDependenciesToGraph(
-//                        project,
-//                        generateImagesResources.get(),
-//                        androidTasks
-//                    )
-//                    ResPluginHelpers.attachDependenciesToGraph(
-//                        project,
-//                        generateFontsResources.get(),
-//                        androidTasks
-//                    )
-//
-//                    configureBuildFolders(project)
-//                    platformClientsBuildFolders(project)
-//                }
-//            }
-//        })
-//    }
-
     override fun apply(project: Project) {
-        val generateAppleFontFiles =
-            AppleResPluginHelpers.getAppleFontsResourceTask(project)
-        val generateAppleFontFilesPackaging =
-            AppleResPluginHelpers.getAppleFontsPackagingResourceTask(project)
+        if (ProjectFinder.isBuildingForIos(project)) { // iOS
+            project.logger.lifecycle("RUNNING IOS")
+        }
 
+        // configure src files (build files for all tasks)
+        ResPluginHelpers.prepareResourcesDirectory(project)
+
+        val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
+        val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
+
+        // common main dependencies
+        generateColorsResources.configure { dependsOn(generateStringsResources) }
+
+        // android specific tasks
+        val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
+        val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
+
+        generateImagesResources.configure { dependsOn(generateColorsResources) }
+        generateFontsResources.configure { dependsOn(generateImagesResources) }
+
+        // xcode tasks
         val generateAtlasXCAssetFileResources =
             AppleResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
+        val generateAppleFontFiles =
+            AppleResPluginHelpers.getAppleFontsResourceTask(project)
 
-        project.gradle.addListener(object : TaskExecutionGraphListener {
-            override fun graphPopulated(graph: TaskExecutionGraph) {
-                ResPluginHelpers.prepareResourcesDirectory(project)
+        if (ProjectFinder.isBuildingForIos(project)) { // iOS
+            generateAppleFontFiles.configure {
+                dependsOn(
+                    generateColorsResources
+                )
+            } // apple specific
 
-                val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
-                val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
-                val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
-                val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
-
-                val isIosBuild = ProjectFinder.isBuildingForIos(project)
-                generateColorsResources.configure { dependsOn(generateStringsResources) }
-
-                if (isIosBuild) {
-                    project.logger.lifecycle("📱 Detected iOS build")
-
-                    generateAppleFontFiles.configure {
-                        dependsOn(generateColorsResources)
-                        doFirst {
-                            logger.lifecycle("👟 Running AppleFontPluginTask — generating fonts for iOS")
-                        }
-                    }
-
-                    generateAppleFontFilesPackaging.configure {
-                        dependsOn(generateAppleFontFiles)
-                    }
-
-                    // Link or compile task hook
-                    project.tasks.matching {
-                        it.name.startsWith("compileKotlinIos", ignoreCase = true)
-                    }.configureEach {
-                        dependsOn(generateAppleFontFiles)
-                        project.logger.lifecycle("✅ compile task '${this.name}' now depends on 'generateAppleFonts'")
-                    }
-
-                } else {
-                    project.logger.lifecycle("🤖 Detected Android build")
-                    generateImagesResources.configure { dependsOn(generateColorsResources) }
-                    generateFontsResources.configure { dependsOn(generateImagesResources) }
-                }
-
-                // Register with other expected compile tasks (Android/iOS)
-                project.tasks.matching {
-                    it.name.contains("compileKotlin", ignoreCase = true)
-                }.configureEach {
-                    dependsOn(generateStringsResources, generateColorsResources)
-                    if (isIosBuild) {
-                        dependsOn(
-                            generateAtlasXCAssetFileResources,
-                            generateAppleFontFiles
-                        )
-                    } else {
-                        dependsOn(generateImagesResources, generateFontsResources)
-                    }
-                }
+            generateAtlasXCAssetFileResources.configure {
+                dependsOn(
+                    generateAppleFontFiles
+                )
             }
-        })
+        }
+
+        // specify all tasks for all required resource generators
+        project.tasks.matching {
+            it.name.contains(
+                "compileKotlin",
+                ignoreCase = true
+            ) || (it.name.contains("compile") && it.name.contains("kotlin") && it.name.contains(
+                "android", ignoreCase = true
+            ))
+        }.configureEach {
+            dependsOn(
+                generateStringsResources,
+                generateColorsResources,
+                generateImagesResources,
+                generateFontsResources
+            )
+
+            if (ProjectFinder.isBuildingForIos(project)) {
+                dependsOn(
+                    generateAtlasXCAssetFileResources,
+                    generateAppleFontFiles
+                )
+            }
+        }
+
+        // ios dependencies
+        processRegisterTaskDependencies(
+            project,
+            TaskDefinitions.getiOSTaskDependencies(),
+            generateStringsResources.get(),
+            generateColorsResources.get(),
+            generateImagesResources.get(),
+            generateFontsResources.get(),
+            generateAtlasXCAssetFileResources.get(),
+            generateAppleFontFiles.get(),
+        )
+
+        //extra tasks
+        processRegisterTaskDependencies(
+            project,
+            TaskDefinitions.getExtraTaskDependencies(),
+            generateStringsResources.get(),
+            generateColorsResources.get(),
+            generateImagesResources.get(),
+            generateFontsResources.get(),
+            generateAtlasXCAssetFileResources.get(),
+            generateAppleFontFiles.get(),
+        )
+
+        val androidTasks = TaskDefinitions.getAndroidTaskDependencies(project)
+        project.afterEvaluate {
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateStringsResources.get(),
+                androidTasks
+            )
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateColorsResources.get(),
+                androidTasks
+            )
+
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateImagesResources.get(),
+                androidTasks
+            )
+            ResPluginHelpers.attachDependenciesToGraph(
+                project,
+                generateFontsResources.get(),
+                androidTasks
+            )
+
+            configureBuildFolders(project)
+            platformClientsBuildFolders(project)
+        }
     }
 }
