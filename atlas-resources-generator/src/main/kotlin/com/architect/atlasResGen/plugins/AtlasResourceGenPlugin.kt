@@ -28,33 +28,37 @@ class AtlasResourceGenPlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
         val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
+        val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
+
         val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
         val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
-
-        val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
-        generateColorsResources.configure { dependsOn(generateStringsResources) }
-
-        generateImagesResources.configure { dependsOn(generateColorsResources) }
-        generateFontsResources.configure { dependsOn(generateImagesResources) }
 
         val generateAtlasXCAssetFileResources =
             AppleResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
         val generateAppleFontFiles =
             AppleResPluginHelpers.getAppleFontsResourceTask(project)
 
-        generateAppleFontFiles.configure {
-            dependsOn(
-                generateFontsResources
-            )
-        } // apple specific
-
-        generateAtlasXCAssetFileResources.configure {
-            dependsOn(
-                generateAppleFontFiles
-            )
-        }
-
         taskOrderConfig(project, generateStringsResources.get())
+        taskOrderConfig(project, generateColorsResources.get())
+        taskOrderConfig(project, generateImagesResources.get())
+        taskOrderConfig(project, generateFontsResources.get())
         taskOrderConfig(project, generateAtlasXCAssetFileResources.get())
+        taskOrderConfig(project, generateAppleFontFiles.get())
+
+        generateColorsResources.configure {
+            mustRunAfter(generateStringsResources)
+        }
+        generateImagesResources.configure {
+            mustRunAfter(generateColorsResources)
+        }
+        generateFontsResources.configure {
+            mustRunAfter(generateImagesResources)
+        }
+        generateAtlasXCAssetFileResources.configure {
+            mustRunAfter(generateFontsResources)
+        }
+        generateAppleFontFiles.configure {
+            mustRunAfter(generateAtlasXCAssetFileResources)
+        }
     }
 }

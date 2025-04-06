@@ -8,15 +8,14 @@ import org.gradle.api.Task
 
 class NavigationEngineGenPlugin : Plugin<Project> {
     private val graphGen = "generateDependencyGraph"
-    private val applePackageXcodeGenTask = "applePackageXcodeGenTask"
-    private val stringsGenTask = "generateAtlasStringsGraph"
+    private val applePackageXcodeGenTask = "appleFontsGenTask"
     private fun taskOrderConfig(
         project: Project,
         generateDependencyGraphTask: Task
     ) {
         val dependencyGraphTask = project.rootProject.allprojects
             .flatMap { it.tasks }
-            .filter { it.name in listOf(graphGen, stringsGenTask, applePackageXcodeGenTask) }
+            .filter { it.name in listOf(graphGen, applePackageXcodeGenTask) }
 
         if (dependencyGraphTask.isNotEmpty()) {
             dependencyGraphTask.forEach {

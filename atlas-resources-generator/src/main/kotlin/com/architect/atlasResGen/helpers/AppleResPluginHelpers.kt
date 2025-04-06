@@ -4,14 +4,12 @@ import com.architect.atlas.common.helpers.FileHelpers
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlasResGen.tasks.fonts.AppleAtlasFontPluginTask
 import com.architect.atlasResGen.tasks.platform.XcAssetPackagingTask
-import com.architect.atlasResGen.tasks.platform.XcFontAssetsPackagingTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import java.io.File
 
 object AppleResPluginHelpers {
     private val appleFontsGenTask = "appleFontsGenTask"
-    private val appleFontsPackagingGenTask = "appleFontsPackagingGenTask"
     private val applePackageXcodeGenTask = "applePackageXcodeGenTask"
 
     fun getAtlasXCAssetFilePackagingTask(project: Project): TaskProvider<XcAssetPackagingTask> {
@@ -40,20 +38,6 @@ object AppleResPluginHelpers {
             iOSResourcesFontsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/fonts/fontFiles"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/fonts"))
-        }
-    }
-
-    fun getAppleFontsPackagingResourceTask(project: Project): TaskProvider<XcFontAssetsPackagingTask> {
-        val iosProject = ProjectFinder.findIosClientApp(project)
-        return project.tasks.register(
-            appleFontsPackagingGenTask,
-            XcFontAssetsPackagingTask::class.java
-        ) {
-            iOSProjectDirectory = iosProject?.absolutePath ?: ""
-            fontDirectory =
-                "${project.layout.buildDirectory.asFile.get().path}/generated/iosMain/resources/fonts/fontFiles"
-            injectPlistScriptFile.set(project.layout.buildDirectory.file("generated/iosMain/resources/fonts/scripts/updateInfoPlistFonts.sh"))
-            copyScriptFile.set(project.layout.buildDirectory.file("generated/iosMain/resources/fonts/scripts/copyAtlasAssets.sh"))
         }
     }
 }
