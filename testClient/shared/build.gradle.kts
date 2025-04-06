@@ -19,9 +19,6 @@ plugins {
 //    finalizedBy(copySwiftExtensionsDebug)
 //}
 
-dependencies{
-    implementation(libs.atlas.common)
-}
 kotlin {
     androidTarget {
         compilations.all {
@@ -52,9 +49,6 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
-                //api(projects.atlasCoreShared)
-
-                implementation(libs.atlas.common)
                 api(libs.atlas.core)
             }
         }
@@ -71,10 +65,6 @@ kotlin {
         }
 
         val iosMain by creating {
-            kotlin.srcDirs(
-                project.layout.buildDirectory.dir("generated/iosMain/kotlin").get().asFile,
-                project.layout.buildDirectory.dir("generated/iosMain/resources").get().asFile
-            )
             dependsOn(commonMain) // ✅ Ensure iOS depends on `commonMain`
         }
 

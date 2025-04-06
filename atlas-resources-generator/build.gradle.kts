@@ -42,7 +42,7 @@ dependencies{
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
     implementation("org.apache.pdfbox:fontbox:2.0.30")
-    implementation(libs.atlas.common)
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.2")
 }
 
 ////

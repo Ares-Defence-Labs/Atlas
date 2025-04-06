@@ -7,7 +7,6 @@ import com.architect.atlasResGen.tasks.fonts.AtlasFontPluginTask
 import com.architect.atlasResGen.tasks.images.AtlasImagePluginTask
 import com.architect.atlasResGen.tasks.strings.AtlasStringPluginTask
 import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.tasks.TaskProvider
 
 internal object ResPluginHelpers {
@@ -15,25 +14,6 @@ internal object ResPluginHelpers {
     private val colorGenTask = "generateAtlasColorsGraph"
     private val imageGenTask = "generateAtlasImagesGraph"
     private val fontsGenTask = "generateAtlasFontsGraph"
-
-    fun attachDependenciesToGraph(
-        project: Project,
-        generateDependencyGraphTask: Task,
-        androidTasks: List<String>
-    ) {
-        project.rootProject.allprojects.forEach { subProject ->
-            androidTasks.forEach { taskName ->
-                val dependencyTask: Task? = subProject.tasks.findByName(taskName)
-
-                if (dependencyTask != null) {
-                    generateDependencyGraphTask.dependsOn(dependencyTask)
-                    project.logger.lifecycle("✅ `${dependencyTask.name}` now depends on `:${subProject.name}:$taskName`")
-                } else {
-                    project.logger.lifecycle("⚠️ `:${subProject.name}:$taskName` not found")
-                }
-            }
-        }
-    }
 
     fun getStringResourceTask(project: Project): TaskProvider<AtlasStringPluginTask> {
         return project.tasks.register(
@@ -111,16 +91,6 @@ internal object ResPluginHelpers {
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
             isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
         }
-    }
-
-    fun prepareResourcesDirectory(project: Project) {
-        // 🧹 Clean the output directory first (to force regeneration)
-        val outputBase =
-            project.layout.buildDirectory.dir("generated/commonMain/resources").get().asFile
-        if (outputBase.exists()) {
-            outputBase.deleteRecursively()
-        }
-        outputBase.mkdirs() // destroy the tasks
     }
 }
 

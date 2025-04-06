@@ -6,24 +6,6 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       buildArchitectures = "Automatic">
-      <PreActions>
-         <ExecutionAction
-            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
-            <ActionContent
-               title = "Run Script"
-               scriptText = "# Go to root directory where gradlew is&#10;cd &quot;${SRCROOT}/..&quot; || exit 1&#10;&#10;# Call Gradle with custom property&#10;./gradlew :shared:build -PisBuildingForIos=true&#10;">
-               <EnvironmentBuildable>
-                  <BuildableReference
-                     BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "7555FF7A242A565900829871"
-                     BuildableName = "iosApp.app"
-                     BlueprintName = "iosApp"
-                     ReferencedContainer = "container:iosApp.xcodeproj">
-                  </BuildableReference>
-               </EnvironmentBuildable>
-            </ActionContent>
-         </ExecutionAction>
-      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"

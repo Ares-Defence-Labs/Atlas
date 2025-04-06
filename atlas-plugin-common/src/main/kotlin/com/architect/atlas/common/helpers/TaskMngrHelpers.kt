@@ -3,6 +3,7 @@ package com.architect.atlas.common.helpers
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.tasks.TaskProvider
 
 object TaskMngrHelpers{
     private val stringsGenTask = "generateAtlasStringsGraph"
@@ -152,6 +153,42 @@ object TaskMngrHelpers{
                 } else {
                     project.logger.lifecycle("⚠️ `:${subProject.name}:$taskName` not found. Skipping dependency assignment.")
                 }
+            }
+        }
+    }
+
+    fun taskOrderConfig(
+        project: Project,
+        generateDependencyTask: Task
+    ) {
+        project.tasks.matching { it.name.startsWith("compile") }.configureEach {
+            mustRunAfter(generateDependencyTask)
+        }
+        project.tasks.matching {
+            it.name.contains("compile") && it.name.contains("Kotlin") && it.name.contains(
+                "android"
+            )
+        }.configureEach {
+            mustRunAfter(generateDependencyTask)
+        }
+
+        project.tasks.matching {
+            it.name in listOf("preBuild", "assemble", "build")
+        }.configureEach {
+            dependsOn(generateDependencyTask)
+        }
+
+        project.tasks.named("generateDependencyGraph").configure {
+            mustRunAfter("debugAssetsCopyForAGP", "prepareLintJarForPublish")
+        }
+
+        val requiredTasks = TaskDefinitions.getiOSTaskDependencies()
+        requiredTasks.forEach { taskName ->
+            val dependencyTask = project.tasks.findByName(taskName)
+            if (dependencyTask != null) {
+                dependencyTask.dependsOn(generateDependencyTask)
+            } else {
+                project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
         }
     }

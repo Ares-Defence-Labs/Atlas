@@ -20,7 +20,7 @@ dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation(libs.atlas.common)
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.2")
 }
 
 java {

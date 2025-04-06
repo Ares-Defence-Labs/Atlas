@@ -16,6 +16,10 @@ object TaskDefinitions{
             "kspKotlinIosSimulatorArm64",
             "generateMRiosSimulatorMain",
             "xcodeVersion",
+            "releaseAssetsCopyForAGP",
+            "packageDebugResources",
+            "packageReleaseResources",
+            "generateDebugResValues"
         )
     }
 
