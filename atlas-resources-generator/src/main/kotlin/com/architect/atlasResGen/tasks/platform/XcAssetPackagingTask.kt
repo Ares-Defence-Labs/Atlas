@@ -1,6 +1,6 @@
 package com.architect.atlasResGen.tasks.platform
 
-import com.architect.atlasResGen.helpers.FileHelpers
+import com.architect.atlas.common.helpers.FileHelpers
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask

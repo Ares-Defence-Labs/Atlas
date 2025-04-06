@@ -1,7 +1,6 @@
 package com.architect.atlasResGen.tasks.images
 
-import com.architect.atlasResGen.helpers.FileHelpers
-import com.architect.atlasResGen.helpers.ResPluginHelpers
+import com.architect.atlas.common.helpers.FileHelpers
 import net.coobird.thumbnailator.Thumbnails
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty

@@ -5,6 +5,7 @@ plugins {
     //id("io.github.thearchitect123.atlasGraphGenerator") version "0.5.8"
     id("io.github.thearchitect123.atlasGraphGenerator")
     id("io.github.thearchitect123.atlasResourcesGenerator")
+    id("io.github.thearchitect123.atlasNavigationEngineGenerator")
 }
 //
 //val copySwiftExtensionsDebug by tasks.registering(Copy::class) {
@@ -18,6 +19,9 @@ plugins {
 //    finalizedBy(copySwiftExtensionsDebug)
 //}
 
+dependencies{
+    implementation(libs.atlas.common)
+}
 kotlin {
     androidTarget {
         compilations.all {
@@ -50,6 +54,7 @@ kotlin {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
                 //api(projects.atlasCoreShared)
 
+                implementation(libs.atlas.common)
                 api(libs.atlas.core)
             }
         }

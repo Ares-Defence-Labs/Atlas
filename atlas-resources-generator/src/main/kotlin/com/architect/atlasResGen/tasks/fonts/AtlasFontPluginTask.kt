@@ -1,6 +1,5 @@
 package com.architect.atlasResGen.tasks.fonts
 
-import com.architect.atlasResGen.helpers.FileHelpers
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask

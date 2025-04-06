@@ -1,5 +1,7 @@
 package com.architect.atlasResGen.helpers
 
+import com.architect.atlas.common.helpers.FileHelpers
+import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlasResGen.tasks.fonts.AppleAtlasFontPluginTask
 import com.architect.atlasResGen.tasks.platform.XcAssetPackagingTask
 import com.architect.atlasResGen.tasks.platform.XcFontAssetsPackagingTask

@@ -1,5 +1,7 @@
 package com.architect.atlasResGen.helpers
 
+import com.architect.atlas.common.helpers.FileHelpers
+import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlasResGen.tasks.colors.AtlasColorsPluginTask
 import com.architect.atlasResGen.tasks.fonts.AtlasFontPluginTask
 import com.architect.atlasResGen.tasks.images.AtlasImagePluginTask
@@ -13,8 +15,6 @@ internal object ResPluginHelpers {
     private val colorGenTask = "generateAtlasColorsGraph"
     private val imageGenTask = "generateAtlasImagesGraph"
     private val fontsGenTask = "generateAtlasFontsGraph"
-    fun isDebugMode(project: Project) =
-        project.tasks.any { it.name.contains("debug", ignoreCase = true) }
 
     fun attachDependenciesToGraph(
         project: Project,

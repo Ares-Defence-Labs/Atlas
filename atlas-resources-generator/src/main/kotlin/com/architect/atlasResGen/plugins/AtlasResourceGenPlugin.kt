@@ -1,100 +1,16 @@
 package com.architect.atlasResGen.plugins
 
 import com.android.build.api.dsl.ApplicationExtension
+import com.architect.atlas.common.helpers.ProjectFinder
+import com.architect.atlas.common.helpers.TaskDefinitions
+import com.architect.atlas.common.helpers.TaskMngrHelpers
 import com.architect.atlasResGen.helpers.AppleResPluginHelpers
-import com.architect.atlasResGen.helpers.FileHelpers.runShellScript
-import com.architect.atlasResGen.helpers.ProjectFinder
 import com.architect.atlasResGen.helpers.ResPluginHelpers
-import com.architect.atlasResGen.helpers.TaskDefinitions
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.api.execution.TaskExecutionGraph
-import org.gradle.api.execution.TaskExecutionGraphListener
 
 class AtlasResourceGenPlugin : Plugin<Project> {
-    private fun configureBuildFolders(project: Project) {
-        val kmpExt =
-            project.extensions.getByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-                ?: error("Kotlin Multiplatform plugin not applied")
-
-        // android main
-        val androidMain = kmpExt.sourceSets.getByName("androidMain")
-        androidMain.kotlin.srcDirs(
-            project.layout.buildDirectory.dir("generated/androidMain/kotlin").get().asFile,
-            project.layout.buildDirectory.dir("generated/androidMain/resources").get().asFile
-        )
-
-        val iosMain = kmpExt.sourceSets.getByName("iosMain")
-        iosMain.kotlin.srcDirs(
-            project.layout.buildDirectory.dir("generated/iosMain/kotlin").get().asFile,
-            project.layout.buildDirectory.dir("generated/iosMain/resources").get().asFile
-        )
-
-        val commonMain = kmpExt.sourceSets.getByName("commonMain")
-        commonMain.kotlin.srcDirs(
-            project.layout.buildDirectory.dir("generated/commonMain/kotlin").get().asFile,
-            project.layout.buildDirectory.dir("generated/commonMain/resources").get().asFile
-        )
-    }
-
-    private fun platformClientsBuildFolders(project: Project) {
-        project.logger.lifecycle("📁 Setting up Android project directories for generated resources")
-
-        val androidProject = ProjectFinder.findAndroidClientApp(project)
-        if (androidProject != null) {
-            val androidExt = androidProject.extensions.findByType(ApplicationExtension::class.java)
-            if (androidExt == null) {
-                project.logger.error("❌ Could not find ApplicationExtension on androidApp project")
-                return
-            }
-
-            androidExt.sourceSets.named("main").configure {
-                java.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile
-                )
-                java.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources")
-                        .get().asFile
-                )
-                java.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/resources").get().asFile
-                )
-                java.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/fonts")
-                        .get().asFile
-                )
-                java.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/images")
-                        .get().asFile
-                )
-
-                kotlin.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin").get().asFile
-                )
-                kotlin.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources")
-                        .get().asFile
-                )
-                kotlin.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/resources").get().asFile
-                )
-                kotlin.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/fonts")
-                        .get().asFile
-                )
-                kotlin.srcDir(
-                    androidProject.layout.buildDirectory.dir("generated/kotlin/resources/images")
-                        .get().asFile
-                )
-            }
-
-            project.logger.lifecycle("✅ Added generated sources to androidApp's sourceSets.main")
-        } else {
-            project.logger.warn("⚠️ androidApp module not found – cannot add generated source folders")
-        }
-    }
-
     private fun processRegisterTaskDependencies(
         project: Project,
         requiredExtraTasks: List<String>,
@@ -237,8 +153,8 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 androidTasks
             )
 
-            configureBuildFolders(project)
-            platformClientsBuildFolders(project)
+            TaskMngrHelpers.configureBuildFolders(project)
+            TaskMngrHelpers.platformClientsBuildFolders(project)
         }
     }
 }

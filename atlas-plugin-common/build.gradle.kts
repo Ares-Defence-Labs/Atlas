@@ -9,12 +9,12 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.29.0"
     id("signing")
 }
-//
-repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal() // Local Testing Only
-}
+////
+//repositories {
+//    google()
+//    mavenCentral()
+//    gradlePluginPortal() // Local Testing Only
+//}
 
 java {
     toolchain {
@@ -28,36 +28,24 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
-gradlePlugin {
-    plugins {
-        create("resourcesGeneratorGraphPlugin") {
-            id = "io.github.thearchitect123.atlasResourcesGenerator"
-            implementationClass = "com.architect.atlasResGen.plugins.AtlasResourceGenPlugin"
-        }
-    }
-}
-
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
-    implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("org.apache.pdfbox:fontbox:2.0.30")
-    implementation(libs.atlas.common)
 }
 
-////
+//////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
-//        artifactId = "atlas-res-generator",
-//        version = "0.1.2"
+//        artifactId = "atlas-plugin-common",
+//        version = "0.0.2"
 //    )
 //
 //    // Configure POM metadata for the published artifact
 //    pom {
-//        name.set("AtlasResGen")
-//        description.set("A resource generator plugin for Atlas SDK. Used for generating strings, images, colors, based on definition files inside your project")
+//        name.set("AtlasPluginCommon")
+//        description.set("Common utility functions to be shared between plugins")
 //        inceptionYear.set("2025")
 //        url.set("https://github.com/TheArchitect123/Atlas")
 //

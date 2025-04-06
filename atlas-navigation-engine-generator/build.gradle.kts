@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.29.0"
     id("signing")
 }
-//
+////
 repositories {
     google()
     mavenCentral()
@@ -30,9 +30,9 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 gradlePlugin {
     plugins {
-        create("resourcesGeneratorGraphPlugin") {
-            id = "io.github.thearchitect123.atlasResourcesGenerator"
-            implementationClass = "com.architect.atlasResGen.plugins.AtlasResourceGenPlugin"
+        create("navigationEngineGeneratorGraphPlugin") {
+            id = "io.github.thearchitect123.atlasNavigationEngineGenerator"
+            implementationClass = "com.architect.atlas.navigationEngine.plugins.NavigationEngineGenPlugin"
         }
     }
 }
@@ -50,8 +50,8 @@ dependencies{
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
-//        artifactId = "atlas-res-generator",
-//        version = "0.1.2"
+//        artifactId = "atlas-navEngine-generator",
+//        version = "0.0.1"
 //    )
 //
 //    // Configure POM metadata for the published artifact

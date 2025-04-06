@@ -1,7 +1,7 @@
 package com.architect.atlasResGen.tasks.fonts
 
-import com.architect.atlasResGen.helpers.FileHelpers
-import org.apache.fontbox.ttf.TTFParser
+import com.architect.atlas.common.helpers.FileHelpers
+import com.architect.atlasResGen.helpers.ResGenFileHelpers
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.CacheableTask
@@ -97,7 +97,7 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
 
         for ((name, file) in entries) {
             val fontName = file.name
-            val postName = FileHelpers.extractPostScriptName(file)
+            val postName = ResGenFileHelpers.extractPostScriptName(file)
 
             logger.lifecycle("FONT NAME : $postName")
             builder.appendLine("    fun $name(size: Double): UIFont =")

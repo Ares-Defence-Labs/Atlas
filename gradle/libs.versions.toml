@@ -16,6 +16,7 @@ navigationUiKtx = "2.8.8"
 composeCore="1.10.1"
 kotlinCore = "1.8.0"
 atlasCore="0.3.7"
+atlasCommon="0.0.2"
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -25,6 +26,7 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 jetbrainsKotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
 
 [libraries]
+atlas-common={ group = "io.github.thearchitect123", name="atlas-plugin-common", version.ref = "atlasCommon" }
 atlas-core={ group = "io.github.thearchitect123", name="atlas-core", version.ref = "atlasCore" }
 androidx-live-data = { group = "androidx.lifecycle", name="lifecycle-livedata-ktx", version.ref = "androidJetpack" }
 androidx-activity-compose = { group = "androidx.activity", name="activity-compose", version.ref = "composeCore" }
