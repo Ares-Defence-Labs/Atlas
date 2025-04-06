@@ -5,7 +5,7 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.tasks.TaskProvider
 
-object TaskMngrHelpers{
+object TaskMngrHelpers {
     private val stringsGenTask = "generateAtlasStringsGraph"
     private val colorGenTask = "generateAtlasColorsGraph"
     private val imageGenTask = "generateAtlasImagesGraph"
@@ -178,9 +178,7 @@ object TaskMngrHelpers{
             dependsOn(generateDependencyTask)
         }
 
-        project.tasks.named("generateDependencyGraph").configure {
-            mustRunAfter("debugAssetsCopyForAGP", "prepareLintJarForPublish")
-        }
+        generateDependencyTask.mustRunAfter("debugAssetsCopyForAGP", "prepareLintJarForPublish")
 
         val requiredTasks = TaskDefinitions.getiOSTaskDependencies()
         requiredTasks.forEach { taskName ->
@@ -190,6 +188,12 @@ object TaskMngrHelpers{
             } else {
                 project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
+        }
+
+        project.afterEvaluate {
+            SourceSetsHelper.prepareResourcesDirectory(project)
+            configureBuildFolders(project)
+            platformClientsBuildFolders(project)
         }
     }
 }

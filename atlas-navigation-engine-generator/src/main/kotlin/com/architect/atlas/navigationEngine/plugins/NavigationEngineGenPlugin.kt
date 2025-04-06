@@ -1,52 +1,38 @@
 package com.architect.atlas.navigationEngine.plugins
 
-import com.architect.atlas.common.helpers.TaskDefinitions
 import com.architect.atlas.common.helpers.TaskMngrHelpers
 import com.architect.atlas.navigationEngine.helpers.ResPluginHelpers
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
 
 class NavigationEngineGenPlugin : Plugin<Project> {
+    private val graphGen = "generateDependencyGraph"
+    private val applePackageXcodeGenTask = "applePackageXcodeGenTask"
+    private val stringsGenTask = "generateAtlasStringsGraph"
+    private fun taskOrderConfig(
+        project: Project,
+        generateDependencyGraphTask: Task
+    ) {
+        val dependencyGraphTask = project.rootProject.allprojects
+            .flatMap { it.tasks }
+            .filter { it.name in listOf(graphGen, stringsGenTask, applePackageXcodeGenTask) }
+
+        if (dependencyGraphTask.isNotEmpty()) {
+            dependencyGraphTask.forEach {
+                project.logger.lifecycle("✅ Found and linking to task: ${it.path}")
+                generateDependencyGraphTask.dependsOn(it)
+                generateDependencyGraphTask.mustRunAfter(it)
+            }
+        }
+
+        TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
+    }
 
     override fun apply(project: Project) {
-        //val generateUIKitNavGraphTask = ResPluginHelpers.getSwiftUIKitGenTask(project)
+        val generateUIKitNavGraphTask = ResPluginHelpers.getSwiftUIKitGenTask(project)
         //val generateDroidComposeGraphTask = ResPluginHelpers.getDroidComposeResourceTask(project)
 
-
-//        project.tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
-//            dependsOn(generateUIKitNavGraphTask)
-//            //     dependsOn(generateDroidComposeGraphTask)
-//        }
-//
-//        // ✅ Ensure `generateDependencyGraph` runs before **Android Kotlin compilation**
-//        project.tasks.matching {
-//            it.name.contains("compile") && it.name.contains("Kotlin") && it.name.contains(
-//                "Android"
-//            )
-//        }.configureEach {
-//            //       dependsOn(generateDroidComposeGraphTask)
-//        }
-//
-//        val requiredTasks = TaskDefinitions.getiOSTaskDependencies()
-//        requiredTasks.forEach { taskName ->
-//            val dependencyTask = project.tasks.findByName(taskName)
-//            if (dependencyTask != null) {
-//                generateUIKitNavGraphTask.configure { dependsOn(dependencyTask) }
-//            } else {
-//                project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
-//            }
-//        }
-//
-//        val androidTasks = TaskDefinitions.getAndroidTaskDependencies(project)
-//        project.afterEvaluate {
-//            TaskMngrHelpers.attachDependenciesToGraph(
-//                project,
-//                generateUIKitNavGraphTask.get(),
-//                androidTasks
-//            )
-//            TaskMngrHelpers.platformClientsBuildFolders(project)
-//        }
-//
-//
+        taskOrderConfig(project, generateUIKitNavGraphTask.get())
     }
 }

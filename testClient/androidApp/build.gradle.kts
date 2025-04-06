@@ -6,9 +6,9 @@ plugins {
 
 
 android {
-//    sourceSets["main"].java.srcDirs(
-//        "${layout.buildDirectory}/generated/kotlin"
-//    )
+    sourceSets["main"].java.srcDirs(
+        "${layout.buildDirectory}/generated/kotlin"
+    )
 
     namespace = "com.architect.atlastestclient.android"
     compileSdk = 35

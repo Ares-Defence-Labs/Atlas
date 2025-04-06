@@ -42,7 +42,7 @@ dependencies{
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
     implementation("org.apache.pdfbox:fontbox:2.0.30")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.2")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.6")
 }
 
 ////
@@ -56,8 +56,8 @@ dependencies{
 //
 //    // Configure POM metadata for the published artifact
 //    pom {
-//        name.set("AtlasResGen")
-//        description.set("A resource generator plugin for Atlas SDK. Used for generating strings, images, colors, based on definition files inside your project")
+//        name.set("AtlasNavGen")
+//        description.set("A navigation engine generator plugin for Atlas SDK. Supports all Platforms")
 //        inceptionYear.set("2025")
 //        url.set("https://github.com/TheArchitect123/Atlas")
 //
