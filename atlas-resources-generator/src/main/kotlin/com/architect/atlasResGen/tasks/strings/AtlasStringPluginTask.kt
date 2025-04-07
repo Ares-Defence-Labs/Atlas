@@ -27,10 +27,6 @@ abstract class AtlasStringPluginTask : DefaultTask(){
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
 
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val androidResources: ConfigurableFileCollection
-
     @get:Input
     abstract var isAndroidTarget: Boolean
 
@@ -38,7 +34,6 @@ abstract class AtlasStringPluginTask : DefaultTask(){
         group = "AtlasStrings"
         description = "Generates a resource class file based on the xml specified"
         outputs.upToDateWhen { false }
-        androidResources.from(project.layout.projectDirectory.dir("androidApp/build/intermediates/res/merged/debug"))
     }
 
     @TaskAction

@@ -20,7 +20,7 @@ dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.6")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.7")
 }
 
 java {
@@ -44,13 +44,13 @@ gradlePlugin {
     }
 }
 //
-//////////
+////////////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-graph-generator",
-//        version = "0.6.5"
+//        version = "0.6.6"
 //    )
 //
 //    // Configure POM metadata for the published artifact

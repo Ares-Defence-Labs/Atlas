@@ -27,10 +27,6 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
 
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val androidResources: ConfigurableFileCollection
-
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
 
@@ -41,7 +37,6 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
         group = "AtlasColors"
         description = "Generates a resource class file based on the xml specified"
         outputs.upToDateWhen { false }
-        androidResources.from(project.layout.projectDirectory.dir("androidApp/build/intermediates/res/merged/debug"))
     }
 
     @TaskAction
@@ -64,42 +59,16 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
             colors.add(key to value)
         }
 
-        // --- 1. Generate expect declarations in commonMain ---
-        val atlasColorsExpect = buildString {
-            appendLine("package com.architect.atlas.resources.colors")
-            appendLine()
-            appendLine("expect class AtlasColors {")
-            appendLine("companion object {")
-            colors.forEach { (key, _) ->
-                appendLine("    val $key: PlatformColor")
-            }
-            appendLine("}")
-            appendLine("}")
-        }
-
-        val platformColorExpect = """
-            package com.architect.atlas.resources.colors
-
-            expect class PlatformColor {
-                val raw: String
-            }
-        """.trimIndent()
-
-        val commonOut = File(outputDir.get().asFile, "atlas/generated/colors")
-        commonOut.mkdirs()
-        File(commonOut, "AtlasColors.kt").writeText(atlasColorsExpect)
-        File(commonOut, "PlatformColor.kt").writeText(platformColorExpect)
-
         // --- 2. Generate actual object + class for Android ---
         val androidAtlasColors = buildString {
             appendLine("package com.architect.atlas.resources.colors")
             appendLine()
             appendLine("import android.graphics.Color")
             appendLine()
-            appendLine("actual class AtlasColors {")
-            appendLine("actual companion object {")
+            appendLine("class AtlasColors {")
+            appendLine("    companion object {")
             colors.forEach { (key, value) ->
-                appendLine("    actual val $key = PlatformColor(\"$value\")")
+                appendLine("  val $key = PlatformColor(\"$value\")")
             }
             appendLine("}")
             appendLine("}")
@@ -108,13 +77,13 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
         val androidPlatformColor = """
             package com.architect.atlas.resources.colors
 
-            actual class PlatformColor (actual val raw: String) {
+            class PlatformColor (val raw: String) {
                 val colorInt: Int
                     get() = android.graphics.Color.parseColor(raw)
             }
         """.trimIndent()
 
-        val androidOut = File(androidOutputDir.get().asFile, "atlas/generated/colors")
+        val androidOut = File(androidOutputDir.get().asFile, "colors")
         androidOut.mkdirs()
         File(androidOut, "AtlasColors.kt").writeText(androidAtlasColors)
         File(androidOut, "PlatformColor.kt").writeText(androidPlatformColor)
@@ -123,10 +92,10 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
         val iosAtlasColors = buildString {
             appendLine("package com.architect.atlas.resources.colors")
             appendLine()
-            appendLine("actual class AtlasColors {")
-            appendLine("actual companion object {")
+            appendLine("class AtlasColors {")
+            appendLine("companion object {")
             colors.forEach { (key, value) ->
-                appendLine("    actual val $key = PlatformColor(\"$value\")")
+                appendLine("    val $key = PlatformColor(\"$value\")")
             }
             appendLine("}")
             appendLine("}")
@@ -137,7 +106,7 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
             
             import platform.UIKit.UIColor
 
-            actual class PlatformColor(actual val raw: String) {
+            class PlatformColor(val raw: String) {
                 fun uiColor(): UIColor = hexToUIColor(raw)
                 fun swiftUIColor(): String = raw
             }
@@ -158,7 +127,7 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
             }
         """.trimIndent()
 
-        val iosOut = File(outputIosDir.get().asFile, "atlas/generated/colors")
+        val iosOut = File(outputIosDir.get().asFile, "colors")
         iosOut.mkdirs()
         File(iosOut, "AtlasColors.kt").writeText(iosAtlasColors)
         File(iosOut, "PlatformColor.kt").writeText(iosPlatformColor)

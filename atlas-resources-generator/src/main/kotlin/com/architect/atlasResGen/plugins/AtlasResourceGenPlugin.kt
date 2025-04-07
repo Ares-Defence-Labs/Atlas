@@ -37,6 +37,9 @@ class AtlasResourceGenPlugin : Plugin<Project> {
             AppleResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
         val generateAppleFontFiles =
             AppleResPluginHelpers.getAppleFontsResourceTask(project)
+        val generateAppleScriptsGenFontFiles =
+            AppleResPluginHelpers.getAppleFontsPackagingResourceTask(project)
+
 
         taskOrderConfig(project, generateStringsResources.get())
         taskOrderConfig(project, generateColorsResources.get())
@@ -44,6 +47,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         taskOrderConfig(project, generateFontsResources.get())
         taskOrderConfig(project, generateAtlasXCAssetFileResources.get())
         taskOrderConfig(project, generateAppleFontFiles.get())
+        taskOrderConfig(project, generateAppleScriptsGenFontFiles.get())
 
         generateColorsResources.configure {
             mustRunAfter(generateStringsResources)
@@ -59,6 +63,10 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         }
         generateAppleFontFiles.configure {
             mustRunAfter(generateAtlasXCAssetFileResources)
+        }
+
+        generateAppleScriptsGenFontFiles.configure {
+            mustRunAfter(generateAppleFontFiles)
         }
     }
 }

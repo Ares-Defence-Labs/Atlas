@@ -32,14 +32,14 @@ dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("com.android.tools.build:gradle:8.2.0")
 }
-
+//
 //////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-plugin-common",
-//        version = "0.0.6"
+//        version = "0.0.7"
 //    )
 //
 //    // Configure POM metadata for the published artifact

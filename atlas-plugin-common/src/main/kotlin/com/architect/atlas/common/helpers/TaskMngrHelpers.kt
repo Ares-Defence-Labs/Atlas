@@ -191,7 +191,6 @@ object TaskMngrHelpers {
         }
 
         project.afterEvaluate {
-            SourceSetsHelper.prepareResourcesDirectory(project)
             configureBuildFolders(project)
             platformClientsBuildFolders(project)
         }

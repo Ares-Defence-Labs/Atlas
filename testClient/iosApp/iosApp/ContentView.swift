@@ -8,6 +8,7 @@ struct ContentView: View {
 	var body: some View {
         VStack {
             
+            
 //            Image(uiImage: AtlasImages.companion.android_svg!) .frame(maxWidth: .infinity)
 //                
 //            Text("Centered")
