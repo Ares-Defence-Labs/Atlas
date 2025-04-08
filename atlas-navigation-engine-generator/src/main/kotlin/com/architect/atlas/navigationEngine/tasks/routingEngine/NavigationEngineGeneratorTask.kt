@@ -81,7 +81,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         val androidImpl = buildString {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
-            viewModelImports.forEach { appendLine("import \$it") }
+            viewModelImports.forEach { appendLine("import $it") }
             appendLine("import androidx.navigation.NavHostController")
             appendLine("import com.architect.atlas.architecture.navigation.AtlasNavigationService")
             appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
@@ -93,7 +93,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    lateinit var navController: NavHostController")
             appendLine("    private val viewModelToRouteMap: Map<KClass<out ViewModel>, String> = mapOf(")
             for ((viewModel, screenName) in screens) {
-                appendLine("        \$viewModel::class to \"\$screenName\",")
+                appendLine("$viewModel::class to \"$screenName\",")
             }
             appendLine("    )")
             appendLine()
@@ -142,10 +142,13 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             root.walkTopDown().forEach { file ->
                 if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
                 val lines = file.readLines()
-                if (lines.any { it.contains("class \$viewModelName") || it.contains("object \$viewModelName") }) {
+
+                // Check if class or object with this ViewModel name is defined
+                if (lines.any { it.contains("class $viewModelName") || it.contains("object $viewModelName") }) {
                     val packageLine = lines.firstOrNull { it.trim().startsWith("package ") }
-                        ?.removePrefix("package ")?.trim()
-                    return packageLine?.let { "\$it.\$viewModelName" }
+                        ?.removePrefix("package ")
+                        ?.trim()
+                    return packageLine?.let { "$it.$viewModelName" }
                 }
             }
         }
@@ -180,6 +183,25 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import androidx.navigation.compose.composable")
             appendLine("import androidx.navigation.compose.rememberNavController")
             appendLine()
+//            appendLine("""
+//                fun parseParam(raw: String?, viewModel: ViewModel): Any? {
+//                    if (raw.isNullOrEmpty()) return null
+//
+//                    return try {
+//                        when (viewModel) {
+//                            is Pushable<Int> -> raw.toIntOrNull()
+//                            is Pushable<Long> -> raw.toLongOrNull()
+//                            is Pushable<Double> -> raw.toDoubleOrNull()
+//                            is Pushable<Boolean> -> raw.toBooleanStrictOrNull()
+//                            is Pushable<String> -> raw
+//                            else -> Json.decodeFromString(raw)
+//                        }
+//                    } catch (e: Exception) {
+//                        null
+//                    }
+//                }
+//            """.trimIndent())
+
             appendLine("@Composable")
             appendLine("fun AtlasNavGraph() {")
             appendLine("    val navController = rememberNavController()")
