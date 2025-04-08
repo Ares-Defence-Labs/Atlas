@@ -57,7 +57,7 @@ class MainActivity : FragmentActivity() {
 @Composable
 fun GreetingView(vm: DroidStandard) {
     Button({
-        AtlasNavigation.navigateToPage(DroidStandardSecond::class)
+        AtlasNavigation.navigateToPage(DroidStandardSecond::class,"Hello There")
     }){
         Text(text = "Screen 1 Button")
     }
@@ -67,7 +67,7 @@ fun GreetingView(vm: DroidStandard) {
 @Composable
 fun GreetingSecondView(vm: DroidStandardSecond) {
     Button({
-        AtlasNavigation.navigateToPage(DroidStandardSecond::class)
+        AtlasNavigation.navigateToPage(DroidStandardSecond::class, )
     }){
         Text(text = "Second Screen. CLICK ME!!!")
     }
