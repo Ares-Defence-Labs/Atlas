@@ -74,6 +74,6 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int>{
     }
 
     override fun onPopParams(params: Int) {
-        TODO("Not yet implemented")
+        KmpLogging.writeInfo("POP", "$params")
     }
 }

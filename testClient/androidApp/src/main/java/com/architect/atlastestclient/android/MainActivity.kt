@@ -67,7 +67,7 @@ fun GreetingView(vm: DroidStandard) {
 @Composable
 fun GreetingSecondView(vm: DroidStandardSecond) {
     Button({
-        AtlasNavigation.navigateToPage(DroidStandardSecond::class, )
+        AtlasNavigation.popPage(true, 12)
     }){
         Text(text = "Second Screen. CLICK ME!!!")
     }

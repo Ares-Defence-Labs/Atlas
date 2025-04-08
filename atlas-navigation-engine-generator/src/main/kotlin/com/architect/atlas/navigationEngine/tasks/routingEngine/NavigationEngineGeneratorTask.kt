@@ -83,52 +83,106 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine()
             viewModelImports.forEach { appendLine("import $it") }
             appendLine("import androidx.navigation.NavHostController")
+            appendLine("import androidx.lifecycle.ViewModelStoreOwner")
+            appendLine("import androidx.lifecycle.viewmodel.compose.viewModel")
             appendLine("import com.architect.atlas.architecture.navigation.AtlasNavigationService")
             appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
+            appendLine("import com.architect.atlas.architecture.navigation.Poppable")
             appendLine("import kotlin.reflect.KClass")
             appendLine("import kotlinx.serialization.encodeToString")
             appendLine("import kotlinx.serialization.json.Json")
             appendLine()
+
             appendLine("object AtlasNavigation : AtlasNavigationService {")
             appendLine("    lateinit var navController: NavHostController")
+            appendLine("    private val navigationStack = mutableListOf<KClass<out ViewModel>>()")
             appendLine("    private val viewModelToRouteMap: Map<KClass<out ViewModel>, String> = mapOf(")
             for ((viewModel, screenName) in screens) {
-                appendLine("$viewModel::class to \"$screenName\",")
+                appendLine("        $viewModel::class to \"$screenName\",")
             }
             appendLine("    )")
-            appendLine()
+            appendLine("    private val routeToViewModelMap: Map<String, KClass<out ViewModel>> = viewModelToRouteMap.entries.associate { it.value to it.key }")
+
             appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        val route = viewModelToRouteMap[viewModelClass]")
-            appendLine("            ?: error(\"No screen registered for \$viewModelClass\")")
-            appendLine("        val encodedParam = params?.let {")
+            appendLine("        val route = viewModelToRouteMap[viewModelClass] ?: error(\"No screen registered for \$viewModelClass\")")
+            appendLine("        navigationStack.add(viewModelClass)")
+            appendLine("        val encoded = params?.let {")
             appendLine("            when (it) {")
             appendLine("                is String, is Number, is Boolean -> it.toString()")
             appendLine("                else -> Json.encodeToString(it)")
             appendLine("            }")
             appendLine("        } ?: \"\"")
-            appendLine("        navController.navigate(\"\$route?pushParam=\$encodedParam\")")
+            appendLine("        navController.navigate(\"\$route?pushParam=\$encoded\")")
             appendLine("    }")
-            appendLine()
+
             appendLine("    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {")
             appendLine("        navigateToPage(viewModelClass, params)")
             appendLine("    }")
+
             appendLine("    override fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any?) { }")
             appendLine("    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()")
+
             appendLine("    override fun popToRoot(animate: Boolean, params: Any?) {")
-            appendLine("        navController.popBackStack(0, animate)")
+            appendLine("        while (navigationStack.size > 1) {")
+            appendLine("            navController.popBackStack()")
+            appendLine("            handlePopParams(params)")
+            appendLine("        }")
             appendLine("    }")
+
             appendLine("    override fun popPage(animate: Boolean, params: Any?) {")
-            appendLine("        navController.popBackStack()");
+            appendLine("        navController.popBackStack()")
+            appendLine("        handlePopParams(params)")
             appendLine("    }")
+
             appendLine("    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {")
-            appendLine("        repeat(countOfPages) { navController.popBackStack() }")
+            appendLine("        repeat(countOfPages) {")
+            appendLine("            navController.popBackStack()")
+            appendLine("            handlePopParams(params)")
+            appendLine("        }")
             appendLine("    }")
+
             appendLine("    override fun popToPage(route: String, params: Any?) {")
-            appendLine("        navController.popBackStack(route, inclusive = false)")
+            appendLine("        navController.popBackStack(route, false)")
+            appendLine("        handlePopParams(params)")
             appendLine("    }")
+
             appendLine("    override fun dismissModal(animate: Boolean, params: Any?) {")
-            appendLine("        navController.popBackStack()");
+            appendLine("        navController.popBackStack()")
+            appendLine("        handlePopParams(params)")
             appendLine("    }")
+
+            appendLine("    private fun handlePopParams(params: Any?) {")
+            appendLine("        if (navigationStack.size < 2) return")
+            appendLine("        navigationStack.removeLastOrNull()")
+            appendLine("        val previousVmClass = navigationStack.lastOrNull() ?: return")
+            appendLine("        val encoded = params?.let {")
+            appendLine("            when (it) {")
+            appendLine("                is String, is Number, is Boolean -> it.toString()")
+            appendLine("                else -> Json.encodeToString(it)")
+            appendLine("            }")
+            appendLine("        } ?: return")
+            appendLine("        navController.currentBackStackEntry?.let { backStackEntry ->")
+            appendLine("""
+                val decoded: Any = when {
+            encoded.toIntOrNull() != null -> encoded.toInt()
+            encoded.toDoubleOrNull() != null -> encoded.toDouble()
+            encoded.equals("true", true) || encoded.equals("false", true) -> encoded.toBoolean()
+            else -> try {
+                Json.decodeFromString(encoded)
+            } catch (_: Exception) {
+                encoded
+            }
+        }
+            """.trimIndent())
+            appendLine("            val vm = androidx.lifecycle.ViewModelProvider(backStackEntry)[previousVmClass.java] ?: return@let")
+            appendLine("            if (vm is Poppable<*>) {")
+            appendLine("                @Suppress(\"UNCHECKED_CAST\")")
+            appendLine("                (vm as Poppable<Any>).onPopParams(decoded)")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("    }")
+
+
             appendLine("}")
         }
 
@@ -136,6 +190,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         androidOut.mkdirs()
         File(androidOut, "AtlasNavigation.kt").writeText(androidImpl)
     }
+
 
     private fun findViewModelImport(viewModelName: String): String? {
         outputFiles.forEach { root ->
@@ -182,25 +237,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import androidx.lifecycle.viewmodel.compose.viewModel")
             appendLine("import androidx.navigation.compose.composable")
             appendLine("import androidx.navigation.compose.rememberNavController")
+            appendLine("import com.architect.atlas.architecture.navigation.Poppable")
             appendLine()
-//            appendLine("""
-//                fun parseParam(raw: String?, viewModel: ViewModel): Any? {
-//                    if (raw.isNullOrEmpty()) return null
-//
-//                    return try {
-//                        when (viewModel) {
-//                            is Pushable<Int> -> raw.toIntOrNull()
-//                            is Pushable<Long> -> raw.toLongOrNull()
-//                            is Pushable<Double> -> raw.toDoubleOrNull()
-//                            is Pushable<Boolean> -> raw.toBooleanStrictOrNull()
-//                            is Pushable<String> -> raw
-//                            else -> Json.decodeFromString(raw)
-//                        }
-//                    } catch (e: Exception) {
-//                        null
-//                    }
-//                }
-//            """.trimIndent())
 
             appendLine("@Composable")
             appendLine("fun AtlasNavGraph() {")
