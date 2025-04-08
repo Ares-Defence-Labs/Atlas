@@ -19,7 +19,7 @@ class NavigationEngineGenPlugin : Plugin<Project> {
 
         if (dependencyGraphTask.isNotEmpty()) {
             dependencyGraphTask.forEach {
-                project.logger.lifecycle("✅ Found and linking to task: ${it.path}")
+                project.logger.lifecycle("✅ Found and linking ${generateDependencyGraphTask.name} to task: ${it.path}")
                 generateDependencyGraphTask.dependsOn(it)
                 generateDependencyGraphTask.mustRunAfter(it)
             }
@@ -29,9 +29,6 @@ class NavigationEngineGenPlugin : Plugin<Project> {
     }
 
     override fun apply(project: Project) {
-        val generateUIKitNavGraphTask = ResPluginHelpers.getSwiftUIKitGenTask(project)
-        //val generateDroidComposeGraphTask = ResPluginHelpers.getDroidComposeResourceTask(project)
-
-        taskOrderConfig(project, generateUIKitNavGraphTask.get())
+        taskOrderConfig(project, ResPluginHelpers.getNavEngineGenTask(project).get())
     }
 }

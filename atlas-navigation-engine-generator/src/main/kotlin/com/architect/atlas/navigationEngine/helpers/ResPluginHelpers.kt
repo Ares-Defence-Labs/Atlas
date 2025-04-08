@@ -1,33 +1,23 @@
 package com.architect.atlas.navigationEngine.helpers
 
-import com.architect.atlas.navigationEngine.tasks.android.NavEngineGoogleDefaultGenTask
-import com.architect.atlas.navigationEngine.tasks.swift.NavEngineUIKitSwiftGenTask
+import com.architect.atlas.common.helpers.ProjectFinder
+import com.architect.atlas.navigationEngine.tasks.routingEngine.NavigationEngineGeneratorTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
+import java.io.File
 
 internal object ResPluginHelpers {
-    val generateNavEngineUIKit = "generateNavEngineUIKit"
-    val generateNavEngineDroidCompose = "generateNavEngineDroidCompose"
-
-    fun getSwiftUIKitGenTask(project: Project): TaskProvider<NavEngineUIKitSwiftGenTask> {
+    fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
+        val androidApp = ProjectFinder.findAndroidClientApp(project)!!
         return project.tasks.register(
-            generateNavEngineUIKit,
-            NavEngineUIKitSwiftGenTask::class.java
+            "generateNavAtlasEngine",
+            NavigationEngineGeneratorTask::class.java
         ) {
+            outputFiles = project.rootProject.allprojects.map { File(it.projectDir, "src") }.toList()
+            outputAndroidDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/atlas/navigation"))
             projectRootDir.set(project.layout.projectDirectory)
-            outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
-        }
-    }
-
-    fun getDroidComposeResourceTask(project: Project): TaskProvider<NavEngineGoogleDefaultGenTask> {
-        return project.tasks.register(
-            generateNavEngineDroidCompose,
-            NavEngineGoogleDefaultGenTask::class.java
-        ) {
-            projectRootDir.set(project.layout.projectDirectory)
-            outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
+            outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/atlas/navigation"))
         }
     }
 }
+

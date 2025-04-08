@@ -40,7 +40,6 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         val generateAppleScriptsGenFontFiles =
             AppleResPluginHelpers.getAppleFontsPackagingResourceTask(project)
 
-
         taskOrderConfig(project, generateStringsResources.get())
         taskOrderConfig(project, generateColorsResources.get())
         taskOrderConfig(project, generateImagesResources.get())

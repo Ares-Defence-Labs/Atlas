@@ -8,6 +8,14 @@ object ProjectFinder {
         project.tasks.any { it.name.contains("debug", ignoreCase = true) }
 
 
+    fun getAndroidAppNamespace(androidProject: Project): String {
+        return when (val extension = androidProject.extensions.findByName("android")) {
+            is com.android.build.api.dsl.ApplicationExtension -> extension.namespace
+            is com.android.build.api.dsl.LibraryExtension -> extension.namespace
+            else -> error("Unsupported or missing Android extension in ${androidProject.path}")
+        } ?: error("Namespace not defined in Android module ${androidProject.path}")
+    }
+
     fun isAndroidPlatform(project: Project): Boolean {
         return project.plugins.hasPlugin("com.android.application") ||
                 project.plugins.hasPlugin("com.android.library")

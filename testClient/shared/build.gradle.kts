@@ -19,6 +19,11 @@ plugins {
 //    finalizedBy(copySwiftExtensionsDebug)
 //}
 
+
+tasks.named("generateNavAtlasEngine").configure{
+    mustRunAfter("appleFontsPackagingGenTask")
+}
+
 kotlin {
     androidTarget {
         compilations.all {
