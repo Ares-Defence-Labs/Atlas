@@ -105,6 +105,12 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
             appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
             appendLine("        val route = viewModelToRouteMap[viewModelClass] ?: error(\"No screen registered for \$viewModelClass\")")
+            appendLine("""
+                        if(!navigationStack.any { q -> q == viewModelToRouteMap.keys.first() }){
+                            navigationStack.add(viewModelToRouteMap.keys.first())
+                        }
+            """.trimIndent())
+
             appendLine("        navigationStack.add(viewModelClass)")
             appendLine("        val encoded = params?.let {")
             appendLine("            when (it) {")
@@ -130,24 +136,20 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    }")
 
             appendLine("    override fun popPage(animate: Boolean, params: Any?) {")
-            appendLine("        navController.popBackStack()")
             appendLine("        handlePopParams(params)")
             appendLine("    }")
 
             appendLine("    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {")
             appendLine("        repeat(countOfPages) {")
-            appendLine("            navController.popBackStack()")
             appendLine("            handlePopParams(params)")
             appendLine("        }")
             appendLine("    }")
 
             appendLine("    override fun popToPage(route: String, params: Any?) {")
-            appendLine("        navController.popBackStack(route, false)")
             appendLine("        handlePopParams(params)")
             appendLine("    }")
 
             appendLine("    override fun dismissModal(animate: Boolean, params: Any?) {")
-            appendLine("        navController.popBackStack()")
             appendLine("        handlePopParams(params)")
             appendLine("    }")
 
@@ -179,6 +181,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("                @Suppress(\"UNCHECKED_CAST\")")
             appendLine("                (vm as Poppable<Any>).onPopParams(decoded)")
             appendLine("            }")
+            appendLine("navController.popBackStack()")
             appendLine("        }")
             appendLine("    }")
 
