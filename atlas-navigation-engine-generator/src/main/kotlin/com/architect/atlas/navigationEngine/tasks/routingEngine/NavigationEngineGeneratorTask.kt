@@ -21,6 +21,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var outputFiles: List<File>
 
+    @get:Input
+    abstract var iOSOutputFiles: List<File>
+
     init {
         group = "AtlasNavigation"
         description = "Generates the platform-specific navigation engine implementations."
@@ -35,8 +38,12 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
         generateAndroidNavigation(viewModelToScreen)
         generateAndroidNavGraph(ants)
-        generateIOSNavigation(viewModelToScreen)
-        generateIOSKotlinBridge(viewModelToScreen)
+
+        // ios components
+        val iOSViewModelToScreen =
+            scanViewModelSwiftAnnotations().map { it.first to it.second } // Drop path, keep (viewModel, screen)
+        generateIOSNavigation(iOSViewModelToScreen)
+        generateIOSKotlinBridge(iOSViewModelToScreen)
     }
 
     private fun scanViewModelAnnotations(): List<Quad<String, String, String, Boolean>> {
@@ -44,7 +51,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
         outputFiles.forEach { subProject ->
             subProject.walkTopDown().forEach { file ->
-                if (!file.isFile || !(file.extension.equals("kt", true) || file.extension.equals("swift", true))) return@forEach
+                if (!file.isFile || !(file.extension.equals(
+                        "kt",
+                        true
+                    ) || file.extension.equals("swift", true))
+                ) return@forEach
 
                 val lines = file.readLines()
                 var viewModelName: String? = null
@@ -53,11 +64,14 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                 for ((index, line) in lines.withIndex()) {
                     if (line.contains("@AtlasScreen")) {
-                        val kotlinRegex = """@AtlasScreen\s*\(\s*([\w.<>]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
-                        val swiftRegex = """@AtlasScreen\s*\(\s*([\w.<>]+)\.self(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
+                        val kotlinRegex =
+                            """@AtlasScreen\s*\(\s*([\w.<>]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
+                        val swiftRegex =
+                            """@AtlasScreen\s*\(\s*([\w.<>]+)\.self(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
                         val match = kotlinRegex.find(line) ?: swiftRegex.find(line)
                         viewModelName = match?.groupValues?.get(1)
-                        isInitial = match?.groupValues?.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+                        isInitial =
+                            match?.groupValues?.getOrNull(2)?.toBooleanStrictOrNull() ?: false
 
                         val nextLines = lines.drop(index).take(3)
                         val funcRegex = """fun\s+(\w+)""".toRegex()
@@ -65,7 +79,14 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                         screenName = funcMatch?.groupValues?.get(1)
 
                         if (viewModelName != null && screenName != null) {
-                            results.add(Quad(viewModelName, screenName, file.absolutePath, isInitial))
+                            results.add(
+                                Quad(
+                                    viewModelName,
+                                    screenName,
+                                    file.absolutePath,
+                                    isInitial
+                                )
+                            )
                         }
                     }
                 }
@@ -76,7 +97,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     }
 
     private fun generateAndroidNavigation(screens: List<Pair<String, String>>) {
-        val viewModelImports = screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
+        val viewModelImports =
+            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
 
         val androidImpl = buildString {
             appendLine("package com.architect.atlas.navigation")
@@ -105,11 +127,13 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
             appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
             appendLine("        val route = viewModelToRouteMap[viewModelClass] ?: error(\"No screen registered for \$viewModelClass\")")
-            appendLine("""
+            appendLine(
+                """
                         if(!navigationStack.any { q -> q == viewModelToRouteMap.keys.first() }){
                             navigationStack.add(viewModelToRouteMap.keys.first())
                         }
-            """.trimIndent())
+            """.trimIndent()
+            )
 
             appendLine("        navigationStack.add(viewModelClass)")
             appendLine("        val encoded = params?.let {")
@@ -164,7 +188,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("            }")
             appendLine("        } ?: return")
             appendLine("        navController.currentBackStackEntry?.let { backStackEntry ->")
-            appendLine("""
+            appendLine(
+                """
                 val decoded: Any = when {
             encoded.toIntOrNull() != null -> encoded.toInt()
             encoded.toDoubleOrNull() != null -> encoded.toDouble()
@@ -175,7 +200,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 encoded
             }
         }
-            """.trimIndent())
+            """.trimIndent()
+            )
             appendLine("            val vm = androidx.lifecycle.ViewModelProvider(backStackEntry)[previousVmClass.java] ?: return@let")
             appendLine("            if (vm is Poppable<*>) {")
             appendLine("                @Suppress(\"UNCHECKED_CAST\")")
@@ -278,7 +304,77 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     }
 
 
+    // IOS Specific Generators
+    private fun scanViewModelSwiftAnnotations(): List<Quad<String, String, String, Boolean>> {
+        val results = mutableListOf<Quad<String, String, String, Boolean>>()
+        val swiftRegex = """^\s*//\s*@?AtlasScreen\s*\(\s*viewModel\s*:\s*([A-Za-z0-9_]+)\.self\s*(?:,\s*initial\s*:\s*(true|false))?\s*\)""".toRegex()
+
+        iOSOutputFiles.forEach { subProject ->
+            subProject.walkTopDown().forEach { file ->
+                if (!file.isFile || !file.extension.equals("swift", true)) return@forEach
+
+                val lines = file.readLines()
+                var pendingAnnotation: MatchResult? = null
+
+                for ((index, line) in lines.withIndex()) {
+                    println("📄 [${file.name}:${index + 1}] $line")
+
+                    val rawLine = line // keep it untrimmed for context
+
+                    // Step 1: Look for the annotation
+                    if (rawLine.contains("@AtlasScreen")) {
+                        val match = swiftRegex.find(rawLine)
+
+                        println("🔍 Attempting regex match on line: '$rawLine'")
+                        println("🔣 Unicode points: ${rawLine.map { it.code }.joinToString(", ") { "U+%04X".format(it) }}")
+                        println("✅ Matched: ${match != null}")
+                        println("📦 Groups: ${match?.groupValues}")
+
+                        if (match != null) {
+                            println("🟨 Found @AtlasScreen annotation in ${file.name} line ${index + 1}")
+                            pendingAnnotation = match
+                        } else {
+                            println("❌ No match found for: '$rawLine'")
+                        }
+
+                        continue
+                    }
+
+                    // Step 2: If we have a pending annotation, check for class/struct declaration
+                    if (pendingAnnotation != null &&
+                        (rawLine.trim().startsWith("struct ") || rawLine.trim().startsWith("class "))
+                    ) {
+                        val currentClass = rawLine.trim().split("\\s+".toRegex()).getOrNull(1)?.trim()
+                        if (currentClass != null) {
+                            val viewModelName = pendingAnnotation.groupValues[1]
+                            val isInitial = pendingAnnotation.groupValues.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+
+                            println("✅ Matched @AtlasScreen to class $currentClass (vm=$viewModelName, initial=$isInitial)")
+
+                            results.add(
+                                Quad(
+                                    viewModelName,
+                                    currentClass,
+                                    file.absolutePath,
+                                    isInitial
+                                )
+                            )
+                        } else {
+                            error("Could not resolve class/struct for @AtlasScreen in ${file.name} line ${index + 1}")
+                        }
+
+                        pendingAnnotation = null
+                    }
+                }
+            }
+        }
+
+        return results
+    }
+
     private fun generateIOSNavigation(screens: List<Pair<String, String>>) {
+
+        logger.lifecycle("SCREENS FOUND ${screens.joinToString() }")
         val iosImpl = buildString {
             appendLine("import SwiftUI")
             appendLine("import UIKit")
@@ -291,6 +387,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        let nav = UIApplication.shared.rootNav")
             appendLine("        switch viewModelType {")
             for ((vm, screen) in screens) {
+                logger.lifecycle("screen logged: $screen, vm logged: $vm")
                 appendLine("        case \"$vm\":")
                 appendLine("            let view = $screen(vm: AtlasDI.resolveService())")
                 appendLine("            let controller = UIHostingController(rootView: view)")
@@ -338,7 +435,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
             appendLine(
                 """
-                import UIKit
+                    @AtlasScreen(viewModel: Foo.self, initial: true)
                     extension UIApplication {
                         var rootNav: UINavigationController? {
                         return (self.connectedScenes.first as? UIWindowScene)?
@@ -362,21 +459,23 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         val kotlinBridge = buildString {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
+            appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
             appendLine("import com.architect.atlas.architecture.navigation.AtlasNavigationService")
-            appendLine("import com.architect.atlas.architecture.viewmodel.ViewModel")
             appendLine("import platform.Foundation.*")
             appendLine("import kotlinx.cinterop.*")
             appendLine("import platform.UIKit.*")
+            appendLine("import kotlin.reflect.KClass")
+
             appendLine()
             appendLine("class IOSAtlasNavigationService : AtlasNavigationService {")
 
-            appendLine("    override fun <T : ViewModel> navigateToPage(params: Any?) {")
-            appendLine("        val viewModelName = T::class.simpleName ?: return")
+            appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
+            appendLine("        val viewModelName = viewModelClass.simpleName ?: return")
             appendLine("        NavigationEngine.shared.routeWithParams(viewModelType = viewModelName, params = params)")
             appendLine("    }")
 
-            appendLine("    override fun <T : ViewModel> navigateToPageModal(params: Any?) {")
-            appendLine("        val viewModelName = T::class.simpleName ?: return")
+            appendLine("    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {")
+            appendLine("        val viewModelName = viewModelClass.simpleName ?: return")
             appendLine("        NavigationEngine.shared.routeWithParams(viewModelType = viewModelName, params = params, isModal = true)")
             appendLine("    }")
 
@@ -416,3 +515,6 @@ data class Quad<A, B, C, D>(
     val third: C,
     val fourth: D
 )
+
+fun String.normalizeToAscii(): String =
+    this.map { if (it.code in 32..126) it else ' ' }.joinToString("")

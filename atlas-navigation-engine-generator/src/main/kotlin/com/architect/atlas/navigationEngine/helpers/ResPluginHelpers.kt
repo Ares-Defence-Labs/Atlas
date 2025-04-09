@@ -9,11 +9,17 @@ import java.io.File
 internal object ResPluginHelpers {
     fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
         val androidApp = ProjectFinder.findAndroidClientApp(project)!!
+        val coutputFiles =
+            project.rootProject.allprojects.map { File(it.projectDir, "src") }.toMutableList()
+        val iosoutputs = coutputFiles.toMutableList()
+        iosoutputs.add(ProjectFinder.findIosClientApp(project)!!)
+
         return project.tasks.register(
             "generateNavAtlasEngine",
             NavigationEngineGeneratorTask::class.java
         ) {
-            outputFiles = project.rootProject.allprojects.map { File(it.projectDir, "src") }.toList()
+            iOSOutputFiles = iosoutputs
+            outputFiles = coutputFiles
             outputAndroidDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/atlas/navigation"))
             projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/atlas/navigation"))
