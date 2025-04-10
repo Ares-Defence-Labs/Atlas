@@ -14,13 +14,13 @@ actual fun getPlatform(): Platform = IOSPlatform()
 class TestIOS{
     companion object{
         fun registerServices(): String{
-            //AtlasDI.injectContainer(com.architect.atlas.container.AtlasContainer)
-            AtlasDI.registerSingleton(ReviewProcess())
-
-            AtlasDI.registerInterfaceToInstance(TestProcess::class, ReviewApps())
-
-            val test = AtlasDI.resolveServiceNullableByName("com.architect.atlastestclient.TestProcess") as? TestProcess
-            return test?.test() ?: ""
+            AtlasDI.injectContainer(com.architect.atlas.container.AtlasContainer)
+//            AtlasDI.registerSingleton(ReviewProcess())
+//
+//            AtlasDI.registerInterfaceToInstance(TestProcess::class, ReviewApps())
+//
+//            val test = AtlasDI.resolveServiceNullableByName("com.architect.atlastestclient.TestProcess") as? TestProcess
+            return ""
         }
     }
 }

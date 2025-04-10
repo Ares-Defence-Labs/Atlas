@@ -395,20 +395,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             """.trimIndent()
             } else "// No @Provides registered"
         }
-            formatRegisteredKClasses()
-            }
-            
-            private fun formatRegisteredKClasses(): Map<String, KClass<*>> {
-                 val allKClasses = mutableSetOf<KClass<*>>()
-
-                allKClasses += singletons.keys
-                allKClasses += factories.keys
-                allKClasses += viewModels.keys
-                allKClasses += modules.keys
-                allKClasses += provides.keys
-                allKClasses += scoped.keys
-
-                return allKClasses.associateBy { it.qualifiedName ?: it.simpleName ?: "UNKNOWN" }
+        
+            forceRefreshNamedDependencies()
             }
             
             private fun forceRefreshNamedDependencies() {

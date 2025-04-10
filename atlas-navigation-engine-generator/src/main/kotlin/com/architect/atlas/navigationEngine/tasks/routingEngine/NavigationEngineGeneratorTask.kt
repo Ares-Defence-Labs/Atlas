@@ -24,6 +24,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var iOSOutputFiles: List<File>
 
+
+    @get:Input
+    abstract var projectCoreName: String
+
     init {
         group = "AtlasNavigation"
         description = "Generates the platform-specific navigation engine implementations."
@@ -41,9 +45,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
         // ios components
         val iOSViewModelToScreen =
-            scanViewModelSwiftAnnotations().map { it.first to it.second } // Drop path, keep (viewModel, screen)
-        generateIOSNavigation(iOSViewModelToScreen)
-        generateIOSKotlinBridge(iOSViewModelToScreen)
+            scanViewModelSwiftAnnotations()
+
+        generateIOSNavigation(iOSViewModelToScreen.map { ScreenMetadata(it.first, it.second, it.fourth) })
+        generateIOSSwiftBridge()
     }
 
     private fun scanViewModelAnnotations(): List<Quad<String, String, String, Boolean>> {
@@ -215,7 +220,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("}")
         }
 
-        val androidOut = File(outputAndroidDir.get().asFile, "navigation")
+        val androidOut = outputAndroidDir.get().asFile
         androidOut.mkdirs()
         File(androidOut, "AtlasNavigation.kt").writeText(androidImpl)
     }
@@ -298,7 +303,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("}")
         }
 
-        val file = File(outputAndroidDir.get().asFile, "navigation/AtlasNavGraph.kt")
+        val file = File(outputAndroidDir.get().asFile, "AtlasNavGraph.kt")
         file.parentFile.mkdirs()
         file.writeText(navGraph)
     }
@@ -372,140 +377,210 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         return results
     }
 
-    private fun generateIOSNavigation(screens: List<Pair<String, String>>) {
-
-        logger.lifecycle("SCREENS FOUND ${screens.joinToString() }")
+    private fun generateIOSNavigation(screens: List<ScreenMetadata>) {
         val iosImpl = buildString {
             appendLine("import SwiftUI")
             appendLine("import UIKit")
+            appendLine("import $projectCoreName")
             appendLine()
-            appendLine("class NavigationEngine: NSObject {")
+            appendLine("@MainActor")
+            appendLine("public class NavigationEngine: NSObject {")
             appendLine("    static let shared = NavigationEngine()")
-            appendLine("    private var stack: [String] = []")
-
-            appendLine("    func routeWithParams(viewModelType: String, params: Any? = nil, isModal: Bool = false) {")
-            appendLine("        let nav = UIApplication.shared.rootNav")
+            appendLine("    var stack: [ViewModel] = []")
+            appendLine("    @MainActor public func routeWithParams(viewModelType: String, params: Any? = nil, isModal: Bool = false) {")
+            appendLine("        let nav = UIApplication.globalRootNav")
             appendLine("        switch viewModelType {")
-            for ((vm, screen) in screens) {
-                logger.lifecycle("screen logged: $screen, vm logged: $vm")
+
+            for ((vm, screen, _) in screens) {
+                val screenName = screen.replace(":", "")
                 appendLine("        case \"$vm\":")
-                appendLine("            let view = $screen(vm: AtlasDI.resolveService())")
+                appendLine("            let resolved = AtlasDI.companion.resolveServiceNullableByName(clazz: SwiftClassGenerator.companion.getClazz(type: $vm.self)) as! $vm")
+                appendLine("            if let pc = params {")
+                appendLine("                resolved.tryHandlePush(params: pc)")
+                appendLine("            }")
+                appendLine("            let view = $screenName(vm: resolved)")
                 appendLine("            let controller = UIHostingController(rootView: view)")
                 appendLine("            if isModal {")
                 appendLine("                nav?.present(controller, animated: true)")
                 appendLine("            } else {")
                 appendLine("                nav?.pushViewController(controller, animated: true)")
                 appendLine("            }")
+                appendLine("            let vm = resolved; stack.append(vm)")
             }
+
             appendLine("        default: break")
             appendLine("        }")
             appendLine("    }")
 
-            appendLine("    func setNavigationStack(stack: [String], params: Any?) {")
-            appendLine("        self.stack = stack")
-            appendLine("    }")
-
-            appendLine("    func getNavigationStack() -> [String] {")
-            appendLine("        return stack")
-            appendLine("    }")
+            appendLine("   func setNavigationStack(stack: [String], params: Any?) { /* Not used directly */ }")
+            appendLine("   func getNavigationStack() -> [String] { return stack.map { String(describing: $0) } }")
 
             appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        if let prev = stack.first as? Poppable {")
+            appendLine("            if let pc = params {")
+            appendLine("                prev.onPopParams(params: pc)")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        stack.removeAll()")
             appendLine("        UIApplication.shared.rootNav?.popToRootViewController(animated: animate)")
             appendLine("    }")
 
-            appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
+            appendLine("     func popPage(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        if stack.count >= 2 {")
+            appendLine("            let prev = stack[stack.count - 2] as? Poppable")
+            appendLine("            if let pc = params {")
+            appendLine("                prev?.onPopParams(params: pc)")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        if !stack.isEmpty { stack.removeLast() }")
             appendLine("        UIApplication.shared.rootNav?.popViewController(animated: animate)")
             appendLine("    }")
 
-            appendLine("    func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
+            appendLine("     func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
             appendLine("        guard let nav = UIApplication.shared.rootNav else { return }")
             appendLine("        let targetIndex = max(nav.viewControllers.count - count, 1)")
             appendLine("        let target = nav.viewControllers[targetIndex - 1]")
+            appendLine("        if stack.count > count {")
+            appendLine("            let prev = stack[stack.count - count - 1] as? Poppable")
+            appendLine("            if let pc = params {")
+            appendLine("                prev?.onPopParams(params: pc)")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        stack.removeLast(min(count, stack.count))")
             appendLine("        nav.popToViewController(target, animated: animate)")
             appendLine("    }")
 
-            appendLine("    func popToPage(route: String, params: Any?) {")
-            appendLine("        // Not implemented yet")
-            appendLine("    }")
-
-            appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
+            appendLine("     func popToPage(route: String, params: Any?) { /* Not implemented */ }")
+            appendLine("     func dismissModal(animate: Bool = true, params: Any? = nil) {")
             appendLine("        UIApplication.shared.rootNav?.presentedViewController?.dismiss(animated: animate)")
             appendLine("    }")
             appendLine("}")
 
+            // Determine the initial screen
+            val initial = screens.firstOrNull { it.isInitial }
+            val initialViewModel = initial?.viewModel ?: "/* MissingInitialVM */"
+            val initialScreen = initial?.screen?.replace(":", "") ?: "/*MissingInitialScreen */"
+
             appendLine(
                 """
-                    @AtlasScreen(viewModel: Foo.self, initial: true)
-                    extension UIApplication {
-                        var rootNav: UINavigationController? {
-                        return (self.connectedScenes.first as? UIWindowScene)?
-                        .windows
-                        .first(where: { ${'$'}0.isKeyWindow })?
-                        .rootViewController as? UINavigationController
-                    }
+            struct UIKitNavWrapperView: UIViewControllerRepresentable {
+                func makeUIViewController(context: Context) -> UIViewController {
+                    let root = $initialScreen(
+                        vm: AtlasDI.companion.resolveServiceNullableByName(
+                            clazz: SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)
+                        ) as? $initialViewModel
+                    )
+                    let hostingController = UIHostingController(rootView: root)
+                    let navController = UINavigationController(rootViewController: hostingController)
+                    UIApplication.globalRootNav = navController
+                    return navController
+                }
+
+                func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
             }
-                
-                
+
+            extension UIApplication {
+                static var globalRootNav: UINavigationController?
+                var rootNav: UINavigationController? {
+                    return (self.connectedScenes.first as? UIWindowScene)?
+                        .windows
+                        .first(where: { $0.isKeyWindow })?
+                        .rootViewController as? UINavigationController
+                }
+            }
             """.trimIndent()
             )
         }
 
-        val iosOut = File(outputIosDir.get().asFile, "navigation")
+        val iosOut = outputIosDir.get().asFile
         iosOut.mkdirs()
         File(iosOut, "NavigationEngine.swift").writeText(iosImpl)
     }
 
-    private fun generateIOSKotlinBridge(screens: List<Pair<String, String>>) {
-        val kotlinBridge = buildString {
-            appendLine("package com.architect.atlas.navigation")
+
+
+    private fun generateIOSSwiftBridge() {
+        val swiftBridge = buildString {
+            appendLine("import Foundation")
+            appendLine("import UIKit")
+            appendLine("import $projectCoreName")
             appendLine()
-            appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
-            appendLine("import com.architect.atlas.architecture.navigation.AtlasNavigationService")
-            appendLine("import platform.Foundation.*")
-            appendLine("import kotlinx.cinterop.*")
-            appendLine("import platform.UIKit.*")
-            appendLine("import kotlin.reflect.KClass")
 
-            appendLine()
-            appendLine("class IOSAtlasNavigationService : AtlasNavigationService {")
+            appendLine("""class IOSAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {
+    @MainActor
+    func setNavigationStack(stack: [ViewModel], params: Any?) {
+        DispatchQueue.main.async {
+              NavigationEngine.shared.setNavigationStack(stack: stack.map { "\(${'$'}0)" }, params: params)
+        }
+    }
+    
+    func getNavigationStack() -> [ViewModel] {
+        return []
+    }
+    
+    @MainActor
+    func navigateToPage(viewModelClass: any KotlinKClass, params: Any?) {
+            DispatchQueue.main.async {
+                NavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)
+            }
+    }
+    
+    @MainActor
+    func navigateToPageModal(viewModelClass: any KotlinKClass, params: Any?) {
+            DispatchQueue.main.async {
+                NavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params, isModal: true)
+            }
+    }
+    
+    @MainActor
+    func popPagesWithCount(countOfPages: Int32, animate: Bool, params: Any?) {
+        DispatchQueue.main.async {
+             NavigationEngine.shared.popPagesWithCount(count: Int(countOfPages), animate: animate, params: params)
+        }
+    }
 
-            appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        val viewModelName = viewModelClass.simpleName ?: return")
-            appendLine("        NavigationEngine.shared.routeWithParams(viewModelType = viewModelName, params = params)")
-            appendLine("    }")
+    @MainActor
+    func popToRoot(animate: Bool = true, params: Any? = nil) {
+        DispatchQueue.main.async {
+            NavigationEngine.shared.popToRoot(animate: animate, params: params)
+        }
+    }
 
-            appendLine("    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        val viewModelName = viewModelClass.simpleName ?: return")
-            appendLine("        NavigationEngine.shared.routeWithParams(viewModelType = viewModelName, params = params, isModal = true)")
-            appendLine("    }")
+    @MainActor
+    func popPage(animate: Bool = true, params: Any? = nil) {
+        DispatchQueue.main.async {
+            NavigationEngine.shared.popPage(animate: animate, params: params)
+        }
+    }
 
-            appendLine("    override fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any?) {")
-            appendLine("        val names = stack.mapNotNull { it::class.simpleName }")
-            appendLine("        NavigationEngine.shared.setNavigationStack(stack = names, params = params)")
-            appendLine("    }")
+    @MainActor
+    func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {
+        DispatchQueue.main.async {
+            NavigationEngine.shared.popPagesWithCount(count: count, animate: animate, params: params)
+        }
+    }
 
-            appendLine("    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()")
-            appendLine("    override fun popToRoot(animate: Boolean, params: Any?) {")
-            appendLine("        NavigationEngine.shared.popToRoot(animate = animate, params = params)")
-            appendLine("    }")
-            appendLine("    override fun popPage(animate: Boolean, params: Any?) {")
-            appendLine("        NavigationEngine.shared.popPage(animate = animate, params = params)")
-            appendLine("    }")
-            appendLine("    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {")
-            appendLine("        NavigationEngine.shared.popPagesWithCount(count = countOfPages, animate = animate, params = params)")
-            appendLine("    }")
-            appendLine("    override fun popToPage(route: String, params: Any?) {")
-            appendLine("        NavigationEngine.shared.popToPage(route = route, params = params)")
-            appendLine("    }")
-            appendLine("    override fun dismissModal(animate: Boolean, params: Any?) {")
-            appendLine("        NavigationEngine.shared.dismissModal(animate = animate, params = params)")
-            appendLine("    }")
-            appendLine("}")
+    @MainActor
+    func popToPage(route: String, params: Any? = nil) {
+        DispatchQueue.main.async {
+            NavigationEngine.shared.popToPage(route: route, params: params)
+        }
+    }
+
+    @MainActor
+    func dismissModal(animate: Bool = true, params: Any? = nil) {
+        DispatchQueue.main.async {
+           NavigationEngine.shared.dismissModal(animate: animate, params: params)
+        }
+    }
+}
+
+            """.trimIndent())
         }
 
-        val iosOut = File(outputIosDir.get().asFile, "navigation")
+        val iosOut = outputIosDir.get().asFile
         iosOut.mkdirs()
-        File(iosOut, "IOSAtlasNavigationService.kt").writeText(kotlinBridge)
+        File(iosOut, "IOSAtlasNavigationService.swift").writeText(swiftBridge)
     }
 }
 
@@ -514,6 +589,12 @@ data class Quad<A, B, C, D>(
     val second: B,
     val third: C,
     val fourth: D
+)
+
+data class ScreenMetadata(
+    val viewModel: String,
+    val screen: String,
+    val isInitial: Boolean
 )
 
 fun String.normalizeToAscii(): String =

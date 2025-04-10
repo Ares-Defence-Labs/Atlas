@@ -4,19 +4,23 @@ import shared
 
 //@AtlasScreen(viewModel: DroidStandard.self, initial: true)
 struct ContentView: View {
-    let greet = Greeting().greet()
+    let vm : DroidStandard?
     
     var body: some View {
-        Text("")
+        Text("Testing Button").onTapGesture {
+            NavigationEngine.shared.routeWithParams(viewModelType: "DroidStandardSecond", params: "Hello There")
+        }
     }
 }
 
 
-//@AtlasScreen(viewModel: DroidStandardSecond.self, initial: true)
+//@AtlasScreen(viewModel: DroidStandardSecond.self)
 struct ContentViewSecond: View {
-    let greet = Greeting().greet()
+    let vm : DroidStandardSecond?
+//    let greet = Greeting().greet()
     
     var body: some View {
-        Text("")
+        Text("Hello There")
     }
 }
+

@@ -6,6 +6,7 @@ import com.architect.atlas.architecture.navigation.Pushable
 import com.architect.atlas.container.annotations.Factory
 import com.architect.atlas.container.annotations.Singleton
 import com.architect.atlas.container.annotations.ViewModels
+import com.architect.kmpessentials.alerts.KmpAlert
 import com.architect.kmpessentials.logging.KmpLogging
 
 class MobileTest {
@@ -70,6 +71,7 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int>{
     }
 
     override fun onPushParams(params: String) {
+        KmpAlert.showAlert("","")
         KmpLogging.writeInfo("PUSH", params)
     }
 

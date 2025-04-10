@@ -17,7 +17,7 @@ navigationFragmentKtx = "2.8.8"
 navigationUiKtx = "2.8.8"
 
 kotlinCore = "1.8.0"
-atlasCore = "0.4.4"
+atlasCore = "0.4.6"
 atlasViewBinding = "0.3.0"
 
 [libraries]
