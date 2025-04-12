@@ -15,7 +15,8 @@ public class NavigationEngine: NSObject {
                 resolved.tryHandlePush(params: pc)
             }
             let view = ContentView(vm: resolved)
-            let controller = UIHostingController(rootView: view)
+            let controller = LifecycleAwareHostingController(rootView: view, viewModel: resolved)
+            controller.navigationController?.setNavigationBarHidden(true, animated: false)
             if isModal {
                 nav?.present(controller, animated: true)
             } else {
@@ -28,7 +29,8 @@ public class NavigationEngine: NSObject {
                 resolved.tryHandlePush(params: pc)
             }
             let view = ContentViewSecond(vm: resolved)
-            let controller = UIHostingController(rootView: view)
+            let controller = LifecycleAwareHostingController(rootView: view, viewModel: resolved)
+            controller.navigationController?.setNavigationBarHidden(true, animated: false)
             if isModal {
                 nav?.present(controller, animated: true)
             } else {
@@ -77,28 +79,63 @@ public class NavigationEngine: NSObject {
         UIApplication.shared.rootNav?.presentedViewController?.dismiss(animated: animate)
     }
 }
-struct UIKitNavWrapperView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        let root = ContentView(
-            vm: AtlasDI.companion.resolveServiceNullableByName(
-                clazz: SwiftClassGenerator.companion.getClazz(type: DroidStandard.self)
-            ) as? DroidStandard
-        )
-        let hostingController = UIHostingController(rootView: root)
-        let navController = UINavigationController(rootViewController: hostingController)
-        UIApplication.globalRootNav = navController
-        return navController
-    }
+ struct UIKitNavWrapperView: UIViewControllerRepresentable {
+     func makeUIViewController(context: Context) -> UIViewController {
+         let resolved = AtlasDI.companion.resolveServiceNullableByName(
+            clazz: SwiftClassGenerator.companion.getClazz(type: DroidStandard.self)
+        ) as! DroidStandard
+         let root = ContentView(
+             vm:resolved
+         )
+         let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved)
+         let navController = UINavigationController(rootViewController: hostingController)
+         UIApplication.globalRootNav = navController
+         return navController
+     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+ }
+ 
+
+class LifecycleAwareHostingController<Content: View>: UIHostingController<Content> {
+    private let viewModel: ViewModel
+    init(rootView: Content, viewModel: ViewModel) {
+        self.viewModel = viewModel
+        self.viewModel.onInitialize()
+        super.init(rootView: rootView)
+    }
+    
+    @objc required dynamic init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewModel.onAppearing()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        viewModel.onDisappearing()
+    }
+    
+    override func willMove(toParent parent: UIViewController?) {
+        // Called before being removed from parent
+        if parent == nil {
+            Task { @MainActor in
+                self.viewModel.onDestroy()
+                self.viewModel.onCleared()
+            }
+        }
+        super.willMove(toParent: parent)
+    }
 }
 
-extension UIApplication {
-    static var globalRootNav: UINavigationController?
-    var rootNav: UINavigationController? {
-        return (self.connectedScenes.first as? UIWindowScene)?
-            .windows
-            .first(where: { $0.isKeyWindow })?
-            .rootViewController as? UINavigationController
-    }
-}
+ extension UIApplication {
+     static var globalRootNav: UINavigationController?
+     var rootNav: UINavigationController? {
+         return (self.connectedScenes.first as? UIWindowScene)?
+             .windows
+             .first(where: { $0.isKeyWindow })?
+             .rootViewController as? UINavigationController
+     }
+ }

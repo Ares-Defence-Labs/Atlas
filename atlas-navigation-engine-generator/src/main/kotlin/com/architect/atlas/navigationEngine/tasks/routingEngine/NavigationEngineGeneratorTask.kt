@@ -24,7 +24,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var iOSOutputFiles: List<File>
 
-
     @get:Input
     abstract var projectCoreName: String
 
@@ -44,10 +43,14 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         generateAndroidNavGraph(ants)
 
         // ios components
-        val iOSViewModelToScreen =
-            scanViewModelSwiftAnnotations()
-
-        generateIOSNavigation(iOSViewModelToScreen.map { ScreenMetadata(it.first, it.second, it.fourth) })
+        val iOSViewModelToScreen = scanViewModelSwiftAnnotations()
+        generateIOSNavigation(iOSViewModelToScreen.map {
+            ScreenMetadata(
+                it.first,
+                it.second,
+                it.fourth
+            )
+        })
         generateIOSSwiftBridge()
     }
 
@@ -272,7 +275,52 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import androidx.navigation.compose.composable")
             appendLine("import androidx.navigation.compose.rememberNavController")
             appendLine("import com.architect.atlas.architecture.navigation.Poppable")
+            appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
+
+            appendLine("""
+                import androidx.compose.runtime.DisposableEffect
+                import androidx.lifecycle.Lifecycle
+                import androidx.lifecycle.LifecycleEventObserver
+                import androidx.lifecycle.LifecycleOwner
+                import androidx.compose.runtime.getValue
+                import androidx.compose.runtime.rememberUpdatedState
+                import androidx.lifecycle.compose.LocalLifecycleOwner
+            """.trimIndent())
             appendLine()
+
+            appendLine("""
+                @Composable
+                fun HandleLifecycle(
+                    viewModel: ViewModel,
+                    content: @Composable () -> Unit
+                ) {
+                    val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
+                    val currentViewModel by rememberUpdatedState(viewModel)
+
+                    DisposableEffect(lifecycleOwner) {
+                       val observer = LifecycleEventObserver { _, event ->
+                            when (event) {
+                                Lifecycle.Event.ON_CREATE -> currentViewModel.onInitialize()
+                                Lifecycle.Event.ON_DESTROY -> {
+                                    currentViewModel.onDestroy()
+                                    currentViewModel.onCleared()
+                                }
+                                Lifecycle.Event.ON_RESUME -> currentViewModel.onAppearing()
+                                Lifecycle.Event.ON_PAUSE -> currentViewModel.onDisappearing()
+                                else -> {}
+                            }
+                        }
+
+                        lifecycleOwner.lifecycle.addObserver(observer)
+
+                        onDispose {
+                            lifecycleOwner.lifecycle.removeObserver(observer)
+                        }
+                    }
+
+                    content()
+                }
+            """.trimIndent())
 
             appendLine("@Composable")
             appendLine("fun AtlasNavGraph() {")
@@ -293,10 +341,12 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("                    rawParam.equals(\"true\", true) || rawParam.equals(\"false\", true) -> rawParam.toBoolean()")
                 appendLine("                    else -> try { kotlinx.serialization.json.Json.decodeFromString(rawParam) } catch (_: Exception) { rawParam }")
                 appendLine("                }")
-                appendLine("                    @Suppress(\"UNCHECKED_CAST\")")
-                appendLine("                    (vm as? com.architect.atlas.architecture.navigation.Pushable<Any>)?.onPushParams(param)")
+                appendLine("                @Suppress(\"UNCHECKED_CAST\")")
+                appendLine("                (vm as? com.architect.atlas.architecture.navigation.Pushable<Any>)?.onPushParams(param)")
                 appendLine("            }")
-                appendLine("            $screenComposable(vm)")
+                appendLine("            HandleLifecycle(vm) {")
+                appendLine("                $screenComposable(vm)")
+                appendLine("            }")
                 appendLine("        }")
             }
             appendLine("    }")
@@ -312,7 +362,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     // IOS Specific Generators
     private fun scanViewModelSwiftAnnotations(): List<Quad<String, String, String, Boolean>> {
         val results = mutableListOf<Quad<String, String, String, Boolean>>()
-        val swiftRegex = """^\s*//\s*@?AtlasScreen\s*\(\s*viewModel\s*:\s*([A-Za-z0-9_]+)\.self\s*(?:,\s*initial\s*:\s*(true|false))?\s*\)""".toRegex()
+        val swiftRegex =
+            """^\s*//\s*@?AtlasScreen\s*\(\s*viewModel\s*:\s*([A-Za-z0-9_]+)\.self\s*(?:,\s*initial\s*:\s*(true|false))?\s*\)""".toRegex()
 
         iOSOutputFiles.forEach { subProject ->
             subProject.walkTopDown().forEach { file ->
@@ -331,7 +382,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                         val match = swiftRegex.find(rawLine)
 
                         println("🔍 Attempting regex match on line: '$rawLine'")
-                        println("🔣 Unicode points: ${rawLine.map { it.code }.joinToString(", ") { "U+%04X".format(it) }}")
+                        println(
+                            "🔣 Unicode points: ${
+                                rawLine.map { it.code }.joinToString(", ") { "U+%04X".format(it) }
+                            }"
+                        )
                         println("✅ Matched: ${match != null}")
                         println("📦 Groups: ${match?.groupValues}")
 
@@ -347,12 +402,16 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                     // Step 2: If we have a pending annotation, check for class/struct declaration
                     if (pendingAnnotation != null &&
-                        (rawLine.trim().startsWith("struct ") || rawLine.trim().startsWith("class "))
+                        (rawLine.trim().startsWith("struct ") || rawLine.trim()
+                            .startsWith("class "))
                     ) {
-                        val currentClass = rawLine.trim().split("\\s+".toRegex()).getOrNull(1)?.trim()
+                        val currentClass =
+                            rawLine.trim().split("\\s+".toRegex()).getOrNull(1)?.trim()
                         if (currentClass != null) {
                             val viewModelName = pendingAnnotation.groupValues[1]
-                            val isInitial = pendingAnnotation.groupValues.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+                            val isInitial =
+                                pendingAnnotation.groupValues.getOrNull(2)?.toBooleanStrictOrNull()
+                                    ?: false
 
                             println("✅ Matched @AtlasScreen to class $currentClass (vm=$viewModelName, initial=$isInitial)")
 
@@ -399,7 +458,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("                resolved.tryHandlePush(params: pc)")
                 appendLine("            }")
                 appendLine("            let view = $screenName(vm: resolved)")
-                appendLine("            let controller = UIHostingController(rootView: view)")
+                appendLine("            let controller = LifecycleAwareHostingController(rootView: view, viewModel: resolved)")
+                appendLine("            controller.navigationController?.setNavigationBarHidden(true, animated: false)")
                 appendLine("            if isModal {")
                 appendLine("                nav?.present(controller, animated: true)")
                 appendLine("            } else {")
@@ -465,18 +525,51 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 """
             struct UIKitNavWrapperView: UIViewControllerRepresentable {
                 func makeUIViewController(context: Context) -> UIViewController {
-                    let root = $initialScreen(
-                        vm: AtlasDI.companion.resolveServiceNullableByName(
+                    let resolved = AtlasDI.companion.resolveServiceNullableByName(
                             clazz: SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)
-                        ) as? $initialViewModel
+                        ) as! $initialViewModel
+                    let root = $initialScreen(
+                        vm: resolved
                     )
-                    let hostingController = UIHostingController(rootView: root)
+                    let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved)
                     let navController = UINavigationController(rootViewController: hostingController)
                     UIApplication.globalRootNav = navController
                     return navController
                 }
 
                 func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+            }
+            
+            class LifecycleAwareHostingController<Content: View>: UIHostingController<Content> {
+               private let viewModel: ViewModel
+               init(rootView: Content, viewModel: ViewModel) {
+                   self.viewModel = viewModel
+                   self.viewModel.onInitialize()
+                   super.init(rootView: rootView)
+               }
+               
+               @objc required dynamic init?(coder aDecoder: NSCoder) {
+                   fatalError("init(coder:) has not been implemented")
+               }
+               
+               override func viewWillAppear(_ animated: Bool) {
+                   super.viewWillAppear(animated)
+                   viewModel.onAppearing()
+               }
+               
+               override func viewWillDisappear(_ animated: Bool) {
+                   viewModel.onDisappearing()
+               }
+               
+               override func willMove(toParent parent: UIViewController?) {
+                   if parent == nil {
+                       Task { @MainActor in
+                           self.viewModel.onDestroy()
+                           self.viewModel.onCleared()
+                       }
+                   }
+                   super.willMove(toParent: parent)
+               }
             }
 
             extension UIApplication {
@@ -498,7 +591,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     }
 
 
-
     private fun generateIOSSwiftBridge() {
         val swiftBridge = buildString {
             appendLine("import Foundation")
@@ -506,7 +598,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import $projectCoreName")
             appendLine()
 
-            appendLine("""class IOSAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {
+            appendLine(
+                """class IOSAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {
     @MainActor
     func setNavigationStack(stack: [ViewModel], params: Any?) {
         DispatchQueue.main.async {
@@ -575,7 +668,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     }
 }
 
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
 
         val iosOut = outputIosDir.get().asFile

@@ -43,13 +43,13 @@ dependencies{
     implementation("io.github.thearchitect123:atlas-plugin-common:0.0.7")
 }
 //
-//
+////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-navEngine-generator",
-//        version = "0.0.7"
+//        version = "0.1.0"
 //    )
 //
 //    // Configure POM metadata for the published artifact

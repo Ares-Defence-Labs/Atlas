@@ -43,14 +43,14 @@ gradlePlugin {
         }
     }
 }
-//
-//////////
+
+////////
 mavenPublishing {
     // Define coordinates for the published artifact
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-graph-generator",
-        version = "0.6.7"
+        version = "0.6.9"
     )
 
     // Configure POM metadata for the published artifact

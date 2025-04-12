@@ -45,6 +45,27 @@ class DroidStandard : ViewModel(), Pushable<String>, Poppable<Int> {
         q = s
     }
 
+    override fun onAppearing() {
+        super.onAppearing()
+        KmpLogging.writeInfo("APPEAR","LAUNCH")
+    }
+
+    override fun onDisappearing() {
+        super.onDisappearing()
+        KmpLogging.writeInfo("DISAPPEAR","LAUNCH")
+    }
+
+    override fun onInitialize() {
+        super.onInitialize()
+
+        KmpLogging.writeInfo("INIT","LAUNCH")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        KmpLogging.writeInfo("DESTROY","LAUNCH")
+    }
+
     override fun onPushParams(params: String) {
         KmpLogging.writeInfo("PUSH", params)
     }
@@ -52,6 +73,7 @@ class DroidStandard : ViewModel(), Pushable<String>, Poppable<Int> {
     override fun onPopParams(params: Int) {
         KmpLogging.writeInfo("POP", "$params")
     }
+
 }
 
 
@@ -68,6 +90,28 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int>{
 
     fun setHelloTesting(s: String) {
         q = s
+    }
+
+
+    override fun onAppearing() {
+        super.onAppearing()
+        KmpLogging.writeInfo("LOGIN","APPEAR")
+    }
+
+    override fun onDisappearing() {
+        super.onDisappearing()
+        KmpLogging.writeInfo("LOGIN","DISEAPPEARING")
+    }
+
+    override fun onInitialize() {
+        super.onInitialize()
+
+        KmpLogging.writeInfo("LOGIN","INITIALIZE")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        KmpLogging.writeInfo("LOGIN","DESTROY")
     }
 
     override fun onPushParams(params: String) {

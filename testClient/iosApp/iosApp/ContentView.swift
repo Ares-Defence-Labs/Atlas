@@ -9,6 +9,8 @@ struct ContentView: View {
     var body: some View {
         Text("Testing Button").onTapGesture {
             NavigationEngine.shared.routeWithParams(viewModelType: "DroidStandardSecond", params: "Hello There")
+        }.onAppear{
+            
         }
     }
 }

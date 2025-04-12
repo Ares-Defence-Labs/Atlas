@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.findNavController
 import com.architect.atlas.architecture.navigation.AtlasNavigationService
+import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.architecture.navigation.annotations.AtlasScreen
 import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.dsl.AtlasDI
@@ -26,6 +27,7 @@ import com.architect.atlas.navigation.AtlasNavGraph
 import com.architect.atlas.navigation.AtlasNavigation
 import com.architect.atlastestclient.software.DroidStandard
 import com.architect.atlastestclient.software.DroidStandardSecond
+import kotlinx.coroutines.cancel
 
 //import com.architect.atlas.resources.fonts.AtlasFonts
 
@@ -50,6 +52,7 @@ class MainActivity : FragmentActivity() {
                 AtlasNavGraph()
             }
         }
+        val t : ViewModel
     }
 }
 
