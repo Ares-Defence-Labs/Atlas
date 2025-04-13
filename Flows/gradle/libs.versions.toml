@@ -1,0 +1,11 @@
+[versions]
+agp = "8.9.0"
+kotlin = "2.0.0"
+lifecycleCommonJvm = "2.8.7"
+
+[libraries]
+androidx-lifecycle-common-jvm = { group = "androidx.lifecycle", name = "lifecycle-common-jvm", version.ref = "lifecycleCommonJvm" }
+
+[plugins]
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
