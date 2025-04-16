@@ -66,6 +66,7 @@
 		538B5A1A2DA0B2D80031037F /* roboto_semicondensed_light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59D82DA0B2D80031037F /* roboto_semicondensed_light.ttf */; };
 		53CE0AA42DA7A03000C92148 /* NavigationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CE0AA32DA7A03000C92148 /* NavigationEngine.swift */; };
 		53CE0AA52DA7A03000C92148 /* IOSAtlasNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CE0AA22DA7A03000C92148 /* IOSAtlasNavigationService.swift */; };
+		53CE0AAB2DACE45000C92148 /* FlowsSwiftExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CE0AAA2DACE45000C92148 /* FlowsSwiftExtensions.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -142,6 +143,7 @@
 		538B59E22DA0B2D80031037F /* roboto_thinitalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_thinitalic.ttf; sourceTree = "<group>"; };
 		53CE0AA22DA7A03000C92148 /* IOSAtlasNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IOSAtlasNavigationService.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/IOSAtlasNavigationService.swift; sourceTree = SOURCE_ROOT; };
 		53CE0AA32DA7A03000C92148 /* NavigationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NavigationEngine.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/NavigationEngine.swift; sourceTree = SOURCE_ROOT; };
+		53CE0AAA2DACE45000C92148 /* FlowsSwiftExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FlowsSwiftExtensions.swift; path = ../shared/build/generated/iosMain/kotlin/flows/FlowsSwiftExtensions.swift; sourceTree = SOURCE_ROOT; };
 		7555FF7B242A565900829871 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 		53CE0AA12DA7A01F00C92148 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
+				53CE0AAA2DACE45000C92148 /* FlowsSwiftExtensions.swift */,
 				53CE0AA22DA7A03000C92148 /* IOSAtlasNavigationService.swift */,
 				53CE0AA32DA7A03000C92148 /* NavigationEngine.swift */,
 			);
@@ -447,6 +450,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
+				53CE0AAB2DACE45000C92148 /* FlowsSwiftExtensions.swift in Sources */,
 				53CE0AA42DA7A03000C92148 /* NavigationEngine.swift in Sources */,
 				53CE0AA52DA7A03000C92148 /* IOSAtlasNavigationService.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,

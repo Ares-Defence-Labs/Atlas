@@ -1,6 +1,6 @@
-package com.architect.atlas.navigationEngine.helpers
+package com.architect.atlas.flows.helpers
 
-import com.architect.atlas.navigationEngine.tasks.routingEngine.SwiftUIFlowsGeneratorTask
+import com.architect.atlas.flows.routingEngine.SwiftUIFlowsGeneratorTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
@@ -28,7 +28,6 @@ internal object ResPluginHelpers {
             SwiftUIFlowsGeneratorTask::class.java
         ) {
             projectCoreName = project.getSwiftImportModuleName()
-            projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/flows"))
         }
     }

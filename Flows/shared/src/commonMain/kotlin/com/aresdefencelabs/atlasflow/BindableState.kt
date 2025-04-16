@@ -1,9 +1,13 @@
 package com.architect.atlas.atlasflow
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 
-class MutableAtlasFlowState<T>(initialValue: T) {
+class MutableAtlasFlowState<T : Any>(initialValue: T) {
     private val _state = MutableStateFlow(initialValue)
     private val state: StateFlow<T> get() = _state
 
@@ -18,6 +22,9 @@ class MutableAtlasFlowState<T>(initialValue: T) {
     }
 
     fun asStateFlow(): StateFlow<T> = state
-    fun asMutableStateFlow(): StateFlow<T> = _state
+    fun asMutableStateFlow(): MutableStateFlow<T> = _state
+    fun asSwiftFlow(): AnyKmpObjectFlow {
+        return asMutableStateFlow().asSwiftFlow()
+    }
 }
 

@@ -1,4 +1,4 @@
-package com.aresdefencelabs.atlasflow
+package com.architect.atlas.atlasflow.bindings
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction

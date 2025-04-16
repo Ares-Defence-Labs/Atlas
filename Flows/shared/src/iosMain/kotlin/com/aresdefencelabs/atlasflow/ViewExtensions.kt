@@ -1,4 +1,4 @@
-package com.aresdefencelabs.atlasflow
+package com.architect.atlas.atlasflow.bindings
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DisposableHandle

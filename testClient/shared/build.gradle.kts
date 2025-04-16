@@ -6,6 +6,7 @@ plugins {
     id("io.github.thearchitect123.atlasGraphGenerator")
     id("io.github.thearchitect123.atlasResourcesGenerator")
     id("io.github.thearchitect123.atlasNavigationEngineGenerator")
+    id("io.github.thearchitect123.atlasFlowsGenPlugin")
 }
 //
 //val copySwiftExtensionsDebug by tasks.registering(Copy::class) {
@@ -42,6 +43,8 @@ kotlin {
             baseName = "shared"
             isStatic = true
             export(libs.atlas.core)
+            export(libs.atlas.flow)
+            export(libs.coroutines.core)
 
             val swiftExtras = project.file("src/iosMain/swift")
             if (swiftExtras.exists()) {
@@ -54,7 +57,10 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
+
                 api(libs.atlas.core)
+                api(libs.atlas.flow)
+                api(libs.coroutines.core)
             }
         }
 

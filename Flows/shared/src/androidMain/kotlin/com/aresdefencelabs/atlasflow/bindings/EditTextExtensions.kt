@@ -1,4 +1,4 @@
-package com.aresdefencelabs.atlasflow.bindings
+package com.architect.atlas.atlasflow.bindings
 
 import android.text.Editable
 import android.text.TextWatcher

@@ -1,7 +1,7 @@
 package com.architect.atlas.flows.plugins
 
 import com.architect.atlas.common.helpers.TaskMngrHelpers
-import com.architect.atlas.navigationEngine.helpers.ResPluginHelpers
+import com.architect.atlas.flows.helpers.ResPluginHelpers
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
@@ -9,6 +9,7 @@ import org.gradle.api.Task
 class AtlasFlowsGenPlugin : Plugin<Project> {
     private val graphGen = "generateDependencyGraph"
     private val applePackageXcodeGenTask = "appleFontsGenTask"
+    private val navEngineGenerator = "generateNavAtlasEngine"
     private fun taskOrderConfig(
         project: Project,
         generateDependencyGraphTask: Task
@@ -25,6 +26,7 @@ class AtlasFlowsGenPlugin : Plugin<Project> {
             }
         }
 
+        generateDependencyGraphTask.mustRunAfter(navEngineGenerator)
         TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
     }
 

@@ -107,13 +107,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-//////////////////////
+////////////////////
 mavenPublishing {
     // Define coordinates for the published artifact
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.0.4"
+        version = "0.1.2"
     )
 
     // Configure POM metadata for the published artifact

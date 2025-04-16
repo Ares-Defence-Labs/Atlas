@@ -39,3 +39,10 @@ open class CFlow<T>(private val flow: StateFlow<T>) {
 
 fun <T> StateFlow<T>.asCFlow(): CFlow<T> = CFlow(this)
 fun <T> MutableStateFlow<T>.asMutableCFlow(): MutableCFlow<T> = MutableCFlow(this)
+fun <T : Any> MutableStateFlow<T>.asSwiftFlow(): AnyKmpObjectFlow {
+    return AnyKmpObjectFlow(
+        getter = { value },
+        setter = { newValue -> value = newValue as T },
+        collector = { block -> this.onEach { block(it) }.launchIn(CoroutineScope(Dispatchers.Main)) }
+    )
+}
