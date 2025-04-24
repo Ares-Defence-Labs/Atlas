@@ -74,24 +74,20 @@ kotlin {
             }
         }
         val androidMain by getting {
-            dependsOn(commonMain)
             dependencies{
                 implementation(libs.androidx.lifecycle.common.jvm)
             }
         }
 
         val iosMain by getting{
-            dependsOn(commonMain)
+
         }
 
         val iosArm64Main by getting{
-            dependsOn(iosMain)
         }
         val iosX64Main by getting{
-            dependsOn(iosMain)
         }
         val iosSimulatorArm64Main by getting{
-            dependsOn(iosMain)
         }
     }
 }
@@ -113,7 +109,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.1.2"
+        version = "0.1.8"
     )
 
     // Configure POM metadata for the published artifact

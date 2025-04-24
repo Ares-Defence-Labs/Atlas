@@ -1,11 +1,31 @@
 package com.architect.atlas.common.helpers
 
 import org.gradle.api.Project
+import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import java.io.File
 
 object ProjectFinder {
     fun isDebugMode(project: Project) =
         project.tasks.any { it.name.contains("debug", ignoreCase = true) }
+
+    fun Project.getSwiftImportModuleName(): String {
+        val kotlinExt =
+            extensions.findByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+                ?: return "shared"
+
+        val appleTarget = kotlinExt.targets
+            .filterIsInstance<KotlinNativeTarget>()
+            .firstOrNull { it.konanTarget.family.isAppleFamily }
+            ?: return "shared"
+
+        // Get any framework binary configured
+        val framework = appleTarget.binaries
+            .filterIsInstance<Framework>()
+            .firstOrNull()
+
+        return framework?.baseName ?: "shared"
+    }
 
 
     fun getAndroidAppNamespace(androidProject: Project): String {

@@ -1,30 +1,13 @@
 package com.architect.atlas.navigationEngine.helpers
 
 import com.architect.atlas.common.helpers.ProjectFinder
+import com.architect.atlas.common.helpers.ProjectFinder.getSwiftImportModuleName
 import com.architect.atlas.navigationEngine.tasks.routingEngine.NavigationEngineGeneratorTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import java.io.File
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 
 internal object ResPluginHelpers {
-
-
-    fun Project.getSwiftImportModuleName(): String {
-        val kotlinExt =
-            extensions.findByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-                ?: return "shared"
-
-        val appleTarget = kotlinExt.targets
-            .filterIsInstance<KotlinNativeTarget>()
-            .firstOrNull { it.konanTarget.family.isAppleFamily }
-
-        val framework: Framework? =
-            appleTarget?.binaries?.getFramework("DEBUG") // or "RELEASE" based on context
-
-        return framework?.baseName ?: "shared"
-    }
 
     fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
         val androidApp = ProjectFinder.findAndroidClientApp(project)!!

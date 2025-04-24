@@ -1,5 +1,5 @@
 import SwiftUI
-import shared
+import testShared
 
 
 //@AtlasScreen(viewModel: DroidStandard.self, initial: true)
@@ -17,18 +17,18 @@ struct ContentView: View {
     }
     
     var body: some View {
-//        List(samples.value, id: \.id) { person in
-//            Text(person.name)
-//        }
-//
-//        VStack{
-//            Text("").bindTextTwoWay(vm.testText.asSwiftFlow())
-//        }.onAppear{
-//            let currentValue = stringAdapter.fromKotlin(vm.testText.asSwiftFlow().getValue())
-//            observe(vm.testText.asSwiftFlow(), adapter: stringAdapter) { res in
-//            print ("RES \(res)")
-//            }
-//        }
+        List(samples.value, id: \.id) { person in
+            Text(person.name)
+        }
+
+        VStack{
+            Text(name)
+        }.onAppear{
+            let currentValue = stringAdapter.fromKotlin(vm.testText.asSwiftFlow().getValue())
+            observe(vm.testText.asSwiftFlow(), adapter: stringAdapter) { res in
+            print ("RES \(res)")
+            }
+        }
         
         List {
             ForEachBinding(samples.listBinding, id: \.self) { sample in

@@ -1,4 +1,4 @@
-package com.aresdefencelabs.atlasflow.swiftUI
+package com.architect.atlas.atlasflow.swiftUI
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -7,13 +7,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-class DoubleFlow(private val stateFlow: MutableStateFlow<Double>) {
-    fun getValue(): Double = stateFlow.value
-    fun setValue(value: Double) {
+class StringFlow(private val stateFlow: MutableStateFlow<String>) {
+    fun getValue(): String = stateFlow.value
+    fun setValue(value: String) {
         stateFlow.value = value
     }
 
-    fun observe(block: (Double) -> Unit): DisposableHandle {
+    fun observe(block: (String) -> Unit): DisposableHandle {
         val scope = CoroutineScope(SupervisorJob())
         val job = scope.launch {
             stateFlow.collect {
@@ -28,7 +28,7 @@ class DoubleFlow(private val stateFlow: MutableStateFlow<Double>) {
         }
     }
 
-    fun observeMain(block: (Double) -> Unit): DisposableHandle {
+    fun observeMain(block: (String) -> Unit): DisposableHandle {
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         val job = scope.launch {
             stateFlow.collect {
@@ -43,3 +43,5 @@ class DoubleFlow(private val stateFlow: MutableStateFlow<Double>) {
         }
     }
 }
+
+

@@ -45,7 +45,9 @@ class MainActivity : FragmentActivity() {
 
         //val fonts = AtlasFonts.roboto_semicondensed_blackitalic(this)
 
-        AtlasDI.injectContainer(AtlasContainer)
+
+        AtlasDI.registerFactory()<>()<>()
+        AtlasDI.registerInterfaceToInstance(AtlasNavigationService::class, AtlasNavigation)
         //AtlasNavigation.navigateToPageTest(DroidStandard::class, "")
         setContent {
             MyApplicationTheme {

@@ -21,8 +21,10 @@ plugins {
 //}
 
 
-tasks.named("generateNavAtlasEngine").configure{
-    mustRunAfter("appleFontsPackagingGenTask")
+project.afterEvaluate {
+    tasks.named("generateNavAtlasEngine").configure {
+        mustRunAfter("appleFontsPackagingGenTask")
+    }
 }
 
 kotlin {
@@ -40,7 +42,7 @@ kotlin {
 
     listOf(iosX64, iosArm64, iosSimulatorArm64).forEach {
         it.binaries.framework {
-            baseName = "shared"
+            baseName = "testShared"
             isStatic = true
             export(libs.atlas.core)
             export(libs.atlas.flow)

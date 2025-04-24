@@ -29,6 +29,8 @@ class NavigationEngineGenPlugin : Plugin<Project> {
     }
 
     override fun apply(project: Project) {
-        taskOrderConfig(project, ResPluginHelpers.getNavEngineGenTask(project).get())
+        project.afterEvaluate {
+            taskOrderConfig(project, ResPluginHelpers.getNavEngineGenTask(project).get())
+        }
     }
 }

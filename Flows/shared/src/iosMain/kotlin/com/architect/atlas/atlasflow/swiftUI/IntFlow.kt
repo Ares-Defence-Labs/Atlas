@@ -1,4 +1,4 @@
-package com.aresdefencelabs.atlasflow.swiftUI
+package com.architect.atlas.atlasflow.swiftUI
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

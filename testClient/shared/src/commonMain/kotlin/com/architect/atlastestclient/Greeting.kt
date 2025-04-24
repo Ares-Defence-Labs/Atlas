@@ -1,5 +1,7 @@
 package com.architect.atlastestclient
 
+import com.architect.atlas.atlasflow.MutableAtlasFlowState
+import com.architect.atlas.atlasflow.asCFlow
 import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlastestclient.software.TestSingle
 
@@ -13,8 +15,18 @@ class Greeting {
 
 class CompTestStandard{
     companion object{
+        var test = MutableAtlasFlowState("")
         fun getTestSingle(name: String) : TestSingle?{
             ///AtlasDI.injectContainer(AtlasContainer)
+            test.
+            test.asStateFlow().asCFlow().observe {
+
+            }
+
+            test.asStateFlow().asCFlow().observeMain {
+
+            }
+
             return AtlasDI.resolveServiceNullableByName(name)
         }
     }

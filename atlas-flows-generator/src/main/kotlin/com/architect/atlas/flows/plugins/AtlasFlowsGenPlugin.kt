@@ -31,6 +31,11 @@ class AtlasFlowsGenPlugin : Plugin<Project> {
     }
 
     override fun apply(project: Project) {
-        taskOrderConfig(project, ResPluginHelpers.getSwiftUIBindingsEngineGenTask(project).get())
+        project.afterEvaluate {
+            taskOrderConfig(
+                project,
+                ResPluginHelpers.getSwiftUIBindingsEngineGenTask(project).get()
+            )
+        }
     }
 }

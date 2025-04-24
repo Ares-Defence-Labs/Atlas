@@ -1,21 +1,13 @@
 {
   "images" : [
     {
+      "idiom" : "universal",
       "filename" : "android_svg.png",
-      "idiom" : "universal",
       "scale" : "1x"
-    },
-    {
-      "idiom" : "universal",
-      "scale" : "2x"
-    },
-    {
-      "idiom" : "universal",
-      "scale" : "3x"
     }
   ],
   "info" : {
-    "author" : "xcode",
-    "version" : 1
+    "version" : 1,
+    "author" : "Atlas"
   }
 }
