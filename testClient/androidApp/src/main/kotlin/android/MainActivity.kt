@@ -1,4 +1,5 @@
 package com.architect.atlastestclient.android
+import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -22,9 +23,8 @@ import com.architect.atlas.architecture.navigation.AtlasNavigationService
 import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.architecture.navigation.annotations.AtlasScreen
 import com.architect.atlas.container.AtlasContainer
+//import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.dsl.AtlasDI
-import com.architect.atlas.navigation.AtlasNavGraph
-import com.architect.atlas.navigation.AtlasNavigation
 import com.architect.atlastestclient.software.DroidStandard
 import com.architect.atlastestclient.software.DroidStandardSecond
 import kotlinx.coroutines.cancel
@@ -37,6 +37,13 @@ import kotlinx.coroutines.cancel
 
 class MainActivity : FragmentActivity() {
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        AtlasDI.resolveService<Dep>()
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -46,23 +53,27 @@ class MainActivity : FragmentActivity() {
         //val fonts = AtlasFonts.roboto_semicondensed_blackitalic(this)
 
 
-        AtlasDI.registerFactory()<>()<>()
-        AtlasDI.registerInterfaceToInstance(AtlasNavigationService::class, AtlasNavigation)
+        AtlasDI.injectContainer(AtlasContainer);
+        AtlasDI.resolveService<Dep>()
+
+        //AtlasDI.registerFactory()<>()<>()
+        //At/lasDI.registerInterfaceToInstance(AtlasNavigationService::class, AtlasNavigation)
         //AtlasNavigation.navigateToPageTest(DroidStandard::class, "")
         setContent {
             MyApplicationTheme {
-                AtlasNavGraph()
+                //GreetingView()
             }
         }
         val t : ViewModel
     }
 }
+//
 
 @AtlasScreen(DroidStandard::class, initial = true)
 @Composable
 fun GreetingView(vm: DroidStandard) {
     Button({
-        AtlasNavigation.navigateToPage(DroidStandardSecond::class,"Hello There")
+        AtlasDI.resolveService<Dep>().test()
     }){
         Text(text = "Screen 1 Button")
     }
@@ -72,7 +83,7 @@ fun GreetingView(vm: DroidStandard) {
 @Composable
 fun GreetingSecondView(vm: DroidStandardSecond) {
     Button({
-        AtlasNavigation.popPage(true, 12)
+      //  AtlasNavigation.popPage(true, 12)
     }){
         Text(text = "Second Screen. CLICK ME!!!")
     }

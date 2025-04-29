@@ -1,5 +1,6 @@
 package com.architect.atlas.flows.plugins
 
+import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.TaskMngrHelpers
 import com.architect.atlas.flows.helpers.ResPluginHelpers
 import org.gradle.api.Plugin
@@ -7,35 +8,50 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 
 class AtlasFlowsGenPlugin : Plugin<Project> {
-    private val graphGen = "generateDependencyGraph"
-    private val applePackageXcodeGenTask = "appleFontsGenTask"
-    private val navEngineGenerator = "generateNavAtlasEngine"
+    private val resourceGenTasks = listOf(
+        "generateAtlasStringsGraph",
+        "generateAtlasColorsGraph",
+        "generateAtlasImagesGraph",
+        "generateAtlasFontsGraph",
+        "appleFontsGenTask",
+        "appleFontsPackagingGenTask",
+        "applePackageXcodeGenTask"
+    )
+
     private fun taskOrderConfig(
         project: Project,
         generateDependencyGraphTask: Task
     ) {
-        val dependencyGraphTask = project.rootProject.allprojects
-            .flatMap { it.tasks }
-            .filter { it.name in listOf(graphGen, applePackageXcodeGenTask) }
-
-        if (dependencyGraphTask.isNotEmpty()) {
-            dependencyGraphTask.forEach {
-                project.logger.lifecycle("✅ Found and linking ${generateDependencyGraphTask.name} to task: ${it.path}")
-                generateDependencyGraphTask.dependsOn(it)
-                generateDependencyGraphTask.mustRunAfter(it)
-            }
-        }
-
-        generateDependencyGraphTask.mustRunAfter(navEngineGenerator)
         TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
     }
 
     override fun apply(project: Project) {
-        project.afterEvaluate {
-            taskOrderConfig(
-                project,
-                ResPluginHelpers.getSwiftUIBindingsEngineGenTask(project).get()
-            )
+        val isIOS = !ProjectFinder.isBuildingForAndroid(project)
+        if (isIOS) {
+            project.afterEvaluate {
+                val swiftFlows = ResPluginHelpers.getSwiftUIBindingsEngineGenTask(project).get()
+                taskOrderConfig(
+                    project,
+                    swiftFlows
+                )
+
+                val graphsDep = project.tasks.findByName("generateDependencyGraph")
+                if (graphsDep != null) {
+                    swiftFlows.mustRunAfter(graphsDep)
+                }
+
+                val navDep = project.tasks.findByName("generateNavAtlasEngine")
+                if (navDep != null) {
+                    swiftFlows.mustRunAfter(navDep)
+                }
+
+                resourceGenTasks.forEach { taskName ->
+                    val resTask = project.tasks.findByName(taskName)
+                    if (resTask != null) {
+                        swiftFlows.mustRunAfter(taskName)
+                    }
+                }
+            }
         }
     }
 }

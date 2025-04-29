@@ -43,7 +43,7 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
         logger.info("Running font files for iOS")
         val fontsDir = File(projectRootDir.get().asFile, "src/commonMain/resources/fonts")
         if (!fontsDir.exists()) {
-            logger.warn("\u2757\ufe0f No images folder found at: \${imageDir.absolutePath}")
+            logger.warn("\u2757\ufe0f No Fonts folder found at: ${fontsDir.absolutePath}")
             return
         }
 

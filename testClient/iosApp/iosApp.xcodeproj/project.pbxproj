@@ -64,9 +64,6 @@
 		538B5A182DA0B2D80031037F /* roboto_condensed_extrabolditalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59B62DA0B2D80031037F /* roboto_condensed_extrabolditalic.ttf */; };
 		538B5A192DA0B2D80031037F /* roboto_condensed_semibold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59BF2DA0B2D80031037F /* roboto_condensed_semibold.ttf */; };
 		538B5A1A2DA0B2D80031037F /* roboto_semicondensed_light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59D82DA0B2D80031037F /* roboto_semicondensed_light.ttf */; };
-		53CE0AA42DA7A03000C92148 /* NavigationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CE0AA32DA7A03000C92148 /* NavigationEngine.swift */; };
-		53CE0AA52DA7A03000C92148 /* IOSAtlasNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CE0AA22DA7A03000C92148 /* IOSAtlasNavigationService.swift */; };
-		53CE0AAB2DACE45000C92148 /* FlowsSwiftExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CE0AAA2DACE45000C92148 /* FlowsSwiftExtensions.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -141,9 +138,6 @@
 		538B59E02DA0B2D80031037F /* roboto_semicondensed_thinitalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_semicondensed_thinitalic.ttf; sourceTree = "<group>"; };
 		538B59E12DA0B2D80031037F /* roboto_thin.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_thin.ttf; sourceTree = "<group>"; };
 		538B59E22DA0B2D80031037F /* roboto_thinitalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_thinitalic.ttf; sourceTree = "<group>"; };
-		53CE0AA22DA7A03000C92148 /* IOSAtlasNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IOSAtlasNavigationService.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/IOSAtlasNavigationService.swift; sourceTree = SOURCE_ROOT; };
-		53CE0AA32DA7A03000C92148 /* NavigationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NavigationEngine.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/NavigationEngine.swift; sourceTree = SOURCE_ROOT; };
-		53CE0AAA2DACE45000C92148 /* FlowsSwiftExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FlowsSwiftExtensions.swift; path = ../shared/build/generated/iosMain/kotlin/flows/FlowsSwiftExtensions.swift; sourceTree = SOURCE_ROOT; };
 		7555FF7B242A565900829871 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -240,9 +234,6 @@
 		53CE0AA12DA7A01F00C92148 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
-				53CE0AAA2DACE45000C92148 /* FlowsSwiftExtensions.swift */,
-				53CE0AA22DA7A03000C92148 /* IOSAtlasNavigationService.swift */,
-				53CE0AA32DA7A03000C92148 /* NavigationEngine.swift */,
 			);
 			path = Generated;
 			sourceTree = "<group>";
@@ -292,7 +283,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7555FFA5242A565B00829871 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
-				53CE0AA02DA79F6700C92148 /* ShellScript */,
 				7555FFB5242A651A00829871 /* ShellScript */,
 				7555FF77242A565900829871 /* Sources */,
 				7555FF78242A565900829871 /* Frameworks */,
@@ -408,23 +398,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		53CE0AA02DA79F6700C92148 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Set your paths\nSRC_DIR=\"${SRCROOT}/../shared/build/generated/iosMain/kotlin/navigation\"\nDST_DIR=\"${SRCROOT}/iosApp/navigation/generated\"\n\n# Make sure the destination directory exists\nmkdir -p \"$DST_DIR\"\n\n# Copy only Swift files\ncp \"$SRC_DIR\"/*.swift \"$DST_DIR\"\n\n# Optional: Log copied files\necho \"Copied generated Swift files:\"\nls \"$DST_DIR\"\n";
-		};
 		7555FFB5242A651A00829871 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -440,7 +413,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "cd \"$SRCROOT/..\"\n\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -450,9 +423,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
-				53CE0AAB2DACE45000C92148 /* FlowsSwiftExtensions.swift in Sources */,
-				53CE0AA42DA7A03000C92148 /* NavigationEngine.swift in Sources */,
-				53CE0AA52DA7A03000C92148 /* IOSAtlasNavigationService.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

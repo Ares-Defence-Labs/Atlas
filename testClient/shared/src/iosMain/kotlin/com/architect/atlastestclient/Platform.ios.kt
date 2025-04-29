@@ -14,7 +14,7 @@ actual fun getPlatform(): Platform = IOSPlatform()
 class TestIOS{
     companion object{
         fun registerServices(): String{
-            AtlasDI.injectContainer(com.architect.atlas.container.AtlasContainer)
+         //   AtlasDI.injectContainer(com.architect.atlas.container.AtlasContainer)
 //            AtlasDI.registerSingleton(ReviewProcess())
 //
 //            AtlasDI.registerInterfaceToInstance(TestProcess::class, ReviewApps())

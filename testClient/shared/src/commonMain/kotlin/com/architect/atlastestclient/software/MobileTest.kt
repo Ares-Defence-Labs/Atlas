@@ -39,6 +39,7 @@ data class Person(val person: String, val rc : Int)
 class DroidStandard : ViewModel(), Pushable<String>, Poppable<Int> {
     init {
         var t = ""
+
     }
 
     val testText = MutableAtlasFlowState("Test String")
@@ -107,7 +108,7 @@ class DroidStandard : ViewModel(), Pushable<String>, Poppable<Int> {
         KmpLogging.writeInfo("APPEAR","LAUNCH")
 
         KmpLauncher.startTimer(4.0){
-            testText.value = "Sample Int, THis works!"
+          //  testText.value = "Sample Int, THis works!"
             false
         }
     }

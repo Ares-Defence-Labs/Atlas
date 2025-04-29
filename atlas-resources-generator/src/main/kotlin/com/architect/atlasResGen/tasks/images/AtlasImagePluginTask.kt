@@ -114,13 +114,14 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
     private fun copyImagesToAndroidAssets(imageFiles: List<File>) {
         val targetDir = androidAssetImageDir.asFile.get()
-        logger.lifecycle("TARGET PATH $targetDir")
         targetDir.mkdirs()
 
         val filteredImages =
             imageFiles.filter { !it.exists() || forceRegenerate }
         filteredImages.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
+
+            logger.lifecycle("Moving SVG to AssetManager ${sourceFile.name}")
             sourceFile.copyTo(targetFile, overwrite = true)
         }
 

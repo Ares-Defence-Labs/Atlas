@@ -20,13 +20,6 @@ plugins {
 //    finalizedBy(copySwiftExtensionsDebug)
 //}
 
-
-project.afterEvaluate {
-    tasks.named("generateNavAtlasEngine").configure {
-        mustRunAfter("appleFontsPackagingGenTask")
-    }
-}
-
 kotlin {
     androidTarget {
         compilations.all {
@@ -42,7 +35,7 @@ kotlin {
 
     listOf(iosX64, iosArm64, iosSimulatorArm64).forEach {
         it.binaries.framework {
-            baseName = "testShared"
+            baseName = "shared"
             isStatic = true
             export(libs.atlas.core)
             export(libs.atlas.flow)

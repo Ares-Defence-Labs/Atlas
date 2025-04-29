@@ -18,14 +18,14 @@ class CompTestStandard{
         var test = MutableAtlasFlowState("")
         fun getTestSingle(name: String) : TestSingle?{
             ///AtlasDI.injectContainer(AtlasContainer)
-            test.
-            test.asStateFlow().asCFlow().observe {
-
-            }
-
-            test.asStateFlow().asCFlow().observeMain {
-
-            }
+//            test.
+//            test.asStateFlow().asCFlow().observe {
+//
+//            }
+//
+//            test.asStateFlow().asCFlow().observeMain {
+//
+//            }
 
             return AtlasDI.resolveServiceNullableByName(name)
         }

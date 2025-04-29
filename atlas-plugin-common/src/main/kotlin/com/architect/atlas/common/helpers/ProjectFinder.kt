@@ -81,5 +81,14 @@ object ProjectFinder {
             subproject.plugins.hasPlugin("com.android.application")
         }
     }
+
+    fun isBuildingForAndroid(project: Project): Boolean {
+        val requestedTasks = project.gradle.startParameter.taskNames
+        return requestedTasks.any { taskName ->
+            taskName.contains("assemble", ignoreCase = true) ||
+                    taskName.contains("build", ignoreCase = true) ||
+                    taskName.contains("install", ignoreCase = true)
+        }
+    }
 }
 

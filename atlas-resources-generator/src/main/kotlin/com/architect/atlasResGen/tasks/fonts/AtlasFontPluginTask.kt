@@ -45,13 +45,13 @@ abstract class AtlasFontPluginTask : DefaultTask() {
     fun generateStringClass() {
         val fontsDir = File(projectRootDir.get().asFile, "src/commonMain/resources/fonts")
         if (!fontsDir.exists()) {
-            logger.warn("\u2757\ufe0f No images folder found at: \${imageDir.absolutePath}")
+            logger.warn("\u2757\ufe0f No Fonts folder found at: \${fontsDir.absolutePath}")
             return
         }
 
         val fontFiles = fontsDir.walk()
             .filter {
-                it.isFile && it.extension.lowercase() in listOf("ttf")
+                it.isFile && it.extension.lowercase() in listOf("ttf", "otf")
             }
             .toList()
 

@@ -16,16 +16,20 @@ internal object ResPluginHelpers {
         val iosoutputs = coutputFiles.toMutableList()
         iosoutputs.add(ProjectFinder.findIosClientApp(project)!!)
 
+        val moduleName = project.findProperty("atlas.coreModuleName")?.toString()
+            ?: project.getSwiftImportModuleName()
+
         return project.tasks.register(
             "generateNavAtlasEngine",
             NavigationEngineGeneratorTask::class.java
         ) {
-            projectCoreName = project.getSwiftImportModuleName()
+            projectCoreName = moduleName
             iOSOutputFiles = iosoutputs
             outputFiles = coutputFiles
             outputAndroidDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/navigation"))
             projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/navigation"))
+            isIOSTarget = !ProjectFinder.isBuildingForAndroid(project)
         }
     }
 }

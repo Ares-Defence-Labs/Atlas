@@ -7,30 +7,20 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 
 class NavigationEngineGenPlugin : Plugin<Project> {
-    private val graphGen = "generateDependencyGraph"
-    private val applePackageXcodeGenTask = "appleFontsGenTask"
     private fun taskOrderConfig(
         project: Project,
         generateDependencyGraphTask: Task
     ) {
-        val dependencyGraphTask = project.rootProject.allprojects
-            .flatMap { it.tasks }
-            .filter { it.name in listOf(graphGen, applePackageXcodeGenTask) }
-
-        if (dependencyGraphTask.isNotEmpty()) {
-            dependencyGraphTask.forEach {
-                project.logger.lifecycle("✅ Found and linking ${generateDependencyGraphTask.name} to task: ${it.path}")
-                generateDependencyGraphTask.dependsOn(it)
-                generateDependencyGraphTask.mustRunAfter(it)
-            }
-        }
-
         TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
     }
 
     override fun apply(project: Project) {
-        project.afterEvaluate {
-            taskOrderConfig(project, ResPluginHelpers.getNavEngineGenTask(project).get())
+        val navTask = ResPluginHelpers.getNavEngineGenTask(project).get()
+        taskOrderConfig(project, navTask)
+
+        val graphsDep = project.tasks.findByName("generateDependencyGraph")
+        if (graphsDep != null) {
+            navTask.mustRunAfter(graphsDep)
         }
     }
 }

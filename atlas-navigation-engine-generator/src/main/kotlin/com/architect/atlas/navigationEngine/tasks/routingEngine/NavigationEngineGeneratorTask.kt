@@ -27,6 +27,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var projectCoreName: String
 
+
+    @get:Input
+    abstract var isIOSTarget: Boolean
+
     init {
         group = "AtlasNavigation"
         description = "Generates the platform-specific navigation engine implementations."
@@ -35,23 +39,28 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
     @TaskAction
     fun generateNavigatorClass() {
-        val ants = scanViewModelAnnotations()
-        val viewModelToScreen =
-            ants.map { it.first to it.second } // Drop path, keep (viewModel, screen)
-
-        generateAndroidNavigation(viewModelToScreen)
-        generateAndroidNavGraph(ants)
-
         // ios components
-        val iOSViewModelToScreen = scanViewModelSwiftAnnotations()
-        generateIOSNavigation(iOSViewModelToScreen.map {
-            ScreenMetadata(
-                it.first,
-                it.second,
-                it.fourth
-            )
-        })
-        generateIOSSwiftBridge()
+        if(isIOSTarget) {
+            logger.lifecycle("WRITING NAVIGATION TO IOS")
+            val iOSViewModelToScreen = scanViewModelSwiftAnnotations()
+            generateIOSNavigation(iOSViewModelToScreen.map {
+                ScreenMetadata(
+                    it.first,
+                    it.second,
+                    it.fourth
+                )
+            })
+            generateIOSSwiftBridge()
+        }
+        else {
+            logger.lifecycle("WRITING NAVIGATION TO ANDROID")
+            val ants = scanViewModelAnnotations()
+            val viewModelToScreen =
+                ants.map { it.first to it.second } // Drop path, keep (viewModel, screen)
+
+            generateAndroidNavigation(viewModelToScreen)
+            generateAndroidNavGraph(ants)
+        }
     }
 
     private fun scanViewModelAnnotations(): List<Quad<String, String, String, Boolean>> {

@@ -14,37 +14,37 @@ import com.architect.atlastestclient.software.MobileTest
 class TestInter {
 }
 
-
-@Module
-class TestMod{
-
-    @Provides
-    fun process() : Sample {
-        return Sample()
-    }
-
-    @Provides
-    fun getComponent(): Hello {
-        return ComponentTest()
-    }
-
-    @Provides
-    fun getComponentDNS(): DNSTest {
-        return DNSComps()
-    }
-
-    @Provides
-    fun getComponentMobileTest(mods: ReviewProcessTester): MobileTest {
-        return MobileTest()
-    }
-
-    @Provides
-    fun getComponentMobileTestHello(mods: HelloThereTest): MobileTest {
-        return MobileTest()
-    }
-
-
-}
+//
+//@Module
+//class TestMod{
+//
+//    @Provides
+//    fun process() : Sample {
+//        return Sample()
+//    }
+//
+//    @Provides
+//    fun getComponent(): Hello {
+//        return ComponentTest()
+//    }
+//
+//    @Provides
+//    fun getComponentDNS(): DNSTest {
+//        return DNSComps()
+//    }
+//
+//    @Provides
+//    fun getComponentMobileTest(mods: ReviewProcessTester): MobileTest {
+//        return MobileTest()
+//    }
+//
+//    @Provides
+//    fun getComponentMobileTestHello(mods: HelloThereTest): MobileTest {
+//        return MobileTest()
+//    }
+//
+//
+//}
 
 @Singleton
 class HelloThereTest{

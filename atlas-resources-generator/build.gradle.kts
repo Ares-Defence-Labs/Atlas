@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.29.0"
     id("signing")
 }
-////
+//////
 //repositories {
 //    google()
 //    mavenCentral()
@@ -42,7 +42,7 @@ dependencies{
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
     implementation("org.apache.pdfbox:fontbox:2.0.30")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.8")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.9")
 }
 //
 
@@ -51,7 +51,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-res-generator",
-        version = "0.1.9"
+        version = "0.2.7"
     )
 
     // Configure POM metadata for the published artifact

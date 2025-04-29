@@ -10,18 +10,26 @@ import java.io.File
 abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
     @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
-
-    @get:OutputDirectory
     abstract val androidOutputDir: DirectoryProperty
 
-    @get:InputDirectory
+    @get:OutputDirectory
+    abstract val iOSOutputDir: DirectoryProperty
+
+    @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val projectRootDir: DirectoryProperty
+    abstract val projectRootDir: ConfigurableFileCollection
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val androidResources: ConfigurableFileCollection
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val externalSourceDirs: ConfigurableFileCollection
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val iosSourceDirs: ConfigurableFileCollection
 
     @get:Input
     abstract var isAndroidTarget: Boolean
@@ -77,24 +85,32 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     fun generateGraph() {
         logger.lifecycle("🚀 Running generateDependencyGraph task...")
 
-        val atlasContainerDir = File(outputDir.get().asFile, "com/architect/atlas/container/")
-        val androidContainerDir =
-            File(androidOutputDir.get().asFile, "com/architect/atlas/container/android/")
+        val androidContainerDir = androidOutputDir.get().asFile
+        val iOSContainerDir = iOSOutputDir.get().asFile
 
-        atlasContainerDir.mkdirs()
         androidContainerDir.mkdirs()
+        iOSContainerDir.mkdirs()
 
-        val outputFile = File(atlasContainerDir, "AtlasContainer.kt")
+        val outputFile = File(androidContainerDir, "AtlasContainer.kt")
+        val iosOutputFile = File(iOSContainerDir, "AtlasContainer.kt")
         val androidOutputFile = File(androidContainerDir, "ViewModelExtensions.kt")
 
         // 🔹 NEW: Delete previous files to force regeneration
-        if (outputFile.exists()) {
-            logger.lifecycle("🗑 Deleting old AtlasContainer.kt to force regeneration")
-            outputFile.delete()
+        if (!isAndroidTarget) {
+            if (iosOutputFile.exists()) {
+                logger.lifecycle("🗑 Deleting old ios AtlasContainer.kt to force regeneration")
+                iosOutputFile.delete()
+            }
         }
-        if (androidOutputFile.exists()) {
-            logger.lifecycle("🗑 Deleting old ViewModelExtensions.kt to force regeneration")
-            androidOutputFile.delete()
+        else {
+            if (outputFile.exists()) {
+                logger.lifecycle("🗑 Deleting old AtlasContainer.kt to force regeneration")
+                outputFile.delete()
+            }
+            if (androidOutputFile.exists()) {
+                logger.lifecycle("🗑 Deleting old ViewModelExtensions.kt to force regeneration")
+                androidOutputFile.delete()
+            }
         }
 
         val classToPackage = mutableMapOf<String, String>()
@@ -114,8 +130,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             "com.architect.atlas.container.annotations.Module" to modules,
         )
 
-        logger.lifecycle("📂 Ensured directories exist: ${atlasContainerDir.absolutePath}, ${androidContainerDir.absolutePath}")
-
         // ✅ Check if Android resources are present
         if (androidResources.files.isNotEmpty()) {
             logger.lifecycle("📦 Detected merged Android resources at ${androidResources.asPath}")
@@ -133,7 +147,15 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         val providesReturnTypes =
             mutableMapOf<String, String>() // Stores (Return Type → Fully Qualified Name)
 
-        projectRootDir.get().asFile.walkTopDown()
+        val allSourceDirs =
+            projectRootDir.files
+        if (isAndroidTarget) {
+            allSourceDirs.addAll(externalSourceDirs.files)
+        } else {
+            allSourceDirs.addAll(iosSourceDirs.files)
+        }
+
+        allSourceDirs
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
             .forEach { sourceDir ->
                 sourceDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
@@ -174,7 +196,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
 
         // ✅ First pass: Collect all class declarations across all files
-        projectRootDir.get().asFile.walkTopDown()
+        allSourceDirs
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
             .forEach { sourceDir ->
                 sourceDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
@@ -211,7 +233,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             }
 
         // ✅ Second pass: Process annotations and verify hierarchy
-        projectRootDir.get().asFile.walkTopDown()
+        allSourceDirs
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
             .forEach { sourceDir ->
                 sourceDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
@@ -289,22 +311,42 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 }
             }
 
-        outputFile.writeText(
-            generateAtlasContainer(
-                classToPackage,
-                singletons,
-                factories,
-                scopedInstances,
-                viewModels,
-                modules,
-                provides,
-                providesReturnTypes
+        // prepare annotation file
+        if (isAndroidTarget) {
+            logger.lifecycle("WRITING TO ANDROID")
+            outputFile.writeText(
+                generateAtlasContainer(
+                    classToPackage,
+                    singletons,
+                    factories,
+                    scopedInstances,
+                    viewModels,
+                    modules,
+                    provides,
+                    providesReturnTypes
+                )
             )
-        )
-        androidOutputFile.writeText(generateAndroidExtensions())
 
-        logger.lifecycle("✅ Generated AtlasContainer.kt at: ${outputFile.absolutePath}")
-        logger.lifecycle("✅ Generated ViewModelExtensions.kt at: ${androidOutputFile.absolutePath}")
+            androidOutputFile.writeText(generateAndroidExtensions())
+
+            logger.lifecycle("✅ Generated AtlasContainer.kt at: ${outputFile.absolutePath}")
+            logger.lifecycle("✅ Generated ViewModelExtensions.kt at: ${androidOutputFile.absolutePath}")
+        } else {
+            logger.lifecycle("WRITING TO IOS")
+            iosOutputFile.writeText(
+                generateAtlasContainer(
+                    classToPackage,
+                    singletons,
+                    factories,
+                    scopedInstances,
+                    viewModels,
+                    modules,
+                    provides,
+                    providesReturnTypes
+                )
+            )
+            logger.lifecycle("✅ Generated AtlasContainer.kt at: ${iosOutputFile.absolutePath}")
+        }
     }
 
     private fun generateAtlasContainer(
@@ -337,12 +379,42 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         val moduleImports = modules.joinToString("\n") { "import $it" }
         val providesImports = providesReturnTypes.values.joinToString("\n") { "import $it" }
 
+        val providesLazyDeclarations =
+            provides.entries.joinToString("\n") { (returnType, providesInfo) ->
+                val moduleSimpleName = providesInfo.module
+                val fullyQualifiedModule =
+                    classToPackage[providesInfo.module]?.let { "$it.${providesInfo.module}" }
+                        ?: providesInfo.module
+
+                val safeReturnTypeName = returnType.replace(".", "").replace("/", "")
+
+                """
+    private val lazyInstanceFor$safeReturnTypeName = lazy {
+        val moduleInstance = modules[$moduleSimpleName::class] as? $moduleSimpleName
+            ?: throw IllegalArgumentException("🚨 ERROR: Module instance for $fullyQualifiedModule not found!")
+
+        moduleInstance.${providesInfo.functionName}(
+            ${providesInfo.parameters.joinToString(", ") { "resolve(${it.second}::class)" }}
+        )
+    }
+    """.trimIndent()
+            }
+
+        val providesRegistrations = provides.entries.joinToString("\n") { (returnType, _) ->
+            val safeReturnTypeName = returnType.replace(".", "").replace("/", "")
+
+            """
+    provides[$returnType::class] = { lazyInstanceFor$safeReturnTypeName.value }
+    """.trimIndent()
+        }
+
         return """
         package com.architect.atlas.container
 
         $imports
         $providesImports
         $moduleImports
+       
 
         import com.architect.atlas.memory.WeakReference
         import kotlin.reflect.KClass
@@ -363,6 +435,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         }
 
         object AtlasContainer : AtlasContainerContract {
+            $providesLazyDeclarations
+        
             private var allRegisteredClassDefinitions = mutableMapOf<String, KClass<*>>()
     
             private val singletons: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
@@ -379,22 +453,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 ${if (viewModels.isNotEmpty()) viewModels.joinToString("\n") { "viewModels[${it}::class] = ViewModelEntry { ${it}() }" } else "// No ViewModels registered"}
                 ${if (modules.isNotEmpty()) modules.joinToString("\n") { "modules[${it}::class] = ${it}()" } else "// No Modules registered"}
                 
-                ${if (provides.isNotEmpty()) provides.entries.joinToString("\n") { (returnType, providesInfo) ->
-                    val moduleSimpleName = providesInfo.module
-                    val fullyQualifiedModule =
-                    classToPackage[providesInfo.module]?.let { "$it.${providesInfo.module}" } ?: providesInfo.module
-                """
-            provides[$returnType::class] = {
-                val moduleInstance = modules[$moduleSimpleName::class] as? $moduleSimpleName
-                    ?: throw IllegalArgumentException("🚨 ERROR: Module instance for $fullyQualifiedModule not found!")
-
-                moduleInstance.${providesInfo.functionName}(
-                    ${providesInfo.parameters.joinToString(", ") { "resolve(${it.second}::class)" }}
-                )
-            }
-            """.trimIndent()
-            } else "// No @Provides registered"
-        }
+                $providesRegistrations
         
             forceRefreshNamedDependencies()
             }
@@ -505,6 +564,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             }
         """.trimIndent()
     }
+
+
 }
 
 data class ProvidesFunctionInfo(
