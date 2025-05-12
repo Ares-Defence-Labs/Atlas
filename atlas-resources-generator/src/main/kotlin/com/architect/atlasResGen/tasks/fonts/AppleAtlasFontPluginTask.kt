@@ -50,7 +50,7 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
         //logger.info("Running font files for iOS")
         val fontFiles = fontsDir.walk()
             .filter {
-                it.isFile && it.extension.lowercase() in listOf("ttf")
+                it.isFile && it.extension.lowercase() in listOf("ttf", "otf")
             }
             .toList()
 

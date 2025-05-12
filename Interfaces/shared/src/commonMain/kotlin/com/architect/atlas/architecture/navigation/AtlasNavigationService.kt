@@ -5,6 +5,7 @@ import kotlin.reflect.KClass
 
 interface AtlasNavigationService {
     fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any? = null)
+    fun <T : ViewModel> navigateToPagePushAndReplace(viewModelClass: KClass<T>, params: Any? = null)
     fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any? = null)
 
     fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any? = null)
@@ -17,3 +18,4 @@ interface AtlasNavigationService {
     fun popToPage(route: String, params: Any? = null)
     fun dismissModal(animate: Boolean = true, params: Any? = null)
 }
+

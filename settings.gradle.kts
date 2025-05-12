@@ -15,7 +15,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Atlas"
-include(":shared")
 include(":atlas-graph-generator")
 //include(":atlas-droid-navigation-fragment-ktx")
 //include(":atlas-droid-navigation-compose")

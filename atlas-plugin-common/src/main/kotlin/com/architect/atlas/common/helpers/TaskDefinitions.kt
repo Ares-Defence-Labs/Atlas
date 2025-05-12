@@ -31,6 +31,14 @@ object TaskDefinitions{
         )
     }
 
+    fun getExtraTaskKotlinCompile(): List<String> {
+        return listOf(
+            "generateBuildKonfig",
+            "transformCommonMainDependenciesMetadata",
+            "kspCommonMainKotlinMetadata"
+        )
+    }
+
     fun getAndroidTaskDependencies(project: Project): List<String> {
         val androidTasks = mutableListOf(
 //            "bundleLibRuntimeToDirDebug",

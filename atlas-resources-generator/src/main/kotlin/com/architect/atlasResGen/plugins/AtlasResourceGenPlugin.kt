@@ -33,6 +33,28 @@ class AtlasResourceGenPlugin : Plugin<Project> {
         taskOrderConfig(project, generateDependencyGraphTask)
     }
 
+    private fun configureAppleResourceTaskGraph(
+        project: Project,
+        generateDependencyGraphTask: Task
+    ) {
+        val stringsGraph = project.tasks.findByName("generateAtlasStringsGraph")
+        val colorGraph = project.tasks.findByName("generateAtlasColorsGraph")
+        val imagesGraph = project.tasks.findByName("generateAtlasImagesGraph")
+        val fontsGraph = project.tasks.findByName("generateAtlasFontsGraph")
+
+        generateDependencyGraphTask.dependsOn(stringsGraph)
+        generateDependencyGraphTask.mustRunAfter(stringsGraph)
+
+        generateDependencyGraphTask.dependsOn(colorGraph)
+        generateDependencyGraphTask.mustRunAfter(colorGraph)
+
+        generateDependencyGraphTask.dependsOn(imagesGraph)
+        generateDependencyGraphTask.mustRunAfter(imagesGraph)
+
+        generateDependencyGraphTask.dependsOn(fontsGraph)
+        generateDependencyGraphTask.mustRunAfter(fontsGraph)
+    }
+
     override fun apply(project: Project) {
         val isiOSTarget = !ProjectFinder.isBuildingForAndroid(project)
         project.afterEvaluate {
@@ -70,9 +92,10 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 configureResourceTaskGraph(project, generateAppleFontFiles.get())
                 configureResourceTaskGraph(project, generateAppleScriptsGenFontFiles.get())
 
-                generateAtlasXCAssetFileResources.configure {
-                    dependsOn(generateColorsResources)
-                }
+                configureAppleResourceTaskGraph(project, generateAtlasXCAssetFileResources.get())
+                configureAppleResourceTaskGraph(project, generateAppleFontFiles.get())
+                configureAppleResourceTaskGraph(project, generateAppleScriptsGenFontFiles.get())
+
                 generateAppleFontFiles.configure {
                     dependsOn(generateAtlasXCAssetFileResources)
                 }

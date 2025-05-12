@@ -6,7 +6,7 @@ plugins {
 
     id("org.gradle.maven-publish")
     id("maven-publish")
-    id("com.vanniktech.maven.publish") version "0.29.0"
+    id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
 ////
@@ -39,7 +39,7 @@ dependencies{
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-plugin-common",
-//        version = "0.0.9"
+//        version = "0.1.1"
 //    )
 //
 //    // Configure POM metadata for the published artifact

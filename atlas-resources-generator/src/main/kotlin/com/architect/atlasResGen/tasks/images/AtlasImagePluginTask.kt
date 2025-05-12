@@ -86,7 +86,11 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         builder.appendLine("package com.architect.atlas.resources.images")
         builder.appendLine()
         builder.appendLine("import android.content.Context")
+        builder.appendLine("import android.graphics.Bitmap")
+        builder.appendLine("import android.graphics.Canvas")
+        builder.appendLine("import android.graphics.drawable.BitmapDrawable")
         builder.appendLine("import android.graphics.drawable.Drawable")
+        builder.appendLine("import com.caverock.androidsvg.SVG")
         builder.appendLine("import androidx.appcompat.content.res.AppCompatResources")
         builder.appendLine("import $androidResourcePackageRef.R")
         builder.appendLine()
@@ -94,14 +98,23 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
         for ((name, path) in entries) {
             if (path.endsWith("svg")) {
-                builder.appendLine("    fun $name(context: Context): Drawable =")
-                builder.appendLine("        context.assets.open(\"$path\").use { input ->")
-                builder.appendLine("            Drawable.createFromStream(input, null) ?: error(\"Image not found: $path\")")
-                builder.appendLine("        }")
+                builder.appendLine("    fun $name(context: Context): Drawable {")
+                builder.appendLine("        val input = context.assets.open(\"$path\")")
+                builder.appendLine("        val svg = SVG.getFromInputStream(input)")
+                builder.appendLine("        val widthPx = 512")
+                builder.appendLine("        val heightPx = 512")
+                builder.appendLine("        svg.setDocumentWidth(widthPx.toFloat())")
+                builder.appendLine("        svg.setDocumentHeight(heightPx.toFloat())")
+                builder.appendLine("        val picture = svg.renderToPicture()")
+                builder.appendLine("        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)")
+                builder.appendLine("        val canvas = Canvas(bitmap)")
+                builder.appendLine("        canvas.drawPicture(picture)")
+                builder.appendLine("        return BitmapDrawable(context.resources, bitmap)")
+                builder.appendLine("    }")
             } else {
                 builder.appendLine("    fun $name(context: Context): Drawable =")
                 builder.appendLine("        AppCompatResources.getDrawable(context, R.drawable.$name)")
-                builder.appendLine("            ?: error(\"Image not found: R.drawable.image_name\")")
+                builder.appendLine("            ?: error(\"Image not found: R.drawable.$name\")")
             }
         }
 

@@ -1,16 +1,19 @@
 package com.architect.atlastestclient.android
+
 import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,9 +25,11 @@ import androidx.navigation.findNavController
 import com.architect.atlas.architecture.navigation.AtlasNavigationService
 import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.architecture.navigation.annotations.AtlasScreen
-import com.architect.atlas.container.AtlasContainer
+//import com.architect.atlas.container.AtlasContainer
 //import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.dsl.AtlasDI
+import com.architect.atlas.navigation.AtlasNavGraph
+import com.architect.atlas.navigation.AtlasNavigation
 import com.architect.atlastestclient.software.DroidStandard
 import com.architect.atlastestclient.software.DroidStandardSecond
 import kotlinx.coroutines.cancel
@@ -53,16 +58,14 @@ class MainActivity : FragmentActivity() {
         //val fonts = AtlasFonts.roboto_semicondensed_blackitalic(this)
 
 
-        AtlasDI.injectContainer(AtlasContainer);
-        AtlasDI.resolveService<Dep>()
+//        AtlasDI.injectContainer(AtlasContainer);
+//        AtlasDI.resolveService<Dep>()
 
         //AtlasDI.registerFactory()<>()<>()
         //At/lasDI.registerInterfaceToInstance(AtlasNavigationService::class, AtlasNavigation)
         //AtlasNavigation.navigateToPageTest(DroidStandard::class, "")
         setContent {
-            MyApplicationTheme {
-                //GreetingView()
-            }
+            AtlasNavGraph()
         }
         val t : ViewModel
     }
@@ -72,21 +75,33 @@ class MainActivity : FragmentActivity() {
 @AtlasScreen(DroidStandard::class, initial = true)
 @Composable
 fun GreetingView(vm: DroidStandard) {
-    Button({
-        AtlasDI.resolveService<Dep>().test()
-    }){
-        Text(text = "Screen 1 Button")
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Button({
+            AtlasNavigation.navigateToPagePushAndReplace(DroidStandardSecond::class)
+
+        }) {
+            Text(text = "Screen 1 Button")
+        }
     }
 }
 
 @AtlasScreen(DroidStandardSecond::class)
 @Composable
 fun GreetingSecondView(vm: DroidStandardSecond) {
-    Button({
-      //  AtlasNavigation.popPage(true, 12)
-    }){
-        Text(text = "Second Screen. CLICK ME!!!")
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ){
+        Button({
+            AtlasNavigation.popPage(true, 12)
+        }){
+            Text(text = "Second Screen. CLICK ME!!!")
+        }
     }
+
 }
 
 @Preview

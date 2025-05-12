@@ -72,6 +72,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1")
 
 
+
+    implementation("com.caverock:androidsvg:1.4")
     implementation(libs.atlas.core)
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")

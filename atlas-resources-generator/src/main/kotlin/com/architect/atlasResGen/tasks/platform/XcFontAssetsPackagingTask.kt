@@ -159,7 +159,7 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
         /usr/libexec/PlistBuddy -c "Add :UIAppFonts array" "${'$'}TARGET_PLIST"
 
         while IFS= read -r line; do
-          FONT_NAME=$(echo "${'$'}line" | sed -n 's|.*<string>\(.*\.ttf\)</string>.*|\1|p')
+          FONT_NAME=${'$'}(echo "${'$'}line" | grep -Eo '<string>[^<]*(ttf|otf)</string>' | sed -E 's|<string>(.*)</string>|\1|')
           if [ ! -z "${'$'}FONT_NAME" ]; then
             echo "⮑ Adding font: ${'$'}FONT_NAME"
             /usr/libexec/PlistBuddy -c "Add :UIAppFonts: string ${'$'}FONT_NAME" "${'$'}TARGET_PLIST"

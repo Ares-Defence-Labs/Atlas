@@ -190,6 +190,16 @@ object TaskMngrHelpers {
             }
         }
 
+        val postRunTasks = TaskDefinitions.getExtraTaskKotlinCompile()
+        postRunTasks.forEach { taskName ->
+            val dependencyTask = project.tasks.findByName(taskName)
+            if (dependencyTask != null) {
+                generateDependencyTask.mustRunAfter(dependencyTask)
+            } else {
+                project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
+            }
+        }
+
         project.afterEvaluate {
             configureBuildFolders(project)
             platformClientsBuildFolders(project)

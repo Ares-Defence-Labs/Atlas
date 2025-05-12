@@ -6,15 +6,15 @@ plugins {
 
     id("org.gradle.maven-publish")
     id("maven-publish")
-    id("com.vanniktech.maven.publish") version "0.29.0"
+    id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
 ////////////////
-//repositories {
-//    google()
-//    mavenCentral()
-//    gradlePluginPortal() // Local Testing Only
-//}
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
 
 java {
     toolchain {
@@ -40,16 +40,16 @@ gradlePlugin {
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.0.9")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.1")
 }
-////
+//
 ////////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-flows-generator",
-//        version = "0.0.8"
+//        version = "0.0.9"
 //    )
 //
 //    // Configure POM metadata for the published artifact
