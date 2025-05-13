@@ -49,7 +49,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-navEngine-generator",
-        version = "0.2.2"
+        version = "0.2.4"
     )
 
     // Configure POM metadata for the published artifact

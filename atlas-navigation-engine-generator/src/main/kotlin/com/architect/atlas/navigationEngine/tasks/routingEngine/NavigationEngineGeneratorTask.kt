@@ -171,7 +171,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
 
     private fun generateTabNavigationServices(tabsByHolder: Map<String, List<TabEntry>>) {
-        logger.lifecycle("FOUND TABS HOLDERS $tabsByHolder")
         tabsByHolder.forEach { (holder, tabs) ->
             val sortedTabs = tabs.sortedBy { it.position }
 
@@ -194,7 +193,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("object ${holder}TabsNavigation : AtlasTabNavigationService {")
                 appendLine("    lateinit var navController: NavHostController")
                 appendLine("    private var currentTab: KClass<out ViewModel>? = null")
-                appendLine("    private val tabs = listOf(")
+                appendLine("    private val tabs: Map<KClass<out ViewModel>, String> = listOf(")
                 sortedTabs.forEach {
                     appendLine("        ${it.viewModel}::class to \"${it.screen}\",")
                 }
@@ -249,6 +248,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import androidx.lifecycle.LifecycleEventObserver")
             appendLine("import androidx.lifecycle.LifecycleOwner")
             appendLine("import androidx.compose.runtime.getValue")
+            appendLine("import android.graphics.drawable.Drawable")
             appendLine("import androidx.compose.runtime.DisposableEffect")
             appendLine("import androidx.compose.runtime.rememberUpdatedState")
             appendLine("import androidx.lifecycle.compose.LocalLifecycleOwner")
@@ -261,7 +261,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 data class AtlasTabItem(
                     val label: String,
                     val viewModel: KClass<out ViewModel>,
-                    val icon: ImageVector
+                    val icon: ImageVector? = null
+                    val iconDrawable: Drawable? = null
                 )
             """.trimIndent())
 

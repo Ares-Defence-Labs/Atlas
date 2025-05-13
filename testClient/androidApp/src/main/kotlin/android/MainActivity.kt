@@ -130,6 +130,7 @@ fun GreetingThirdTabHolder(vm: TabParentViewModel) {
     val navController = rememberNavController()
     TabParentViewModelTabsNavigation.navController = navController
 
+    val t: Drawable
     val items = listOf(
         AtlasTabItem("Dashboard", CoreDashboardTabViewModel::class, Icons.Default.Home),
         AtlasTabItem("Settings", CoreSettingsTabViewModel::class, Icons.Default.Settings)
