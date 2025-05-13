@@ -10,11 +10,11 @@ plugins {
     id("signing")
 }
 ////////////////
-repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal() // Local Testing Only
-}
+//repositories {
+//    google()
+//    mavenCentral()
+//    gradlePluginPortal() // Local Testing Only
+//}
 
 java {
     toolchain {

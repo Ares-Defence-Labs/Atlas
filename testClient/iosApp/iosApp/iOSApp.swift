@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import shared
 
 @main
 struct iOSApp: App {
@@ -8,8 +9,7 @@ struct iOSApp: App {
     }
     var body: some Scene {
         WindowGroup {
-//            UIKitNavWrapperView()
-//                .ignoresSafeArea()
+            Text("Hello There OTF FONT FILE").font(Font(AtlasFonts.companion.testfontfile(size: 12)))
         }
     }
 }

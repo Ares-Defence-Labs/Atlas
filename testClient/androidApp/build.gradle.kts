@@ -70,7 +70,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.9")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1")
-
+    implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
 
 
     implementation("com.caverock:androidsvg:1.4")

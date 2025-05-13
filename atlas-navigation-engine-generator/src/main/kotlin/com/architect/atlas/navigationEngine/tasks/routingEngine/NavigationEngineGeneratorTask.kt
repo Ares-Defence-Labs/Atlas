@@ -11,6 +11,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputAndroidDir: DirectoryProperty
 
+
+    @get:OutputDirectory
+    abstract val outputAndroidTabsDir: DirectoryProperty
+
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
@@ -59,7 +63,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
             generateAndroidNavigation(viewModelToScreen)
             generateAndroidNavGraph(ants)
-            generateAndroidTabNavigation(scanTabAnnotations())
+            generateTabNavigationServices(scanTabAnnotations())
         }
     }
 
@@ -113,76 +117,201 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         return results
     }
 
-    private fun scanTabAnnotations(): List<Triple<String, String, Int>> {
-        val tabScreens = mutableListOf<Triple<String, String, Int>>() // ViewModel, Screen, Position
+    private fun scanTabAnnotations(): Map<String, List<TabEntry>> {
+        val tabGroups = mutableMapOf<String, MutableList<TabEntry>>()
 
-        outputFiles.forEach { subProject ->
-            subProject.walkTopDown().forEach { file ->
-                if (!file.isFile || file.extension != "kt") return@forEach
-
+        outputFiles.forEach { root ->
+            root.walkTopDown().forEach { file ->
+                if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
                 val lines = file.readLines()
+
                 for ((index, line) in lines.withIndex()) {
                     if (line.contains("@AtlasTab")) {
-                        val regex = """@AtlasTab\s*\(\s*viewModel\s*=\s*([\w.]+)::class(?:\s*,\s*position\s*=\s*(\d+))?\s*\)""".toRegex()
-                        val match = regex.find(line)
-                        val viewModel = match?.groupValues?.get(1)
-                        val position = match?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
+                        val annotationBlock = lines.drop(index).take(5).joinToString(" ")
+                        println("📌 Annotation Block: $annotationBlock")
 
-                        val nextFunc = lines.drop(index).firstOrNull { it.trim().startsWith("fun ") }
-                        val screenName = nextFunc?.let { """fun\s+(\w+)""".toRegex().find(it)?.groupValues?.get(1) }
+                        val viewModelRegex = """@AtlasTab\s*\(\s*([\w.]+)::class""".toRegex()  // positional
+                        val namedViewModelRegex = """viewModel\s*=\s*([\w.]+)::class""".toRegex()
 
-                        if (viewModel != null && screenName != null) {
-                            tabScreens.add(Triple(viewModel, screenName, position))
+                        val positionRegex = """position\s*=\s*(\d+)""".toRegex()
+                        val holderRegex = """holder\s*=\s*([\w.]+)::class""".toRegex()
+
+                        val viewModel = viewModelRegex.find(annotationBlock)?.groupValues?.get(1)
+                            ?: namedViewModelRegex.find(annotationBlock)?.groupValues?.get(1)
+                        val position = positionRegex.find(annotationBlock)?.groupValues?.get(1)?.toIntOrNull()
+                        val holder = holderRegex.find(annotationBlock)?.groupValues?.get(1)
+
+                        println("🧩 Parsed: viewModel=$viewModel, position=$position, holder=$holder")
+
+                        if (viewModel == null || holder == null || position == null) {
+                            logger.warn("⚠️ Could not parse @AtlasTab at ${file.name}:${index + 1}")
+                            continue
                         }
+
+                        // Find the next function name
+                        val screenName = lines.drop(index + 1)
+                            .take(10)
+                            .firstOrNull { it.trim().startsWith("fun ") }
+                            ?.let { """fun\s+(\w+)""".toRegex().find(it)?.groupValues?.get(1) }
+
+                        if (screenName == null) {
+                            logger.warn("⚠️ Could not extract function name for @AtlasTab in ${file.name} near line ${index + 1}")
+                            continue
+                        }
+
+                        tabGroups.getOrPut(holder) { mutableListOf() }
+                            .add(TabEntry(viewModel, screenName, holder, position))
                     }
                 }
             }
         }
 
-        return tabScreens
+        return tabGroups
     }
 
-    private fun generateAndroidTabNavigation(tabs: List<Triple<String, String, Int>>) {
-        val sortedTabs = tabs.sortedBy { it.third }
-        val content = buildString {
+
+    private fun generateTabNavigationServices(tabsByHolder: Map<String, List<TabEntry>>) {
+        logger.lifecycle("FOUND TABS HOLDERS $tabsByHolder")
+        tabsByHolder.forEach { (holder, tabs) ->
+            val sortedTabs = tabs.sortedBy { it.position }
+
+            val outputFile = File(outputAndroidTabsDir.get().asFile, "${holder}TabsNavigation.kt")
+
+            val code = buildString {
+                appendLine("package com.architect.atlas.navigation")
+                appendLine()
+
+                val viewModelImports = sortedTabs.mapNotNull { findViewModelImport(it.viewModel) }
+                viewModelImports.distinct().forEach { appendLine("import $it") }
+
+                appendLine("import com.architect.atlas.architecture.navigation.AtlasTabNavigationService")
+                appendLine("import kotlin.reflect.KClass")
+                appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
+                appendLine("import kotlinx.serialization.encodeToString")
+                appendLine("import kotlinx.serialization.json.Json")
+                appendLine("import androidx.navigation.NavHostController")
+                appendLine()
+                appendLine("object ${holder}TabsNavigation : AtlasTabNavigationService {")
+                appendLine("    lateinit var navController: NavHostController")
+                appendLine("    private var currentTab: KClass<out ViewModel>? = null")
+                appendLine("    private val tabs = listOf(")
+                sortedTabs.forEach {
+                    appendLine("        ${it.viewModel}::class to \"${it.screen}\",")
+                }
+                appendLine("    ).toMap()")
+                appendLine()
+                appendLine("    override fun <T : ViewModel> navigateToTabIndex(viewModelClass: KClass<T>, params: Any?) {")
+                appendLine("        val route = tabs[viewModelClass] ?: error(\"Tab not found for \$viewModelClass\")")
+                appendLine("        currentTab = viewModelClass")
+                appendLine("        val encoded = params?.let {")
+                appendLine("            when (it) {")
+                appendLine("                is String, is Number, is Boolean -> it.toString()")
+                appendLine("                else -> Json.encodeToString(it)")
+                appendLine("            }")
+                appendLine("        } ?: \"\"")
+                appendLine("        navController.navigate(\"\$route?pushParam=\$encoded\") { launchSingleTop = true }")
+                appendLine("    }")
+                appendLine("    fun getCurrentTabViewModel(): KClass<out ViewModel>? = currentTab")
+                appendLine("}")
+            }
+
+            outputFile.writeText(code)
+            generateTabNavGraph(holder, sortedTabs)
+        }
+    }
+
+    private fun generateTabNavGraph(holder: String, tabs: List<TabEntry>) {
+        val androidOut = outputAndroidTabsDir.get().asFile
+        androidOut.mkdirs()
+
+        val sortedTabs = tabs.sortedBy { it.position }
+        val file = File(outputAndroidTabsDir.get().asFile, "${holder}NavGraph.kt")
+
+        val code = buildString {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
+
+            // Collect imports
+            val screenImports = sortedTabs.mapNotNull { findFunctionImport(it.screen) }
+            val viewModelImports = sortedTabs.mapNotNull { findViewModelImport(it.viewModel) }
+            (screenImports + viewModelImports).distinct().forEach { appendLine("import $it") }
+
+            appendLine("import androidx.compose.runtime.Composable")
             appendLine("import androidx.navigation.NavHostController")
-            appendLine("import kotlin.reflect.KClass")
+            appendLine("import androidx.navigation.compose.NavHost")
+            appendLine("import androidx.navigation.compose.composable")
+            appendLine("import androidx.lifecycle.viewmodel.compose.viewModel")
+            appendLine("import com.architect.atlas.architecture.navigation.Poppable")
             appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
-            appendLine("import com.architect.atlas.architecture.navigation.AtlasTabNavigationService")
-            appendLine("import kotlinx.serialization.encodeToString")
             appendLine("import kotlinx.serialization.json.Json")
+            appendLine("import androidx.navigation.NavBackStackEntry")
+            appendLine("import androidx.lifecycle.Lifecycle")
+            appendLine("import androidx.lifecycle.LifecycleEventObserver")
+            appendLine("import androidx.lifecycle.LifecycleOwner")
+            appendLine("import androidx.compose.runtime.getValue")
+            appendLine("import androidx.compose.runtime.DisposableEffect")
+            appendLine("import androidx.compose.runtime.rememberUpdatedState")
+            appendLine("import androidx.lifecycle.compose.LocalLifecycleOwner")
+            appendLine("import androidx.navigation.compose.rememberNavController")
+            appendLine("import com.architect.atlas.navigation.${holder}TabsNavigation")
+            appendLine("import androidx.compose.ui.graphics.vector.ImageVector")
+            appendLine("import kotlin.reflect.KClass")
             appendLine()
-            appendLine("object AtlasTabNavigation : AtlasTabNavigationService {")
-            appendLine("    lateinit var tabNavController: NavHostController")
-            appendLine("    private var currentTab: KClass<out ViewModel>? = null")
-            appendLine("    private val viewModelToRoute = mapOf(")
-            sortedTabs.forEach {
-                appendLine("        ${it.first}::class to \"${it.second}\",")
+            appendLine("""
+                data class AtlasTabItem(
+                    val label: String,
+                    val viewModel: KClass<out ViewModel>,
+                    val icon: ImageVector
+                )
+            """.trimIndent())
+
+            appendLine("@Composable")
+            appendLine("fun ${holder}NavGraph() {")
+            appendLine("    val navControl = rememberNavController()")
+            appendLine("    ${holder}TabsNavigation.navController = navControl")
+            appendLine("    NavHost(navController = navControl, startDestination = \"${sortedTabs.first().screen}\") {")
+
+            for (tab in sortedTabs) {
+                appendLine("        composable(\"${tab.screen}?pushParam={pushParam}\") { backStackEntry ->")
+                appendLine("            val vm = viewModel(modelClass = ${tab.viewModel}::class.java, viewModelStoreOwner = backStackEntry)")
+                appendLine("            val rawParam = backStackEntry.arguments?.getString(\"pushParam\")")
+                appendLine("            rawParam?.let {")
+                appendLine("                val param: Any = when {")
+                appendLine("                    rawParam == \"null\" -> return@let")
+                appendLine("                    rawParam.toIntOrNull() != null -> rawParam.toInt()")
+                appendLine("                    rawParam.toDoubleOrNull() != null -> rawParam.toDouble()")
+                appendLine("                    rawParam.equals(\"true\", true) || rawParam.equals(\"false\", true) -> rawParam.toBoolean()")
+                appendLine("                    else -> try { Json.decodeFromString(rawParam) } catch (_: Exception) { rawParam }")
+                appendLine("                }")
+                appendLine("                @Suppress(\"UNCHECKED_CAST\")")
+                appendLine("                (vm as? com.architect.atlas.architecture.navigation.Pushable<Any>)?.onPushParams(param)")
+                appendLine("            }")
+                appendLine("            HandleLifecycle(vm) {")
+                appendLine("                ${tab.screen}(vm)")
+                appendLine("            }")
+                appendLine("        }")
             }
-            appendLine("    )")
-            appendLine()
-            appendLine("    override fun <T : ViewModel> navigateToTabIndex(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        val route = viewModelToRoute[viewModelClass] ?: error(\"No tab registered for \$viewModelClass\")")
-            appendLine("        currentTab = viewModelClass")
-            appendLine("        val encoded = params?.let {")
-            appendLine("            when (it) {")
-            appendLine("                is String, is Number, is Boolean -> it.toString()")
-            appendLine("                else -> Json.encodeToString(it)")
-            appendLine("            }")
-            appendLine("        } ?: \"\"")
-            appendLine("        tabNavController.navigate(\"\$route?pushParam=\$encoded\") {")
-            appendLine("            launchSingleTop = true")
-            appendLine("        }")
+
             appendLine("    }")
-            appendLine()
-            appendLine("    override fun getCurrentTabViewModel(): KClass<out ViewModel>? = currentTab")
             appendLine("}")
         }
 
-        val output = File(outputAndroidDir.get().asFile, "AtlasTabNavigation.kt")
-        output.writeText(content)
+        file.writeText(code)
+    }
+
+    private fun findFunctionImport(screenName: String): String? {
+        outputFiles.forEach { root ->
+            root.walkTopDown().forEach { file ->
+                if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
+                val lines = file.readLines()
+                if (lines.any { it.contains("fun $screenName") }) {
+                    val pkg = lines.firstOrNull { it.trim().startsWith("package ") }
+                        ?.removePrefix("package ")?.trim()
+                    return pkg?.let { "$it.$screenName" }
+                }
+            }
+        }
+        return null
     }
 
     private fun generateAndroidNavigation(screens: List<Pair<String, String>>) {
@@ -330,15 +459,15 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         File(androidOut, "AtlasNavigation.kt").writeText(androidImpl)
     }
 
-
     private fun findViewModelImport(viewModelName: String): String? {
         outputFiles.forEach { root ->
             root.walkTopDown().forEach { file ->
                 if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
                 val lines = file.readLines()
 
-                // Check if class or object with this ViewModel name is defined
-                if (lines.any { it.contains("class $viewModelName") || it.contains("object $viewModelName") }) {
+                // Check only if ViewModel is declared here (not just used)
+                val declarationRegex = """(class|object)\s+$viewModelName\b""".toRegex()
+                if (lines.any { declarationRegex.containsMatchIn(it) }) {
                     val packageLine = lines.firstOrNull { it.trim().startsWith("package ") }
                         ?.removePrefix("package ")
                         ?.trim()
@@ -441,8 +570,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    NavHost(navController = navController, startDestination = \"$start\") {")
             for ((viewModel, screenComposable, _, _) in screens) {
                 appendLine("@OptIn(ExperimentalAnimationApi::class)")
-                appendLine("        composable(\"$screenComposable?pushParam={pushParam}\", " +
-                        """enterTransition = {
+                appendLine(
+                    "        composable(\"$screenComposable?pushParam={pushParam}\", " +
+                            """enterTransition = {
                 return@composable slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(250))
             }, exitTransition = {
                 return@composable slideOutOfContainer(
@@ -455,7 +585,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             }""" +
 
 
-                        ") { backStackEntry ->")
+                            ") { backStackEntry ->"
+                )
                 appendLine("            val vm = viewModel(modelClass = $viewModel::class.java, viewModelStoreOwner = backStackEntry)")
                 appendLine("            val rawParam = backStackEntry.arguments?.getString(\"pushParam\")")
                 appendLine("            rawParam?.let {")
@@ -834,6 +965,13 @@ data class ScreenMetadata(
     val viewModel: String,
     val screen: String,
     val isInitial: Boolean
+)
+
+data class TabEntry(
+    val viewModel: String,
+    val screen: String,
+    val holderViewModel: String,
+    val position: Int
 )
 
 fun String.normalizeToAscii(): String =

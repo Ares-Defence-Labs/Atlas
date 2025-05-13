@@ -15,6 +15,7 @@ annotation class AtlasScreen(
 @Retention(AnnotationRetention.BINARY)
 annotation class AtlasTab(
     val viewModel: KClass<out ViewModel>,
-    val position: Int = 0
+    val position: Int = 0,
+    val holder: KClass<out ViewModel>
 )
 

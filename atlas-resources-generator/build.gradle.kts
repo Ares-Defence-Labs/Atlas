@@ -10,7 +10,7 @@ plugins {
     id("signing")
 }
 
-////////
+////////////
 //repositories {
 //    google()
 //    mavenCentral()
@@ -51,7 +51,7 @@ dependencies{
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-res-generator",
-//        version = "0.3.4"
+//        version = "0.3.6"
 //    )
 //
 //    // Configure POM metadata for the published artifact

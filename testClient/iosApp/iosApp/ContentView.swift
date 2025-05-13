@@ -36,7 +36,7 @@ struct ContentView: View {
 //                Text(sample[\.result].value())
 //            }
 //        }
-Text("")
+        Text("Hello There OTF FONT FILE").font(Font(AtlasFonts.companion.testfontfile(size: 12)))
     }
 }
 
