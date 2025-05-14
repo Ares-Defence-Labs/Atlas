@@ -71,6 +71,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1")
     implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.34.0")
 
 
     implementation("com.caverock:androidsvg:1.4")

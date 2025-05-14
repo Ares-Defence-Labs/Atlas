@@ -146,7 +146,7 @@ fun GreetingThirdTabHolder(vm: TabParentViewModel) {
                         onClick = {
                             TabParentViewModelTabsNavigation.navigateToTabIndex(tab.viewModel)
                         },
-                        icon = { Icon(tab.icon, contentDescription = null) },
+                        icon = { Icon(tab.icon!!, contentDescription = null) },
                         label = { Text(tab.label) }
                     )
                 }

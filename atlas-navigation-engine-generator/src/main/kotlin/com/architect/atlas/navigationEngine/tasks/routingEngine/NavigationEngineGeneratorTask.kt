@@ -130,7 +130,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                         val annotationBlock = lines.drop(index).take(5).joinToString(" ")
                         println("📌 Annotation Block: $annotationBlock")
 
-                        val viewModelRegex = """@AtlasTab\s*\(\s*([\w.]+)::class""".toRegex()  // positional
+                        val viewModelRegex =
+                            """@AtlasTab\s*\(\s*([\w.]+)::class""".toRegex()  // positional
                         val namedViewModelRegex = """viewModel\s*=\s*([\w.]+)::class""".toRegex()
 
                         val positionRegex = """position\s*=\s*(\d+)""".toRegex()
@@ -138,7 +139,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                         val viewModel = viewModelRegex.find(annotationBlock)?.groupValues?.get(1)
                             ?: namedViewModelRegex.find(annotationBlock)?.groupValues?.get(1)
-                        val position = positionRegex.find(annotationBlock)?.groupValues?.get(1)?.toIntOrNull()
+                        val position =
+                            positionRegex.find(annotationBlock)?.groupValues?.get(1)?.toIntOrNull()
                         val holder = holderRegex.find(annotationBlock)?.groupValues?.get(1)
 
                         println("🧩 Parsed: viewModel=$viewModel, position=$position, holder=$holder")
@@ -230,15 +232,13 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
 
-            // Collect imports
             val screenImports = sortedTabs.mapNotNull { findFunctionImport(it.screen) }
             val viewModelImports = sortedTabs.mapNotNull { findViewModelImport(it.viewModel) }
             (screenImports + viewModelImports).distinct().forEach { appendLine("import $it") }
 
+            appendLine("import androidx.navigation.compose.composable")
             appendLine("import androidx.compose.runtime.Composable")
             appendLine("import androidx.navigation.NavHostController")
-            appendLine("import androidx.navigation.compose.NavHost")
-            appendLine("import androidx.navigation.compose.composable")
             appendLine("import androidx.lifecycle.viewmodel.compose.viewModel")
             appendLine("import com.architect.atlas.architecture.navigation.Poppable")
             appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
@@ -255,22 +255,78 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import androidx.navigation.compose.rememberNavController")
             appendLine("import com.architect.atlas.navigation.${holder}TabsNavigation")
             appendLine("import androidx.compose.ui.graphics.vector.ImageVector")
+            appendLine("import androidx.compose.animation.*")
+            appendLine("import androidx.compose.animation.core.tween")
+            appendLine("import com.google.accompanist.navigation.animation.AnimatedNavHost")
             appendLine("import kotlin.reflect.KClass")
+            appendLine("import androidx.compose.runtime.mutableStateOf")
+            appendLine("import androidx.compose.runtime.remember")
+            appendLine("import androidx.compose.runtime.setValue")
+            appendLine("import androidx.compose.runtime.SideEffect")
             appendLine()
-            appendLine("""
-                data class AtlasTabItem(
-                    val label: String,
-                    val viewModel: KClass<out ViewModel>,
-                    val icon: ImageVector? = null
-                    val iconDrawable: Drawable? = null
-                )
-            """.trimIndent())
-
+            appendLine("data class AtlasTabItem(")
+            appendLine("    val label: String,")
+            appendLine("    val viewModel: KClass<out ViewModel>,")
+            appendLine("    val icon: ImageVector? = null,")
+            appendLine("    val iconDrawable: Drawable? = null")
+            appendLine(")")
+            appendLine()
+            appendLine("@OptIn(ExperimentalAnimationApi::class)")
             appendLine("@Composable")
             appendLine("fun ${holder}NavGraph() {")
             appendLine("    val navControl = rememberNavController()")
             appendLine("    ${holder}TabsNavigation.navController = navControl")
-            appendLine("    NavHost(navController = navControl, startDestination = \"${sortedTabs.first().screen}\") {")
+            appendLine("    var previousTabIndex by remember { mutableStateOf(0) }")
+            appendLine("    val currentTab = ${holder}TabsNavigation.getCurrentTabViewModel()")
+            appendLine("    val currentTabIndex = listOf(${sortedTabs.joinToString { it.viewModel + "::class" }}).indexOf(currentTab)")
+            appendLine("    val isForward = currentTabIndex >= previousTabIndex")
+            appendLine("    SideEffect { previousTabIndex = currentTabIndex }")
+            appendLine()
+            appendLine("    fun tabIndex(route: String?): Int {")
+            appendLine("        return when (route?.substringBefore(\"?\")) {")
+            sortedTabs.forEach { tab ->
+                appendLine("            \"${tab.screen}\" -> ${tab.position}")
+            }
+            appendLine("            else -> -1")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    AnimatedNavHost(")
+            appendLine("        navController = navControl,")
+            appendLine("        startDestination = \"${sortedTabs.first().screen}\",")
+            appendLine("        enterTransition = {")
+            appendLine("            val from = tabIndex(initialState.destination.route)")
+            appendLine("            val to = tabIndex(targetState.destination.route)")
+            appendLine("            if (to > from)")
+            appendLine("                slideInHorizontally { it } + fadeIn(tween(300))")
+            appendLine("            else")
+            appendLine("                slideInHorizontally { -it } + fadeIn(tween(300))")
+            appendLine("        },")
+            appendLine("        exitTransition = {")
+            appendLine("            val from = tabIndex(initialState.destination.route)")
+            appendLine("            val to = tabIndex(targetState.destination.route)")
+            appendLine("            if (to > from)")
+            appendLine("                slideOutHorizontally { -it } + fadeOut(tween(300))")
+            appendLine("            else")
+            appendLine("                slideOutHorizontally { it } + fadeOut(tween(300))")
+            appendLine("        },")
+            appendLine("        popEnterTransition = {")
+            appendLine("            val from = tabIndex(initialState.destination.route)")
+            appendLine("            val to = tabIndex(targetState.destination.route)")
+            appendLine("            if (to > from)")
+            appendLine("                slideInHorizontally { it } + fadeIn(tween(300))")
+            appendLine("            else")
+            appendLine("                slideInHorizontally { -it } + fadeIn(tween(300))")
+            appendLine("        },")
+            appendLine("        popExitTransition = {")
+            appendLine("            val from = tabIndex(initialState.destination.route)")
+            appendLine("            val to = tabIndex(targetState.destination.route)")
+            appendLine("            if (to > from)")
+            appendLine("                slideOutHorizontally { -it } + fadeOut(tween(300))")
+            appendLine("            else")
+            appendLine("                slideOutHorizontally { it } + fadeOut(tween(300))")
+            appendLine("        }")
+            appendLine("    ) {")
 
             for (tab in sortedTabs) {
                 appendLine("        composable(\"${tab.screen}?pushParam={pushParam}\") { backStackEntry ->")
