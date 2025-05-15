@@ -56,7 +56,7 @@ abstract class AtlasStringPluginTask : DefaultTask(){
         for (i in 0 until stringElements.length) {
             val node = stringElements.item(i)
             val key = node.attributes?.getNamedItem("key")?.nodeValue ?: continue
-            val value = node.textContent.trim().replace("\"", "\\\"")
+            val value = node.textContent.replace("\"", "\\\"")
 
             stringBuilder.appendLine("        const val $key = \"$value\"")
         }

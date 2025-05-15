@@ -16,11 +16,14 @@ object AppleResPluginHelpers {
 
     fun getAtlasXCAssetFilePackagingTask(project: Project): TaskProvider<XcAssetPackagingTask> {
         val iosProject = ProjectFinder.findIosClientApp(project)
+        val forceConvertSVG = project.findProperty("atlas.forceSVGs")?.toString()?.toBoolean() ?: false
         val appName = File(iosProject?.name!!).name
         return project.tasks.register(
             applePackageXcodeGenTask,
             XcAssetPackagingTask::class.java
         ) {
+            forceRegenerate = FileHelpers.forceRecreateAllFiles(project)
+            forceSVGs = forceConvertSVG
             xcAssetDirectoryPath = "$iosProject/$appName/Assets.xcassets"
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/images"))
             iosAssetsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
