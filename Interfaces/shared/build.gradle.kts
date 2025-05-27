@@ -1,5 +1,4 @@
 import com.vanniktech.maven.publish.SonatypeHost
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -42,10 +41,8 @@ kotlin {
     }
 
     // 🟢 WebAssembly (WASM) - Experimental
-//    @OptIn(ExperimentalWasmDsl::class)
-//    wasmJs()
-//    @OptIn(ExperimentalWasmDsl::class)
-//    wasmWasi()
+    wasmJs()
+    wasmWasi()
 
     listOf(
         iosX64(),
@@ -55,14 +52,6 @@ kotlin {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
-
-            @OptIn(ExperimentalKotlinGradlePluginApi::class)
-            transitiveExport = true
-
-            val swiftExtras = project.file("src/iosMain/resources/swift")
-            if (swiftExtras.exists()) {
-                linkerOpts("-F$swiftExtras")
-            }
         }
     }
 
@@ -111,60 +100,60 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-//////////////////////////
-mavenPublishing {
-    // Define coordinates for the published artifact
-    coordinates(
-        groupId = "io.github.thearchitect123",
-        artifactId = "atlas-core",
-        version = "0.5.3"
-    )
-
-    // Configure POM metadata for the published artifact
-    pom {
-        name.set("Atlas")
-        description.set("Atlas is a powerful Kotlin Multiplatform (KMP) SDK that provides a complete ecosystem for building scalable, structured, and maintainable applications across JVM, Android, iOS, JS, and Native. It combines MVVM architecture, navigation, CLI tools, and an IoC container into one seamless experience.")
-        inceptionYear.set("2024")
-        url.set("https://github.com/TheArchitect123/Atlas")
-
-        licenses {
-            license {
-                name.set("MIT")
-                url.set("https://opensource.org/licenses/MIT")
-            }
-        }
-
-        // Specify developers information
-        developers {
-            developer {
-                id.set("Dan Gerchcovich")
-                name.set("TheArchitect123")
-                email.set("dan.developer789@gmail.com")
-            }
-        }
-
-        // Specify SCM information
-        scm {
-            url.set("https://github.com/TheArchitect123/Atlas")
-        }
-    }
-
-    // Configure publishing to Maven Central
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-
-    // Enable GPG signing for all publications
-    signAllPublications()
-}
-
-signing {
-    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
-        ?: error("No Private key file found")
-    val passphrase = project.findProperty("signing.password") as? String
-        ?: error("No Passphrase found for signing")
-
-    // Read the private key from the file
-    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
-
-    useInMemoryPgpKeys(privateKey, passphrase)
-    sign(publishing.publications)
-}
+////////////////////////
+//mavenPublishing {
+//    // Define coordinates for the published artifact
+//    coordinates(
+//        groupId = "io.github.thearchitect123",
+//        artifactId = "atlas-core",
+//        version = "0.6.7"
+//    )
+//
+//    // Configure POM metadata for the published artifact
+//    pom {
+//        name.set("Atlas")
+//        description.set("Atlas is a powerful Kotlin Multiplatform (KMP) SDK that provides a complete ecosystem for building scalable, structured, and maintainable applications across JVM, Android, iOS, JS, and Native. It combines MVVM architecture, navigation, CLI tools, and an IoC container into one seamless experience.")
+//        inceptionYear.set("2024")
+//        url.set("https://github.com/TheArchitect123/Atlas")
+//
+//        licenses {
+//            license {
+//                name.set("MIT")
+//                url.set("https://opensource.org/licenses/MIT")
+//            }
+//        }
+//
+//        // Specify developers information
+//        developers {
+//            developer {
+//                id.set("Dan Gerchcovich")
+//                name.set("TheArchitect123")
+//                email.set("dan.developer789@gmail.com")
+//            }
+//        }
+//
+//        // Specify SCM information
+//        scm {
+//            url.set("https://github.com/TheArchitect123/Atlas")
+//        }
+//    }
+//
+//    // Configure publishing to Maven Central
+//    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+//
+//    // Enable GPG signing for all publications
+//    signAllPublications()
+//}
+//
+//signing {
+//    val privateKeyFile = project.findProperty("signing.privateKeyFile") as? String
+//        ?: error("No Private key file found")
+//    val passphrase = project.findProperty("signing.password") as? String
+//        ?: error("No Passphrase found for signing")
+//
+//    // Read the private key from the file
+//    val privateKey = File(privateKeyFile).readText(Charsets.UTF_8)
+//
+//    useInMemoryPgpKeys(privateKey, passphrase)
+//    sign(publishing.publications)
+//}

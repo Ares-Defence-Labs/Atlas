@@ -1,3 +1,8 @@
+import com.architect.engine.tasks.AtlasXCodeIncrementalBuildTask
+import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
@@ -7,18 +12,8 @@ plugins {
     id("io.github.thearchitect123.atlasResourcesGenerator")
     id("io.github.thearchitect123.atlasNavigationEngineGenerator")
     id("io.github.thearchitect123.atlasFlowsGenPlugin")
+    id("io.github.thearchitect123.incrementalBuildEngine")
 }
-//
-//val copySwiftExtensionsDebug by tasks.registering(Copy::class) {
-//    val swiftFile = file("src/iosMain/swift")
-//    val frameworkModulesDir = buildDir.resolve("bin/iosX64/debugFramework/Shared.framework/Modules")
-//
-//    from(swiftFile)
-//    into(frameworkModulesDir)
-//}
-//tasks.named("linkDebugFrameworkIosX64") {
-//    finalizedBy(copySwiftExtensionsDebug)
-//}
 
 kotlin {
     androidTarget {
@@ -37,7 +32,7 @@ kotlin {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
-            export(libs.atlas.core)
+            export(projects.atlasCoreShared)
             export(libs.atlas.flow)
             export(libs.coroutines.core)
 
@@ -53,7 +48,7 @@ kotlin {
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
 
-                api(libs.atlas.core)
+                api(projects.atlasCoreShared)
                 api(libs.atlas.flow)
                 api(libs.coroutines.core)
             }
@@ -92,5 +87,3 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-
-

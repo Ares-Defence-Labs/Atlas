@@ -16,7 +16,8 @@ object AppleResPluginHelpers {
 
     fun getAtlasXCAssetFilePackagingTask(project: Project): TaskProvider<XcAssetPackagingTask> {
         val iosProject = ProjectFinder.findIosClientApp(project)
-        val forceConvertSVG = project.findProperty("atlas.forceSVGs")?.toString()?.toBoolean() ?: false
+        val forceConvertSVG =
+            project.findProperty("atlas.forceSVGs")?.toString()?.toBoolean() ?: false
         val appName = File(iosProject?.name!!).name
         return project.tasks.register(
             applePackageXcodeGenTask,
@@ -52,6 +53,7 @@ object AppleResPluginHelpers {
             appleFontsPackagingGenTask,
             XcFontAssetsPackagingTask::class.java
         ) {
+            forceRegenerate = FileHelpers.forceRecreateAllFiles(project)
             iOSProjectDirectory = iosProject?.absolutePath ?: ""
             fontDirectory =
                 "${project.layout.buildDirectory.asFile.get().path}/generated/iosMain/resources/fonts/fontFiles"

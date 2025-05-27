@@ -47,29 +47,37 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
     @TaskAction
     fun generateImagesClass() {
-        val imageDir = File(projectRootDir.get().asFile, "src/commonMain/resources/images")
-        if (!imageDir.exists()) {
-            logger.warn("\u2757\ufe0f No images folder found at: \${imageDir.absolutePath}")
-            return
-        }
-
-        val imageFiles = imageDir.walk()
-            .filter {
-                it.isFile && it.extension.lowercase() in listOf("svg", "png", "jpg", "jpeg", "webp")
+        if(forceRegenerate) {
+            val imageDir = File(projectRootDir.get().asFile, "src/commonMain/resources/images")
+            if (!imageDir.exists()) {
+                logger.warn("\u2757\ufe0f No images folder found at: \${imageDir.absolutePath}")
+                return
             }
-            .toList()
 
-        val snakeToPath = imageFiles.associate { file ->
-            val snakeName = FileHelpers.toSnakeCase(file.nameWithoutExtension)
-            snakeName to "images/${file.name}" // safe because file is explicitly named
+            val imageFiles = imageDir.walk()
+                .filter {
+                    it.isFile && it.extension.lowercase() in listOf(
+                        "svg",
+                        "png",
+                        "jpg",
+                        "jpeg",
+                        "webp"
+                    )
+                }
+                .toList()
+
+            val snakeToPath = imageFiles.associate { file ->
+                val snakeName = FileHelpers.toSnakeCase(file.nameWithoutExtension)
+                snakeName to "images/${file.name}" // safe because file is explicitly named
+            }
+
+            val nonSvgFiles = imageFiles.filter { it.extension.lowercase() != "svg" }
+            val svgFiles = imageFiles.filter { it.extension.lowercase() == "svg" }
+
+            generateAndroidActualObject(snakeToPath)
+            prepareSvgFilesForAssetManager(svgFiles)
+            generateScaledDrawablesWithThumbnailator(nonSvgFiles)
         }
-
-        val nonSvgFiles = imageFiles.filter { it.extension.lowercase() != "svg" }
-        val svgFiles = imageFiles.filter { it.extension.lowercase() == "svg" }
-
-        generateAndroidActualObject(snakeToPath)
-        prepareSvgFilesForAssetManager(svgFiles)
-        generateScaledDrawablesWithThumbnailator(nonSvgFiles)
     }
 
     private fun prepareSvgFilesForAssetManager(svgImageFiles: List<File>) {

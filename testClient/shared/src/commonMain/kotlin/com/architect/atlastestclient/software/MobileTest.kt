@@ -119,10 +119,12 @@ class DroidStandard : ViewModel(), Pushable<String>, Poppable<Int> {
 
     }
 
-    override fun onInitialize() {
+    override suspend fun onInitialize() {
         super.onInitialize()
 
-        KmpLogging.writeInfo("INIT","LAUNCH")
+        KmpLogging.writeInfo("INIT FIRST SCREEN","LAUNCH")
+
+        KmpAlert.showAlert("","INITIAZLIED FIRST SCREEN")
     }
 
     override fun onDestroy() {
@@ -156,7 +158,6 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int>{
         q = s
     }
 
-
     override fun onAppearing() {
         super.onAppearing()
         KmpLogging.writeInfo("LOGIN","APPEAR")
@@ -167,10 +168,11 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int>{
         KmpLogging.writeInfo("LOGIN","DISEAPPEARING")
     }
 
-    override fun onInitialize() {
+    override suspend fun onInitialize() {
         super.onInitialize()
 
         KmpLogging.writeInfo("LOGIN","INITIALIZE")
+        KmpAlert.showAlert("","INITIAZLIED SECOND SCREEN")
     }
 
     override fun onDestroy() {
@@ -179,7 +181,6 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int>{
     }
 
     override fun onPushParams(params: String) {
-        KmpAlert.showAlert("","")
         KmpLogging.writeInfo("PUSH", params)
     }
 

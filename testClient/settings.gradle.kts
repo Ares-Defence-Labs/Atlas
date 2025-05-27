@@ -11,6 +11,7 @@ pluginManagement {
     includeBuild("../atlas-resources-generator")
     includeBuild("../atlas-navigation-engine-generator")
     includeBuild("../atlas-flows-generator")
+    includeBuild("../atlas-incremental-build-engine")
 }
 
 dependencyResolutionManagement {
@@ -29,4 +30,4 @@ include(":shared")
 
 
 include(":atlas-core-shared")
-project(":atlas-core-shared").projectDir = File("../shared")
+project(":atlas-core-shared").projectDir = File("../Interfaces/shared")

@@ -21,6 +21,9 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
 
 
     @get:Input
+    abstract var forceRegenerate: Boolean
+
+    @get:Input
     abstract var iOSProjectDirectory: String
 
     init {
@@ -31,12 +34,14 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
 
     @TaskAction
     fun generateMigrationScripts() {
-        val updateScript = generateCopyFontsScript()
-        val copyScript = generateInjectPlistScript()
+        if (forceRegenerate) {
+            val updateScript = generateCopyFontsScript()
+            val copyScript = generateInjectPlistScript()
 
-        if (updateScript.exists() && copyScript.exists()) {
-            runShellScript(updateScript)
-            runShellScript(copyScript)
+            if (updateScript.exists() && copyScript.exists()) {
+                runShellScript(updateScript)
+                runShellScript(copyScript)
+            }
         }
     }
 
@@ -130,6 +135,7 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
         logger.lifecycle("✅ Generated font copy script at: ${output.absolutePath}")
         return output
     }
+
     private fun generateInjectPlistScript(): File {
         val scriptFile = injectPlistScriptFile.get().asFile
         scriptFile.parentFile.mkdirs()

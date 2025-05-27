@@ -9,12 +9,12 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-//////////////
-//repositories {
-//    google()
-//    mavenCentral()
-//    gradlePluginPortal() // Local Testing Only
-//}
+////////////
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
 
 java {
     toolchain {
@@ -43,13 +43,13 @@ dependencies{
     implementation("io.github.thearchitect123:atlas-plugin-common:0.1.1")
 }
 ////
-//
+////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-navEngine-generator",
-//        version = "0.2.6"
+//        version = "0.3.2"
 //    )
 //
 //    // Configure POM metadata for the published artifact

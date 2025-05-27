@@ -202,6 +202,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("    ).toMap()")
                 appendLine()
                 appendLine("    override fun <T : ViewModel> navigateToTabIndex(viewModelClass: KClass<T>, params: Any?) {")
+                appendLine("     android.os.Handler(android.os.Looper.getMainLooper()).post {")
                 appendLine("        val route = tabs[viewModelClass] ?: error(\"Tab not found for \$viewModelClass\")")
                 appendLine("        currentTab = viewModelClass")
                 appendLine("        val encoded = params?.let {")
@@ -211,6 +212,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("            }")
                 appendLine("        } ?: \"\"")
                 appendLine("        navController.navigate(\"\$route?pushParam=\$encoded\") { launchSingleTop = true }")
+                appendLine("        }")
                 appendLine("    }")
                 appendLine("    fun getCurrentTabViewModel(): KClass<out ViewModel>? = currentTab")
                 appendLine("}")
@@ -401,6 +403,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    private val routeToViewModelMap: Map<String, KClass<out ViewModel>> = viewModelToRouteMap.entries.associate { it.value to it.key }")
 
             appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
+            appendLine("     android.os.Handler(android.os.Looper.getMainLooper()).post {")
             appendLine("        val route = viewModelToRouteMap[viewModelClass] ?: error(\"No screen registered for \$viewModelClass\")")
             appendLine(
                 """
@@ -418,9 +421,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("            }")
             appendLine("        } ?: \"\"")
             appendLine("        navController.navigate(\"\$route?pushParam=\$encoded\")")
+            appendLine("        }")
             appendLine("    }")
 
             appendLine("    override fun <T : ViewModel> navigateToPagePushAndReplace(viewModelClass: KClass<T>, params: Any?) {")
+            appendLine("     android.os.Handler(android.os.Looper.getMainLooper()).post {")
             appendLine("        val route = viewModelToRouteMap[viewModelClass] ?: error(\"No screen registered for \$viewModelClass\")")
             appendLine("        if (navigationStack.isNotEmpty()) {")
             appendLine("            navigationStack.removeLastOrNull()")
@@ -436,6 +441,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("            popUpTo(0) { inclusive = true }")
             appendLine("            launchSingleTop = true")
             appendLine("        }")
+            appendLine("        }")
             appendLine("    }")
 
             appendLine("    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {")
@@ -446,21 +452,66 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()")
 
             appendLine("    override fun popToRoot(animate: Boolean, params: Any?) {")
-            appendLine("        while (navigationStack.size > 1) {")
-            appendLine("            navController.popBackStack()")
-            appendLine("            handlePopParams(params)")
-            appendLine("        }")
-            appendLine("    }")
+            appendLine("""
+               android.os.Handler(android.os.Looper.getMainLooper()).post {
+        val popCount = navigationStack.size - 1
+        if (popCount > 0) {
+            popPagesWithCount(popCount, animate, params)
+        } else {
+            handlePopParams(params)
+        }
+    }
+    }
+            """.trimIndent())
 
             appendLine("    override fun popPage(animate: Boolean, params: Any?) {")
             appendLine("        handlePopParams(params)")
             appendLine("    }")
 
-            appendLine("    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {")
-            appendLine("        repeat(countOfPages) {")
-            appendLine("            handlePopParams(params)")
-            appendLine("        }")
-            appendLine("    }")
+
+            appendLine("""
+                override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        repeat(countOfPages) {
+                            if (navigationStack.size <= 1) return@repeat // prevent popping root
+
+                            navigationStack.removeLastOrNull()
+                            navController.popBackStack()
+                        }
+
+                        // Deliver pop params to the now-top view model
+                        val previousVmClass = navigationStack.lastOrNull()
+                        if (previousVmClass != null && params != null) {
+                            val encoded = when (params) {
+                                is String, is Number, is Boolean -> params.toString()
+                                else -> Json.encodeToString(params)
+                            }
+
+                            navController.currentBackStackEntry?.let { backStackEntry ->
+                                val vm = androidx.lifecycle.ViewModelProvider(
+                                    navController.getViewModelStoreOwner(navController.graph.id)
+                                )[previousVmClass.java]
+
+                                val decoded: Any = when {
+                                    encoded.toIntOrNull() != null -> encoded.toInt()
+                                    encoded.toDoubleOrNull() != null -> encoded.toDouble()
+                                    encoded.equals("true", true) || encoded.equals("false", true) -> encoded.toBoolean()
+                                    else -> try {
+                                        Json.decodeFromString(encoded)
+                                    } catch (_: Exception) {
+                                        encoded
+                                    }
+                                }
+
+                                if (vm is Poppable<*>) {
+                                    @Suppress("UNCHECKED_CAST")
+                                    (vm as Poppable<Any>).onPopParams(decoded)
+                                }
+                            }
+                        }
+                    }
+                }
+            """.trimIndent())
 
             appendLine("    override fun popToPage(route: String, params: Any?) {")
             appendLine("        handlePopParams(params)")
@@ -471,9 +522,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    }")
 
             appendLine("    private fun handlePopParams(params: Any?) {")
-            appendLine("        if (navigationStack.size < 2) return")
+            appendLine("     android.os.Handler(android.os.Looper.getMainLooper()).post {")
+            appendLine("        if (navigationStack.size > 2) {")
             appendLine("        navigationStack.removeLastOrNull()")
-            appendLine("        val previousVmClass = navigationStack.lastOrNull() ?: return")
+            appendLine("        val previousVmClass = navigationStack.lastOrNull()")
+            appendLine("if(previousVmClass != null){")
             appendLine("        val encoded = params?.let {")
             appendLine("            when (it) {")
             appendLine("                is String, is Number, is Boolean -> it.toString()")
@@ -483,7 +536,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        navController.currentBackStackEntry?.let { backStackEntry ->")
             appendLine(
                 """
-                 val vm = androidx.lifecycle.ViewModelProvider(backStackEntry)[previousVmClass.java]
+                 val vm = androidx.lifecycle.ViewModelProvider(navController.getViewModelStoreOwner(navController.graph.id))[previousVmClass.java]
                 if(encoded != null){  
                 val decoded: Any = when {
             encoded.toIntOrNull() != null -> encoded.toInt()
@@ -500,6 +553,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                (vm as Poppable<Any>).onPopParams(decoded)
             }
           }
+          }
+          }
+          }
+          
        
             """.trimIndent()
             )
@@ -595,7 +652,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                     DisposableEffect(lifecycleOwner) {
                        val observer = LifecycleEventObserver { _, event ->
                             when (event) {
-                                Lifecycle.Event.ON_CREATE -> currentViewModel.onInitialize()
                                 Lifecycle.Event.ON_DESTROY -> {
                                     currentViewModel.onDestroy()
                                     currentViewModel.onCleared()
@@ -644,7 +700,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                             ") { backStackEntry ->"
                 )
-                appendLine("            val vm = viewModel(modelClass = $viewModel::class.java, viewModelStoreOwner = backStackEntry)")
+                appendLine("            val vm = viewModel(modelClass = $viewModel::class.java)")
                 appendLine("            val rawParam = backStackEntry.arguments?.getString(\"pushParam\")")
                 appendLine("            rawParam?.let {")
                 appendLine("                val param: Any = when {")
@@ -857,7 +913,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                private let viewModel: ViewModel
                init(rootView: Content, viewModel: ViewModel) {
                    self.viewModel = viewModel
-                   self.viewModel.onInitialize()
                    super.init(rootView: rootView)
                }
                

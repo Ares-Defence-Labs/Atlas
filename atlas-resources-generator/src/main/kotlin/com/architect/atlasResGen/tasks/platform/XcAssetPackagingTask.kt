@@ -17,10 +17,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import javax.imageio.ImageIO
-import javax.imageio.ImageWriteParam
-import javax.imageio.ImageWriter
-import javax.imageio.stream.FileImageOutputStream
 import java.awt.image.BufferedImage
+import javax.xml.parsers.DocumentBuilderFactory
 
 @CacheableTask
 abstract class XcAssetPackagingTask : DefaultTask() {
@@ -52,7 +50,7 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 
     @TaskAction
     fun packageXCAssetFile() {
-        if(forceRegenerate) {
+        if (forceRegenerate) {
             val imageDir = File(projectRootDir.get().asFile, "src/commonMain/resources/images")
             if (!imageDir.exists()) {
                 logger.warn("⚠️ No images folder found at: ${imageDir.absolutePath}")
@@ -78,7 +76,10 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 
             generateIosActualObject(snakeToPath) // package the image generator
 
+            logger.lifecycle("RUNNING IMAGE PACKAGING : $imageFiles")
             imageFiles.forEach { imageFile ->
+
+                logger.lifecycle("IMAGE FILE : $imageFiles")
                 val isSvg = imageFile.extension.lowercase() == "svg"
                 val imageName = imageFile.nameWithoutExtension
                 val imageSetName = "${imageName}.imageset"
@@ -88,6 +89,8 @@ abstract class XcAssetPackagingTask : DefaultTask() {
                 val outputImages = mutableListOf<Map<String, String>>()
 
                 if (isSvg && !forceSVGs) {
+                    logger.lifecycle("RUNNING SVG PACKAGING")
+                    val safeSvg = sanitizeSvgFile(imageFile)
                     val scales = listOf(
                         Triple("@1x", 1f, "$imageName.png"),
                         Triple("@2x", 2f, "$imageName@2x.png"),
@@ -96,12 +99,13 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 
                     for ((suffix, scale, filename) in scales) {
                         val outputFile = File(imageSetDir, filename)
-                        val safeSvg = sanitizeSvgFile(imageFile)
                         convertSvgToPng(
                             svgFile = safeSvg,
                             outputFile = outputFile,
                             scale
                         )
+
+                        logger.lifecycle("RUNNING FILE NAME OUTPUT: $filename")
 
                         outputImages.add(
                             mapOf(
@@ -148,19 +152,40 @@ abstract class XcAssetPackagingTask : DefaultTask() {
             }
 
             logger.lifecycle("✅ XCAssets generated at: $xcAssetDirectoryPath")
+
+            // generate color assets (writes to the asset catalog)
+            val colorsXmlFile =
+                File(projectRootDir.get().asFile, "src/commonMain/resources/colors/colors.xml")
+            val colors = mutableListOf<Pair<String, String>>()
+
+            if (colorsXmlFile.exists()) {
+                logger.lifecycle("FOUND COLORS $colorsXmlFile")
+                val docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+                val document = docBuilder.parse(colorsXmlFile)
+                val colorElements = document.getElementsByTagName("color")
+
+                for (i in 0 until colorElements.length) {
+                    val node = colorElements.item(i)
+                    val key = node.attributes?.getNamedItem("key")?.nodeValue ?: continue
+                    val value = node.textContent.trim()
+                    colors.add(key to value)
+                }
+
+                generateColorAssets(colors)
+            }
         }
     }
 
-    fun sanitizeSvgFile(svgFile: File): File {
+    private fun sanitizeSvgFile(svgFile: File): File {
         val content = svgFile.readText()
         val patched = content.replace(
             Regex("""<stop(?![^>]*\boffset=)"""),
             """<stop offset="0%""""
         )
 
-        val sanitizedFile = File(svgFile.parentFile, "${svgFile.nameWithoutExtension}_sanitized.svg")
-        sanitizedFile.writeText(patched)
-        return sanitizedFile
+        svgFile.writeText(patched)
+
+        return svgFile
     }
 
     private fun compressPng(inputFile: File, outputFile: File) {
@@ -244,6 +269,54 @@ abstract class XcAssetPackagingTask : DefaultTask() {
         val file = File(outputIosDir.get().asFile, "AtlasImages.kt")
         file.parentFile.mkdirs()
         file.writeText(builder.toString())
+    }
+
+
+    private fun generateColorAssets(colors: List<Pair<String, String>>) {
+        val assetDir = File(xcAssetDirectoryPath)
+
+        colors.forEach { (name, hex) ->
+            val colorSetDir = File(assetDir, "$name.colorset")
+            colorSetDir.mkdirs()
+
+            val colorJson = """
+        {
+          "colors" : [
+            {
+              "idiom" : "universal",
+              "color" : {
+                "color-space" : "srgb",
+                "components" : {
+                  "red" : "${hexComponent(hex, 0)}",
+                  "green" : "${hexComponent(hex, 1)}",
+                  "blue" : "${hexComponent(hex, 2)}",
+                  "alpha" : "1.0"
+                }
+              }
+            }
+          ],
+          "info" : {
+            "version" : 1,
+            "author" : "Atlas"
+          }
+        }
+        """.trimIndent()
+
+            File(colorSetDir, "Contents.json").writeText(colorJson)
+        }
+
+        logger.lifecycle("🎨 iOS Color assets written to $xcAssetDirectoryPath")
+    }
+
+    private fun hexComponent(hex: String, index: Int): String {
+        val cleaned = hex.removePrefix("#")
+        val color = if (cleaned.length == 8) cleaned.substring(2) else cleaned
+        return try {
+            val component = color.substring(index * 2, index * 2 + 2).toInt(16)
+            "%.3f".format(component / 255.0)
+        } catch (e: Exception) {
+            "0.0"
+        }
     }
 }
 

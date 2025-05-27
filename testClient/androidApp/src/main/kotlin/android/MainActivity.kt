@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.provider.Settings.Global
 import android.widget.ImageView
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -49,7 +50,9 @@ import com.architect.atlastestclient.tabs.coreTabs.CoreDashboardTabViewModel
 import com.architect.atlastestclient.tabs.coreTabs.CoreSettingsTabViewModel
 import com.architect.kmpessentials.KmpAndroid
 import com.google.android.material.tabs.TabItem
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 //import com.architect.atlas.resources.fonts.AtlasFonts
 
@@ -99,8 +102,9 @@ fun GreetingView(vm: DroidStandard) {
         contentAlignment = Alignment.Center
     ) {
         Button({
-            AtlasNavigation.navigateToPagePushAndReplace(TabParentViewModel::class)
-
+            GlobalScope.launch {
+                AtlasNavigation.navigateToPage(DroidStandardSecond::class)
+            }
         }) {
             Text(text = "Screen 1 Button")
         }
@@ -115,7 +119,7 @@ fun GreetingSecondView(vm: DroidStandardSecond) {
         contentAlignment = Alignment.Center
     ) {
         Button({
-            AtlasNavigation.popPage(true, 12)
+            AtlasNavigation.navigateToPage(TabParentViewModel::class)
         }) {
             Text(text = "Second Screen. CLICK ME!!!")
         }
@@ -168,6 +172,7 @@ fun GreetingTabOne(vm: CoreDashboardTabViewModel) {
         contentAlignment = Alignment.Center
     ) {
         Button({
+            AtlasNavigation.popToRoot()
         }) {
             Text(text = "Dashboard Component")
         }

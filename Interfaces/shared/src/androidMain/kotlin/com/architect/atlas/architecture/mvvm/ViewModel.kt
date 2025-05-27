@@ -1,24 +1,23 @@
 package com.architect.atlas.architecture.mvvm
 
 import androidx.lifecycle.ViewModel
-import com.architect.kmpessentials.lifecycle.KmpLifecycle
-
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Suppress("EmptyDefaultConstructor")
 actual open class ViewModel actual constructor() : ViewModel() {
     actual val viewModelScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
 
-//    init {
-//        KmpLifecycle.setAppLifecycleBackground {
-//            onBackground()
-//        }
-//        KmpLifecycle.setAppLifecycleForeground {
-//            onForeground()
-//        }
-//    }
+    init {
+        viewModelScope.launch {
+            withContext(Dispatchers.Default) {
+                onInitialize()
+            }
+        }
+    }
 
     public actual override fun onCleared() {
         super.onCleared()
@@ -34,11 +33,17 @@ actual open class ViewModel actual constructor() : ViewModel() {
 
     }
 
-    actual open fun onInitialize() {
+    actual open suspend fun onInitialize() {
 
     }
 
-    actual open fun onDestroy(){
+    actual open fun onDestroy() {
 
+    }
+
+    actual open fun onBackground() {
+    }
+
+    actual open fun onForeground() {
     }
 }
