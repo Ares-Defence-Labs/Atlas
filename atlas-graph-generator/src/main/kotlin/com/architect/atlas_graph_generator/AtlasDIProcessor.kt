@@ -25,6 +25,7 @@ class AtlasDIProcessor : Plugin<Project> {
             androidOutputDir.set(droidModule?.layout?.buildDirectory?.dir("generated/kotlin/container")!!)
             iOSOutputDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/container"))
             isAndroidTarget = ProjectFinder.isBuildingForAndroid(project)
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
         }
 
         TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask.get())

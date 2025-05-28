@@ -2,6 +2,7 @@ package com.architect.atlas.navigationEngine.tasks.routingEngine
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import java.io.File
 
@@ -31,6 +32,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var projectCoreName: String
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val inputHashFile: RegularFileProperty
 
     @get:Input
     abstract var isIOSTarget: Boolean
@@ -38,7 +42,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     init {
         group = "AtlasNavigation"
         description = "Generates the platform-specific navigation engine implementations."
-        outputs.upToDateWhen { false }
     }
 
     @TaskAction

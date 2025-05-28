@@ -14,29 +14,25 @@ internal object ResPluginHelpers {
         "checkXcFrameworkChanges"
     )
 
-    const val allModulesVerifier = "checkHashAllModulesChanges"
-
+    private const val allModulesVerifier = "checkHashAllModulesChanges"
     fun getIncrementalVerifierForAllModulesTask(project: Project): TaskProvider<CheckGraphInputChangesTask> {
-        val appleModuleName = project.findProperty("atlas.coreModuleName")?.toString()
+        val androidModule = ProjectFinder.findAndroidClientApp(project)
+        val coreModuleName = project.findProperty("atlas.coreModuleName")?.toString()
             ?: project.getSwiftImportModuleName()
-        val forceCaching =
-            project.findProperty("atlas.forceCaching")?.toString()?.toBooleanStrictOrNull()
-                ?: false
 
-        val caching = ProjectFinder.isDebugMode(project) || forceCaching
         val genTask = project.tasks.register(
             allModulesVerifier,
             CheckGraphInputChangesTask::class.java
         ) {
             sourceDirs.from(
-                rootProject.fileTree("shared/src/commonMain"),
-                rootProject.fileTree("shared/src/androidMain"),
-                rootProject.fileTree("shared/src/iosMain"),
-                rootProject.fileTree("clientApp/src/main"), // or wherever your app code lives
-                rootProject.fileTree("anotherModule/src")
+                // other modules need to be added (Browser, Compose for JVM targets as well)
+                project.fileTree("$coreModuleName/src/commonMain"),
+                project.fileTree("$coreModuleName/src/androidMain"),
+                project.fileTree("$coreModuleName/src/iosMain"),
+                project.fileTree("${androidModule?.rootDir}/src/main"),
             )
 
-            hashOutputFile.set(layout.buildDirectory.file("atlas/graphInputHash.txt"))
+            hashOutputFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
         }
 
         return genTask

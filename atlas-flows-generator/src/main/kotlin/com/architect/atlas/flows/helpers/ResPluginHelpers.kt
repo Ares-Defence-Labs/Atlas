@@ -13,6 +13,7 @@ internal object ResPluginHelpers {
         ) {
             projectCoreName = project.getSwiftImportModuleName()
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/flows"))
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
         }
     }
 }

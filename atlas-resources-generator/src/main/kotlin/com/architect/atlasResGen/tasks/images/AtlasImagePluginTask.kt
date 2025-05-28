@@ -4,6 +4,7 @@ import com.architect.atlas.common.helpers.FileHelpers
 import net.coobird.thumbnailator.Thumbnails
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import java.io.File
 
@@ -38,11 +39,14 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     @get:Input
     abstract var forceRegenerate: Boolean
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val inputHashFile: RegularFileProperty
+
     init {
         group = "AtlasImages"
         description =
             "Generates platform-specific image class files based on images in commonMain/resources/images"
-        outputs.upToDateWhen { false }
     }
 
     @TaskAction

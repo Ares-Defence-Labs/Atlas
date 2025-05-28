@@ -3,9 +3,11 @@ package com.architect.atlasResGen.tasks.colors
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -33,10 +35,13 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
     @get:Input
     abstract var isAndroidTarget: Boolean
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val inputHashFile: RegularFileProperty
+
     init {
         group = "AtlasColors"
         description = "Generates a resource class file based on the xml specified"
-        outputs.upToDateWhen { false }
     }
 
     @TaskAction

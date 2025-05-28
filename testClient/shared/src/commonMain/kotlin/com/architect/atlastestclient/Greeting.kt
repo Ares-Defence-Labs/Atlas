@@ -2,6 +2,7 @@ package com.architect.atlastestclient
 
 import com.architect.atlas.atlasflow.MutableAtlasFlowState
 import com.architect.atlas.atlasflow.asCFlow
+import com.architect.atlas.container.annotations.Singleton
 import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlastestclient.software.TestSingle
 
@@ -30,4 +31,10 @@ class CompTestStandard{
             return AtlasDI.resolveServiceNullableByName(name)
         }
     }
+}
+
+
+@Singleton
+class TestSampleData{
+
 }

@@ -2,6 +2,7 @@ package com.architect.atlas.flows.routingEngine
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import java.io.File
 
@@ -14,6 +15,10 @@ abstract class SwiftUIFlowsGeneratorTask : DefaultTask() {
     @get:Input
     abstract var projectCoreName: String
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val inputHashFile: RegularFileProperty
+
     init {
         group = "AtlasFlows"
         description = "Generates the SwiftUI flow binding implementations"
@@ -21,9 +26,7 @@ abstract class SwiftUIFlowsGeneratorTask : DefaultTask() {
 
     @TaskAction
     fun generateNavigatorClass() {
-        if(!File(outputIosDir.get().asFile, "FlowsSwiftExtensions.swift").exists()){
-            generateIOSSwiftBridge()
-        }
+        generateIOSSwiftBridge()
     }
 
     private fun generateIOSSwiftBridge() {

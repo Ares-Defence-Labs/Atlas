@@ -3,6 +3,7 @@ package com.architect.atlasGraphGenerator
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import java.io.File
 
@@ -27,13 +28,16 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val iosSourceDirs: ConfigurableFileCollection
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val inputHashFile: RegularFileProperty
+
     @get:Input
     abstract var isAndroidTarget: Boolean
 
     init {
         group = "Atlas"
         description = "Generates a dependency graph for the project"
-        outputs.upToDateWhen { false } // only if the hash file (which is tracked by gradle) has changed then rerun the task, otherwise skipped by default
     }
 
     private fun checkIfExtendsValidViewModel(

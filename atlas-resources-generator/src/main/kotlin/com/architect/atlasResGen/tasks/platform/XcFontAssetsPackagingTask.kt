@@ -4,7 +4,10 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import java.io.File
 
@@ -26,10 +29,13 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
     @get:Input
     abstract var iOSProjectDirectory: String
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val inputHashFile: RegularFileProperty
+
     init {
         group = "AtlasFontsAssetPackaging"
         description = "Generates scripts that packages the font asset directories"
-        outputs.upToDateWhen { false }
     }
 
     @TaskAction

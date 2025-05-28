@@ -23,6 +23,7 @@ internal object ResPluginHelpers {
             "generateNavAtlasEngine",
             NavigationEngineGeneratorTask::class.java
         ) {
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             projectCoreName = moduleName
             iOSOutputFiles = iosoutputs
             outputFiles = coutputFiles

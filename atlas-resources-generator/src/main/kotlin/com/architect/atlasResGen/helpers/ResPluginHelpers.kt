@@ -24,6 +24,7 @@ internal object ResPluginHelpers {
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
             isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
         }
     }
 
@@ -55,6 +56,7 @@ internal object ResPluginHelpers {
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))
         }
     }
@@ -76,6 +78,7 @@ internal object ResPluginHelpers {
                 if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))
         }
     }
@@ -90,6 +93,7 @@ internal object ResPluginHelpers {
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
             isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
+            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
         }
     }
 }
