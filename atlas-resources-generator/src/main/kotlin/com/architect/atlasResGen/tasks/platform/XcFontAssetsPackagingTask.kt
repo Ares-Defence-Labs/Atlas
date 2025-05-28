@@ -40,14 +40,12 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
 
     @TaskAction
     fun generateMigrationScripts() {
-        if (forceRegenerate) {
-            val updateScript = generateCopyFontsScript()
-            val copyScript = generateInjectPlistScript()
+        val updateScript = generateCopyFontsScript()
+        val copyScript = generateInjectPlistScript()
 
-            if (updateScript.exists() && copyScript.exists()) {
-                runShellScript(updateScript)
-                runShellScript(copyScript)
-            }
+        if (updateScript.exists() && copyScript.exists()) {
+            runShellScript(updateScript)
+            runShellScript(copyScript)
         }
     }
 

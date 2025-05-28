@@ -78,3 +78,8 @@ class MainViewModel: BaseComps(){
     }
 }
 
+@Singleton
+class SampleHandles{
+
+}
+

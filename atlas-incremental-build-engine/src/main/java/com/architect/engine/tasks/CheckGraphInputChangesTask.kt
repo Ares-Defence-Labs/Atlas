@@ -34,6 +34,7 @@ abstract class CheckGraphInputChangesTask : DefaultTask() {
                     it.isFile && (it.extension in listOf(
                         "kt", "java", "xml", "gradle", "json",
                         "png", "svg", "jpeg", // track images for resource generator
+                        "ttf", "otf" // track fonts for resource generator
 
                         // swift files will not be tracked, since xcode will handle it (on ios side)
                     ))

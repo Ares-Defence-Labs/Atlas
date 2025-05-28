@@ -7,12 +7,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
 
-    //id("io.github.thearchitect123.atlasGraphGenerator") version "0.5.8"
-    id("io.github.thearchitect123.atlasGraphGenerator")
-    id("io.github.thearchitect123.atlasResourcesGenerator")
-    id("io.github.thearchitect123.atlasNavigationEngineGenerator")
-    id("io.github.thearchitect123.atlasFlowsGenPlugin")
-    id("io.github.thearchitect123.incrementalBuildEngine")
+    id("io.github.thearchitect123.incrementalBuildEngine") // latest version
 }
 
 kotlin {

@@ -541,6 +541,13 @@ __attribute__((swift_name("Sample")))
 @end
 
 __attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SampleHandles")))
+@interface SharedSampleHandles : SharedBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@end
+
+__attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TestIOS")))
 @interface SharedTestIOS : SharedBase
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
@@ -556,6 +563,13 @@ __attribute__((swift_name("TestIOS.Companion")))
 + (instancetype)companion __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) SharedTestIOSCompanion *shared __attribute__((swift_name("shared")));
 - (NSString *)registerServices __attribute__((swift_name("registerServices()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("TestSampleData")))
+@interface SharedTestSampleData : SharedBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 @end
 
 __attribute__((objc_subclassing_restricted))

@@ -8,7 +8,8 @@ import org.gradle.api.Project
 
 class AtlasAppleBuildEngine : Plugin<Project> {
     override fun apply(project: Project) {
-        val generateGlobalHashChecker = ResPluginHelpers.getIncrementalVerifierForAllModulesTask(project)
+        val generateGlobalHashChecker =
+            ResPluginHelpers.getIncrementalVerifierForAllModulesTask(project)
         project.afterEvaluate {
             val moduleTasks = listOf(
                 "generateDependencyGraph",
@@ -20,10 +21,13 @@ class AtlasAppleBuildEngine : Plugin<Project> {
                 "generateAtlasFontsGraph"
             )
 
-            val isiOS = ProjectFinder.isBuildingForIos(project)
-            if(isiOS) {
+            val isiOS = System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
+                    || System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("iphone") == true
+            if (isiOS) {
+                project.logger.lifecycle("RUNNING XCODE PACKAGING IOS")
                 val generateXCChecker = ResPluginHelpers.getIncrementalXCVerifierTask(project)
-                val generateDependencyGraphTask = ResPluginHelpers.getIncrementalBuilderTask(project)
+                val generateDependencyGraphTask =
+                    ResPluginHelpers.getIncrementalBuilderTask(project)
                 val taskGen = project.tasks.register("appleXCPackageFramework")
                     .apply {
                         configure {
@@ -66,8 +70,7 @@ class AtlasAppleBuildEngine : Plugin<Project> {
                 generateXCChecker.configure {
                     mustRunAfter(generateGlobalHashChecker)
                 }
-            }
-            else {
+            } else {
                 if (project.tasks.map { it.name }.any { moduleTasks.contains(it) }) {
                     moduleTasks.forEach {
                         val name = project.tasks.findByName(it)

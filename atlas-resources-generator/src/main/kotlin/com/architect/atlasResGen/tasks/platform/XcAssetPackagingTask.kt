@@ -55,96 +55,95 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 
     @TaskAction
     fun packageXCAssetFile() {
-        if (forceRegenerate) {
-            val imageDir = File(projectRootDir.get().asFile, "src/commonMain/resources/images")
-            if (!imageDir.exists()) {
-                logger.warn("⚠️ No images folder found at: ${imageDir.absolutePath}")
-                return
+        val imageDir = File(projectRootDir.get().asFile, "src/commonMain/resources/images")
+        if (!imageDir.exists()) {
+            logger.warn("⚠️ No images folder found at: ${imageDir.absolutePath}")
+            return
+        }
+
+        val imageFiles = imageDir.walkTopDown()
+            .filter {
+                it.isFile && it.extension.lowercase() in listOf(
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "webp",
+                    "svg"
+                )
             }
+            .toList()
 
-            val imageFiles = imageDir.walkTopDown()
-                .filter {
-                    it.isFile && it.extension.lowercase() in listOf(
-                        "png",
-                        "jpg",
-                        "jpeg",
-                        "webp",
-                        "svg"
-                    )
-                }
-                .toList()
+        val snakeToPath = imageFiles.associate { file ->
+            val snakeName = FileHelpers.toSnakeCase(file.nameWithoutExtension)
+            snakeName to "images/${file.name}" // safe because file is explicitly named
+        }
 
-            val snakeToPath = imageFiles.associate { file ->
-                val snakeName = FileHelpers.toSnakeCase(file.nameWithoutExtension)
-                snakeName to "images/${file.name}" // safe because file is explicitly named
-            }
+        generateIosActualObject(snakeToPath) // package the image generator
 
-            generateIosActualObject(snakeToPath) // package the image generator
+        logger.lifecycle("RUNNING IMAGE PACKAGING : $imageFiles")
+        imageFiles.forEach { imageFile ->
 
-            logger.lifecycle("RUNNING IMAGE PACKAGING : $imageFiles")
-            imageFiles.forEach { imageFile ->
+            logger.lifecycle("IMAGE FILE : $imageFiles")
+            val isSvg = imageFile.extension.lowercase() == "svg"
+            val imageName = imageFile.nameWithoutExtension
+            val imageSetName = "${imageName}.imageset"
+            val imageSetDir = File(xcAssetDirectoryPath, imageSetName)
+            imageSetDir.mkdirs()
 
-                logger.lifecycle("IMAGE FILE : $imageFiles")
-                val isSvg = imageFile.extension.lowercase() == "svg"
-                val imageName = imageFile.nameWithoutExtension
-                val imageSetName = "${imageName}.imageset"
-                val imageSetDir = File(xcAssetDirectoryPath, imageSetName)
-                imageSetDir.mkdirs()
+            val outputImages = mutableListOf<Map<String, String>>()
 
-                val outputImages = mutableListOf<Map<String, String>>()
+            if (isSvg && !forceSVGs) {
+                logger.lifecycle("RUNNING SVG PACKAGING")
+                val safeSvg = sanitizeSvgFile(imageFile)
+                val scales = listOf(
+                    Triple("@1x", 1f, "$imageName.png"),
+                    Triple("@2x", 2f, "$imageName@2x.png"),
+                    Triple("@3x", 3f, "$imageName@3x.png")
+                )
 
-                if (isSvg && !forceSVGs) {
-                    logger.lifecycle("RUNNING SVG PACKAGING")
-                    val safeSvg = sanitizeSvgFile(imageFile)
-                    val scales = listOf(
-                        Triple("@1x", 1f, "$imageName.png"),
-                        Triple("@2x", 2f, "$imageName@2x.png"),
-                        Triple("@3x", 3f, "$imageName@3x.png")
+                for ((suffix, scale, filename) in scales) {
+                    val outputFile = File(imageSetDir, filename)
+                    convertSvgToPng(
+                        svgFile = safeSvg,
+                        outputFile = outputFile,
+                        scale
                     )
 
-                    for ((suffix, scale, filename) in scales) {
-                        val outputFile = File(imageSetDir, filename)
-                        convertSvgToPng(
-                            svgFile = safeSvg,
-                            outputFile = outputFile,
-                            scale
-                        )
+                    logger.lifecycle("RUNNING FILE NAME OUTPUT: $filename")
 
-                        logger.lifecycle("RUNNING FILE NAME OUTPUT: $filename")
-
-                        outputImages.add(
-                            mapOf(
-                                "idiom" to "universal",
-                                "filename" to filename,
-                                "scale" to "${scale.toInt()}x"
-                            )
-                        )
-                    }
-                } else {
-                    val targetFile = File(imageSetDir, imageFile.name)
-                    imageFile.copyTo(targetFile, overwrite = true)
                     outputImages.add(
                         mapOf(
                             "idiom" to "universal",
-                            "filename" to imageFile.name,
-                            "scale" to "1x"
+                            "filename" to filename,
+                            "scale" to "${scale.toInt()}x"
                         )
                     )
                 }
+            } else {
+                val targetFile = File(imageSetDir, imageFile.name)
+                imageFile.copyTo(targetFile, overwrite = true)
+                outputImages.add(
+                    mapOf(
+                        "idiom" to "universal",
+                        "filename" to imageFile.name,
+                        "scale" to "1x"
+                    )
+                )
+            }
 
-                // Write Contents.json
-                val contentsJson = """
+            // Write Contents.json
+            val contentsJson = """
 {
   "images" : [
     ${
-                    outputImages.joinToString(",\n    ") { img ->
-                        """{
+                outputImages.joinToString(",\n    ") { img ->
+                    """{
       "idiom" : "${img["idiom"]}",
       "filename" : "${img["filename"]}",
       "scale" : "${img["scale"]}"
     }"""
-                    }
                 }
+            }
   ],
   "info" : {
     "version" : 1,
@@ -153,31 +152,30 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 }
 """.trimIndent()
 
-                File(imageSetDir, "Contents.json").writeText(contentsJson)
+            File(imageSetDir, "Contents.json").writeText(contentsJson)
+        }
+
+        logger.lifecycle("✅ XCAssets generated at: $xcAssetDirectoryPath")
+
+        // generate color assets (writes to the asset catalog)
+        val colorsXmlFile =
+            File(projectRootDir.get().asFile, "src/commonMain/resources/colors/colors.xml")
+        val colors = mutableListOf<Pair<String, String>>()
+
+        if (colorsXmlFile.exists()) {
+            logger.lifecycle("FOUND COLORS $colorsXmlFile")
+            val docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            val document = docBuilder.parse(colorsXmlFile)
+            val colorElements = document.getElementsByTagName("color")
+
+            for (i in 0 until colorElements.length) {
+                val node = colorElements.item(i)
+                val key = node.attributes?.getNamedItem("key")?.nodeValue ?: continue
+                val value = node.textContent.trim()
+                colors.add(key to value)
             }
 
-            logger.lifecycle("✅ XCAssets generated at: $xcAssetDirectoryPath")
-
-            // generate color assets (writes to the asset catalog)
-            val colorsXmlFile =
-                File(projectRootDir.get().asFile, "src/commonMain/resources/colors/colors.xml")
-            val colors = mutableListOf<Pair<String, String>>()
-
-            if (colorsXmlFile.exists()) {
-                logger.lifecycle("FOUND COLORS $colorsXmlFile")
-                val docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-                val document = docBuilder.parse(colorsXmlFile)
-                val colorElements = document.getElementsByTagName("color")
-
-                for (i in 0 until colorElements.length) {
-                    val node = colorElements.item(i)
-                    val key = node.attributes?.getNamedItem("key")?.nodeValue ?: continue
-                    val value = node.textContent.trim()
-                    colors.add(key to value)
-                }
-
-                generateColorAssets(colors)
-            }
+            generateColorAssets(colors)
         }
     }
 

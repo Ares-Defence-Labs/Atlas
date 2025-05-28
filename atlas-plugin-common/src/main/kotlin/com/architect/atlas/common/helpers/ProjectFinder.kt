@@ -55,7 +55,8 @@ object ProjectFinder {
             iosTargets.any { target ->
                 task.name.contains(target, ignoreCase = true)
             }
-        }
+        } || (System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
+                || System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("iphone") == true)
     }
 
     fun findIosClientApp(sharedProject: Project): File? {
