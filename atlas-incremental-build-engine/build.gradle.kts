@@ -42,20 +42,20 @@ dependencies{
     implementation("com.android.tools.build:gradle:8.2.0")
     implementation("io.github.thearchitect123:atlas-plugin-common:0.1.1")
 }
-////
-////
+//
+//
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
-//        artifactId = "atlas-navEngine-generator",
-//        version = "0.3.2"
+//        artifactId = "atlas-incremental-engine",
+//        version = "0.0.1"
 //    )
 //
 //    // Configure POM metadata for the published artifact
 //    pom {
-//        name.set("AtlasNavGen")
-//        description.set("A navigation engine generator plugin for Atlas SDK. Supports all Platforms")
+//        name.set("AtlasIncrementalEngine")
+//        description.set("An incremental build engine for Atlas. Supports all Platforms")
 //        inceptionYear.set("2025")
 //        url.set("https://github.com/TheArchitect123/Atlas")
 //

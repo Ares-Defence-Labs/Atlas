@@ -1,7 +1,6 @@
 import SwiftUI
 import shared
 
-
 //@AtlasScreen(viewModel: DroidStandard.self, initial: true)
 struct ContentView: View {
     let vm: DroidStandard
@@ -36,7 +35,8 @@ struct ContentView: View {
 //                Text(sample[\.result].value())
 //            }
 //        }
-        Text("Hello There OTF FONT FILE").font(Font(AtlasFonts.companion.testfontfile(size: 12)))
+        //Text("Hello There OTF FONT FILE").font(Font(AtlasFonts.companion.testfontfile(size: 12)))
+        Text("")
     }
 }
 

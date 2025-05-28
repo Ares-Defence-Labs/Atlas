@@ -14,6 +14,10 @@ import com.architect.atlastestclient.software.MobileTest
 class TestInter {
 }
 
+class SampleConfig{
+
+}
+
 //
 //@Module
 //class TestMod{

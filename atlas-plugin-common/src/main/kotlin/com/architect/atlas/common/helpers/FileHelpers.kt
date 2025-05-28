@@ -45,4 +45,12 @@ object FileHelpers {
             logger.lifecycle("✅ Script succeeded:\n${output.toString(Charsets.UTF_8)}")
         }
     }
+
+    fun hashFiles(files: Collection<File>): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        files.sortedBy { it.absolutePath }.forEach { file ->
+            digest.update(file.readBytes())
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
 }

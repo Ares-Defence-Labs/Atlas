@@ -21,10 +21,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val androidResources: ConfigurableFileCollection
-
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val externalSourceDirs: ConfigurableFileCollection
 
     @get:InputFiles
@@ -37,8 +33,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     init {
         group = "Atlas"
         description = "Generates a dependency graph for the project"
-        outputs.upToDateWhen { false }
-        androidResources.from(project.layout.projectDirectory.dir("androidApp/build/intermediates/res/merged/debug"))
+        outputs.upToDateWhen { false } // only if the hash file (which is tracked by gradle) has changed then rerun the task, otherwise skipped by default
     }
 
     private fun checkIfExtendsValidViewModel(
@@ -129,13 +124,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             "com.architect.atlas.container.annotations.ViewModels" to viewModels,
             "com.architect.atlas.container.annotations.Module" to modules,
         )
-
-        // ✅ Check if Android resources are present
-        if (androidResources.files.isNotEmpty()) {
-            logger.lifecycle("📦 Detected merged Android resources at ${androidResources.asPath}")
-        } else {
-            logger.lifecycle("⚠️ No Android merged resources found.")
-        }
 
         val classHierarchy =
             mutableMapOf<String, String?>() // Fully Qualified Class Name -> Superclass

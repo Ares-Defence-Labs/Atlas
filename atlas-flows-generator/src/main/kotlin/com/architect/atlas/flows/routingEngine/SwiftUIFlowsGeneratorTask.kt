@@ -17,12 +17,13 @@ abstract class SwiftUIFlowsGeneratorTask : DefaultTask() {
     init {
         group = "AtlasFlows"
         description = "Generates the SwiftUI flow binding implementations"
-        outputs.upToDateWhen { false }
     }
 
     @TaskAction
     fun generateNavigatorClass() {
-        generateIOSSwiftBridge()
+        if(!File(outputIosDir.get().asFile, "FlowsSwiftExtensions.swift").exists()){
+            generateIOSSwiftBridge()
+        }
     }
 
     private fun generateIOSSwiftBridge() {
