@@ -28,6 +28,13 @@ Atlas is a complete SDK for Kotlin Multiplatform with everything you need for yo
 
 You can find all documentation [here](https://thearchitect123.github.io/ArtifactsDocProduction/develop/kotlin/multiplatform/atlas/)
 
+
+**To use the new Incremental build plugin simply add it to your shared.gradle file.**
+<img width="646" alt="Screenshot 2025-05-28 at 3 11 46 pm" src="https://github.com/user-attachments/assets/b5333731-a3a8-4a9f-b7a7-427f8ac82e81" />
+
+**The plugin will handle auto incrementation by default (you can find it here).**
+https://central.sonatype.com/artifact/io.github.thearchitect123/atlas-incremental-engine
+
 ## License
 
 This software is licensed under the MIT license. See [LICENSE](./LICENSE) for full disclosure.
