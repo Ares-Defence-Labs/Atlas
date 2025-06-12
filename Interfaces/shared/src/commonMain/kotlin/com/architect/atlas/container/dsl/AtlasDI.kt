@@ -5,6 +5,7 @@ import kotlin.reflect.KClass
 
 class AtlasDI {
     companion object {
+
         // 🔹 Holds a reference to AtlasContainer
         var container: AtlasContainerContract? = null
 
@@ -96,6 +97,18 @@ class AtlasDI {
                 ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
         }
 
+//        inline fun registerInstanceSwift(instance: Any, ) {
+//            val classGen = SwiftClassGenerator.getClazz(instance)
+//            val clazz: KClass<*>? = try {
+//                Class.forName(className).kotlin
+//            } catch (e: ClassNotFoundException) {
+//                null
+//            }
+//
+//            container?.register(T::class, instance, null, null, false)
+//                ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
+//        }
+
         inline fun <reified T : Any> registerSingleton(
             instance: T? = null,
         ) {
@@ -125,3 +138,5 @@ class AtlasDI {
         }
     }
 }
+
+

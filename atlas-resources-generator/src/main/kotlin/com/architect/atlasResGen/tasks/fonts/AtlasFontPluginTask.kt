@@ -68,10 +68,8 @@ abstract class AtlasFontPluginTask : DefaultTask() {
             }" // safe because file is explicitly named
         }
 
-        logger.lifecycle("PATHS : $snakeToPath")
         generateAndroidActualFontObject(snakeToPath)
         copyFontsToAndroidAssets(fontFiles)
-
     }
 
     private fun generateAndroidActualFontObject(entries: Map<String, String>) {
@@ -87,8 +85,6 @@ abstract class AtlasFontPluginTask : DefaultTask() {
         builder.appendLine("object AtlasFonts {")
 
         for ((name, path) in entries) {
-            logger.lifecycle("PATH : $path")
-            logger.lifecycle("NAME : $name")
             builder.appendLine("    fun $name(context: Context): Typeface = ResourcesCompat.getFont(context, R.font.$name)")
             builder.appendLine("            ?: error(\"Font Typeface not found: R.font.$name\")")
         }
@@ -104,7 +100,13 @@ abstract class AtlasFontPluginTask : DefaultTask() {
         val targetDir = androidResourcesFontsDir.asFile.get()
         targetDir.mkdirs()
 
-        fontFiles.forEach { sourceFile ->
+        val filteredFonts = fontFiles.filter { !File(targetDir, it.name).exists() || forceRegenerate }
+        if(filteredFonts.isEmpty()){
+            logger.warn("All fonts already exist, skipping font generator")
+            return
+        }
+
+        filteredFonts.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
             if (!targetFile.exists() || forceRegenerate) {
                 sourceFile.copyTo(FileHelpers.getTrimmedFilePath(targetFile), overwrite = true)

@@ -32,7 +32,7 @@ abstract class CheckGraphInputChangesTask : DefaultTask() {
             dir.walkTopDown()
                 .filter {
                     it.isFile && (it.extension in listOf(
-                        "kt", "java", "xml", "gradle", "json",
+                        "kt", "java", "xml", "gradle", "json", "toml",
                         "png", "svg", "jpeg", // track images for resource generator
                         "ttf", "otf" // track fonts for resource generator
 
@@ -56,3 +56,4 @@ abstract class CheckGraphInputChangesTask : DefaultTask() {
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
+

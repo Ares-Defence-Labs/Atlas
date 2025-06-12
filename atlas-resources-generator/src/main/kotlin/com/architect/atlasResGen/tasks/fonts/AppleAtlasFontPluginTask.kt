@@ -52,7 +52,6 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
             return
         }
 
-        //logger.info("Running font files for iOS")
         val fontFiles = fontsDir.walk()
             .filter {
                 it.isFile && it.extension.lowercase() in listOf("ttf", "otf")
@@ -67,7 +66,6 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
                     ).name
         }
 
-
         prepareInternalFontInfoPlist(snakeToPath.values.toList()) // write the merged manifest info.plist
         generateiOSActualFontObject(fontFiles.associate { file ->
             FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
@@ -77,6 +75,15 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
     }
 
     private fun prepareInternalFontInfoPlist(fontFiles: List<String>) {
+        val fonts = if (mergedInfoPlist.exists()) fontFiles.filter {
+            !mergedInfoPlist.readText().contains(it)
+        } else fontFiles
+        if (fonts.isEmpty()) {
+            logger.info("Font definitions already exist on info.plist")
+            return
+        }
+
+
         val snippet = buildString {
             appendLine("<array>")
             fontFiles.forEach {
@@ -123,11 +130,16 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
         val targetDir = iOSResourcesFontsDir.asFile.get()
         targetDir.mkdirs()
 
-        fontFiles.forEach { sourceFile ->
+        val filteredFonts =
+            fontFiles.filter { !File(targetDir, it.name).exists() || forceRegenerate }
+        if (filteredFonts.isEmpty()) {
+            logger.lifecycle("All font files already exist. Skipping assignment")
+            return
+        }
+
+        filteredFonts.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
-            if (!targetFile.exists() || forceRegenerate) {
-                sourceFile.copyTo(FileHelpers.getTrimmedFilePath(targetFile), overwrite = true)
-            }
+            sourceFile.copyTo(FileHelpers.getTrimmedFilePath(targetFile), overwrite = true)
         }
 
         logger.lifecycle("✅ Copied ${fontFiles.size} images to iOS assets: ${targetDir.absolutePath}")

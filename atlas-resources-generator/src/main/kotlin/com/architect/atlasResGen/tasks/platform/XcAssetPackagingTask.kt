@@ -80,9 +80,17 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 
         generateIosActualObject(snakeToPath) // package the image generator
 
-        logger.lifecycle("RUNNING IMAGE PACKAGING : $imageFiles")
-        imageFiles.forEach { imageFile ->
+        val contentAssetFiles = imageFiles.filter {
+            val imageSetDir = File(xcAssetDirectoryPath, it.name)
+            val contentJson = File(imageSetDir, "Contents.json")
 
+            if(contentJson.exists()) !contentJson.readText().contains(it.name) || forceRegenerate else forceRegenerate
+        }
+        if (contentAssetFiles.isEmpty()) {
+            logger.lifecycle("All image files already exist. Skipping asset catalog assignment")
+            return
+        }
+        contentAssetFiles.forEach { imageFile ->
             logger.lifecycle("IMAGE FILE : $imageFiles")
             val isSvg = imageFile.extension.lowercase() == "svg"
             val imageName = imageFile.nameWithoutExtension
@@ -93,7 +101,6 @@ abstract class XcAssetPackagingTask : DefaultTask() {
             val outputImages = mutableListOf<Map<String, String>>()
 
             if (isSvg && !forceSVGs) {
-                logger.lifecycle("RUNNING SVG PACKAGING")
                 val safeSvg = sanitizeSvgFile(imageFile)
                 val scales = listOf(
                     Triple("@1x", 1f, "$imageName.png"),
@@ -278,7 +285,13 @@ abstract class XcAssetPackagingTask : DefaultTask() {
     private fun generateColorAssets(colors: List<Pair<String, String>>) {
         val assetDir = File(xcAssetDirectoryPath)
 
-        colors.forEach { (name, hex) ->
+        val filteredColors = colors.filter { (name, hex) -> !File(assetDir, "$name.colorset").exists() || forceRegenerate }
+        if (filteredColors.isEmpty()) {
+            logger.lifecycle("All Color Code files already exist. Skipping asset catalog assignment")
+            return
+        }
+
+        filteredColors.forEach { (name, hex) ->
             val colorSetDir = File(assetDir, "$name.colorset")
             colorSetDir.mkdirs()
 

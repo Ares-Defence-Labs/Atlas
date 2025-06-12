@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-////////////////////////
+//////////////////////////
 repositories {
     google()
     mavenCentral()
@@ -40,16 +40,16 @@ gradlePlugin {
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.1")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.4")
 }
-
+////
 //////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-flows-generator",
-//        version = "0.1.2"
+//        version = "0.1.6"
 //    )
 //
 //    // Configure POM metadata for the published artifact

@@ -1,11 +1,15 @@
 package com.architect.atlasGraphGenerator
 
+import groovyjarjarasm.asm.ClassReader
 import org.gradle.api.DefaultTask
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import java.io.File
+import java.util.jar.JarFile
 
 @CacheableTask
 abstract class AtlasDIProcessorGraphTask : DefaultTask() {
@@ -28,6 +32,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val iosSourceDirs: ConfigurableFileCollection
 
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val dependencyCommonMainSources: ConfigurableFileCollection
+
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputHashFile: RegularFileProperty
@@ -40,49 +48,57 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         description = "Generates a dependency graph for the project"
     }
 
+    private fun resolveTransitiveInheritanceChain(
+        className: String,
+        classHierarchy: Map<String, String?>
+    ): List<String> {
+        val chain = mutableListOf<String>()
+        var current = className
+
+        while (true) {
+            val parent = classHierarchy[current] ?: break
+            if (chain.contains(parent)) break // avoid circular inheritance
+            chain.add(parent)
+            current = parent
+        }
+
+        return chain
+    }
+
     private fun checkIfExtendsValidViewModel(
         fullyQualifiedClassName: String,
         classHierarchy: Map<String, String?>,
-        simpleToFqName: Map<String, String>
+        simpleToFqName: Map<String, String?>
     ): Boolean {
-        val validBaseViewModels = setOf(
+        val validViewModels = setOf(
             "com.architect.atlas.architecture.mvvm.ViewModel",
             "androidx.lifecycle.ViewModel"
         )
 
-        var currentClass: String? = fullyQualifiedClassName
+        var current = fullyQualifiedClassName
+        val visited = mutableSetOf<String>()
 
-        while (currentClass != null) {
-            logger.lifecycle("✅ Checking class: $currentClass")
+        while (current.isNotBlank() && visited.add(current)) {
+            logger.lifecycle("🔍 Traversing: $current")
 
-            // ✅ If the current class is a valid ViewModel, return true
-            if (validBaseViewModels.contains(currentClass)) {
-                logger.lifecycle("✅ Found valid ViewModel: $currentClass")
+            if (validViewModels.contains(current)) {
+                logger.lifecycle("✅ Valid ViewModel base found: $current")
                 return true
             }
 
-            // Resolve parent class properly
-            val parentClass = classHierarchy[currentClass]
-            if (parentClass == null || parentClass == currentClass) {
-                logger.lifecycle("✅ Reached top of hierarchy: $parentClass (no further parent)")
-                break
-            }
-
-            // ✅ Ensure parent class is fully resolved
-            val resolvedParentClass =
-                classHierarchy[parentClass] ?: simpleToFqName[parentClass] ?: parentClass
-            logger.lifecycle("✅ Parent resolved to: $resolvedParentClass")
-
-            currentClass = resolvedParentClass
+            current = classHierarchy[current]
+                ?: simpleToFqName[current]
+                        ?: break
         }
 
-        logger.lifecycle("❌ No valid ViewModel found for: $fullyQualifiedClassName")
+        logger.lifecycle("❌ No valid ViewModel found in inheritance chain for: $fullyQualifiedClassName")
         return false
     }
 
     @TaskAction
     fun generateGraph() {
         logger.lifecycle("🚀 Running generateDependencyGraph task...")
+
 
         val androidContainerDir = androidOutputDir.get().asFile
         val iOSContainerDir = iOSOutputDir.get().asFile
@@ -100,8 +116,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 logger.lifecycle("🗑 Deleting old ios AtlasContainer.kt to force regeneration")
                 iosOutputFile.delete()
             }
-        }
-        else {
+        } else {
             if (outputFile.exists()) {
                 logger.lifecycle("🗑 Deleting old AtlasContainer.kt to force regeneration")
                 outputFile.delete()
@@ -131,11 +146,11 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
         val classHierarchy =
             mutableMapOf<String, String?>() // Fully Qualified Class Name -> Superclass
-        val simpleToFqName = mutableMapOf<String, String>() // Simple Name -> Fully Qualified Name
+        val simpleToFqName = mutableMapOf<String, String?>() // Simple Name -> Fully Qualified Name
 
         // check provides annotations
         val importMappings =
-            mutableMapOf<String, String>() // Stores (SimpleName → Fully Qualified Name)
+            mutableMapOf<String, String?>() // Stores (SimpleName → Fully Qualified Name)
         val providesReturnTypes =
             mutableMapOf<String, String>() // Stores (Return Type → Fully Qualified Name)
 
@@ -146,6 +161,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         } else {
             allSourceDirs.addAll(iosSourceDirs.files)
         }
+
+        allSourceDirs.addAll(dependencyCommonMainSources.files)
 
         allSourceDirs
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
@@ -162,6 +179,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                         val fullyQualifiedName = match.groupValues[1]
                         val simpleName = fullyQualifiedName.substringAfterLast(".")
                         importMappings[simpleName] = fullyQualifiedName
+                        simpleToFqName[simpleName] = fullyQualifiedName
                     }
 
                     // ✅ Scan for @Provides functions **after extracting imports**
@@ -185,7 +203,30 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
 
         logger.lifecycle("🔍 Return Types for Provides ${providesReturnTypes.map { "${it.key} : ${it.value}\n" }}")
-
+        logger.lifecycle("DEP FILES : ${dependencyCommonMainSources.files.count()}")
+//        val classRegex = Regex("""class\s+(\w+)\s*:\s*([\w.<>]+)""")
+//        dependencyCommonMainSources.files
+//            .filter { it.isDirectory }
+//            .flatMap { it.walkTopDown().filter { it.isFile && it.extension == "kt" } }
+//            .forEach { file ->
+//                val content = file.readText()
+//
+//                val packageMatch = Regex("""^package\s+([\w.]+)""").find(content)
+//                val packageName = packageMatch?.groupValues?.get(1)?.trim() ?: return@forEach
+//
+//                classRegex.findAll(content).forEach { match ->
+//                    val className = match.groupValues[1]
+//                    val baseClassRaw = match.groupValues[2].split("<").first().trim()
+//
+//                    val fullyQualifiedName = "$packageName.$className"
+//                    val resolvedBaseClass = simpleToFqName[baseClassRaw] ?: baseClassRaw
+//
+//                    classHierarchy[fullyQualifiedName] = resolvedBaseClass
+//                    simpleToFqName[className] = fullyQualifiedName
+//
+//                    logger.lifecycle("📘 Class from dependency: $fullyQualifiedName → $resolvedBaseClass")
+//                }
+//            }
 
         // ✅ First pass: Collect all class declarations across all files
         allSourceDirs
@@ -209,6 +250,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                         simpleToFqName[className] = fullyQualifiedClassName
 
                         if (baseClassRaw != null) {
+                            // scan for class files in dependencies, and append them to the classHeirarchy collection
                             // ✅ If the base class is a simple name (e.g., `ViewModel`), resolve it
                             val resolvedBaseClass = simpleToFqName[baseClassRaw]
                                 ?: when (baseClassRaw) {
@@ -224,6 +266,17 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 }
             }
 
+//        resolveTransitiveInheritanceChain(
+//            classHierarchy,
+//            simpleToFqName,
+//            importMappings
+//        )
+
+        logger.lifecycle("📚 Final class hierarchy map:")
+        classHierarchy.forEach { (child, parent) ->
+            logger.lifecycle("   $child → $parent")
+        }
+
         // ✅ Second pass: Process annotations and verify hierarchy
         allSourceDirs
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
@@ -236,7 +289,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
                     annotationMappings.forEach { (annotation, collection) ->
                         val annotationSimpleName = annotation.substringAfterLast(".")
-                        val annotationRegex = "@$annotationSimpleName\\s+class\\s+(\\w+)".toRegex()
+                        val annotationRegex =
+                            "@$annotationSimpleName\\s+class\\s+(\\w+)".toRegex()
 
                         annotationRegex.findAll(content).forEach { match ->
                             val className = match.groupValues[1]
@@ -247,11 +301,12 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                                 classToPackage[className] = packageName
 
                                 if (isAndroidTarget && annotation == "com.architect.atlas.container.annotations.ViewModels") {
-                                    val extendsValidViewModel = checkIfExtendsValidViewModel(
-                                        fullyQualifiedClassName,
-                                        classHierarchy,
-                                        simpleToFqName
-                                    )
+                                    val extendsValidViewModel =
+                                        checkIfExtendsValidViewModel(
+                                            fullyQualifiedClassName,
+                                            classHierarchy,
+                                            simpleToFqName
+                                        )
                                     if (!extendsValidViewModel) {
                                         throw IllegalArgumentException(
                                             "🚨 ERROR: Class `$fullyQualifiedClassName` marked with @ViewModels must extend `com.architect.atlas.architecture.mvvm.ViewModel` or `androidx.lifecycle.ViewModel` directly or indirectly."
@@ -262,38 +317,43 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                                 if (annotation == "com.architect.atlas.container.annotations.Module") {
                                     val providesFunctionRegex =
                                         Regex("""@Provides\s+fun\s+(\w+)\s*\((.*?)\)\s*:\s*([\w.]+)""")
-                                    providesFunctionRegex.findAll(content).forEach { match ->
-                                        val functionName = match.groupValues[1]
-                                        val parameters = match.groupValues[2] // Capture parameters
-                                        val returnType = match.groupValues[3]
+                                    providesFunctionRegex.findAll(content)
+                                        .forEach { match ->
+                                            val functionName = match.groupValues[1]
+                                            val parameters =
+                                                match.groupValues[2] // Capture parameters
+                                            val returnType = match.groupValues[3]
 
-                                        val fullyQualifiedReturnType =
-                                            importMappings[returnType] ?: "$packageName.$returnType"
+                                            val fullyQualifiedReturnType =
+                                                importMappings[returnType]
+                                                    ?: "$packageName.$returnType"
 
-                                        val parameterList = parameters.split(",")
-                                            .mapNotNull { param ->
-                                                val parts =
-                                                    param.trim().split(":").map { it.trim() }
-                                                if (parts.size == 2) {
-                                                    val paramName = parts[0]
-                                                    val paramType = parts[1]
-                                                    val fullyQualifiedParamType =
-                                                        importMappings[paramType]
-                                                            ?: "$packageName.$paramType"
-                                                    paramName to fullyQualifiedParamType
-                                                } else null
-                                            }
+                                            val parameterList = parameters.split(",")
+                                                .mapNotNull { param ->
+                                                    val parts =
+                                                        param.trim().split(":")
+                                                            .map { it.trim() }
+                                                    if (parts.size == 2) {
+                                                        val paramName = parts[0]
+                                                        val paramType = parts[1]
+                                                        val fullyQualifiedParamType =
+                                                            importMappings[paramType]
+                                                                ?: "$packageName.$paramType"
+                                                        paramName to fullyQualifiedParamType
+                                                    } else null
+                                                }
 
-                                        provides[fullyQualifiedReturnType] = ProvidesFunctionInfo(
-                                            module = className,
-                                            functionName = functionName,
-                                            parameters = parameterList
-                                        )
+                                            provides[fullyQualifiedReturnType] =
+                                                ProvidesFunctionInfo(
+                                                    module = className,
+                                                    functionName = functionName,
+                                                    parameters = parameterList
+                                                )
 
-                                        classToPackage[returnType] = packageName
+                                            classToPackage[returnType] = packageName
 
-                                        logger.lifecycle("🔍 @Provides detected: $functionName returning $returnType with params: ${parameterList.map { "${it.first}: ${it.second}" }}")
-                                    }
+                                            logger.lifecycle("🔍 @Provides detected: $functionName returning $returnType with params: ${parameterList.map { "${it.first}: ${it.second}" }}")
+                                        }
                                 }
 
                                 logger.lifecycle("✅ Found $annotation in ${file.name}: $fullyQualifiedClassName (package: $packageName)")
@@ -305,7 +365,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
         // prepare annotation file
         if (isAndroidTarget) {
-            logger.lifecycle("WRITING TO ANDROID")
+            logger.lifecycle("WRITING DEPENDENCY GRAPH TO ANDROID")
             outputFile.writeText(
                 generateAtlasContainer(
                     classToPackage,
@@ -324,7 +384,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             logger.lifecycle("✅ Generated AtlasContainer.kt at: ${outputFile.absolutePath}")
             logger.lifecycle("✅ Generated ViewModelExtensions.kt at: ${androidOutputFile.absolutePath}")
         } else {
-            logger.lifecycle("WRITING TO IOS")
+            logger.lifecycle("WRITING DEPENDENCY GRAPH TO IOS")
             iosOutputFile.writeText(
                 generateAtlasContainer(
                     classToPackage,
@@ -340,6 +400,29 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             logger.lifecycle("✅ Generated AtlasContainer.kt at: ${iosOutputFile.absolutePath}")
         }
     }
+
+//    private fun resolveTransitiveInheritanceChain(
+//        classHierarchy: MutableMap<String, String?>,
+//        simpleToFqName: MutableMap<String, String?>,
+//        importMappings: MutableMap<String, String?>
+//    ) {
+//        val visited = mutableSetOf<String>()
+//
+//        for ((child, directParent) in classHierarchy) {
+//            var current = directParent
+//            while (current != null && current !in visited) {
+//                visited += current
+//
+//                val nextParent = classHierarchy[current]
+//                    ?: simpleToFqName[current]
+//                    ?: importMappings[current]
+//                    ?: break
+//
+//                classHierarchy[current] = nextParent
+//                current = nextParent
+//            }
+//        }
+//    }
 
     private fun generateAtlasContainer(
         classToPackage: Map<String, String>,
@@ -407,7 +490,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         $providesImports
         $moduleImports
        
-
         import com.architect.atlas.memory.WeakReference
         import kotlin.reflect.KClass
         import com.architect.atlas.container.dsl.AtlasContainerContract

@@ -3,7 +3,6 @@ package com.architect.atlas.common.helpers
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.api.tasks.TaskProvider
 
 object TaskMngrHelpers {
     private val stringsGenTask = "generateAtlasStringsGraph"
@@ -182,9 +181,11 @@ object TaskMngrHelpers {
 
         val requiredTasks = TaskDefinitions.getiOSTaskDependencies()
         requiredTasks.forEach { taskName ->
-            val dependencyTask = project.tasks.findByName(taskName)
-            if (dependencyTask != null) {
-                dependencyTask.dependsOn(generateDependencyTask)
+            if (project.tasks.names.contains(taskName)) {
+                val dependencyTask = project.tasks.named(taskName)
+                dependencyTask.configure {
+                    dependsOn(generateDependencyTask)
+                }
             } else {
                 project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }
@@ -192,9 +193,11 @@ object TaskMngrHelpers {
 
         val postRunTasks = TaskDefinitions.getExtraTaskKotlinCompile()
         postRunTasks.forEach { taskName ->
-            val dependencyTask = project.tasks.findByName(taskName)
-            if (dependencyTask != null) {
-                generateDependencyTask.mustRunAfter(dependencyTask)
+            if (project.tasks.names.contains(taskName)) {
+                val dependencyTask = project.tasks.named(taskName)
+                dependencyTask.configure {
+                    dependsOn(generateDependencyTask)
+                }
             } else {
                 project.logger.lifecycle("⚠️ Task `$taskName` not found. Skipping dependency assignment.")
             }

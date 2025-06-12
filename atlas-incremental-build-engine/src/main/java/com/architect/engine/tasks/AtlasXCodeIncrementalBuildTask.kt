@@ -1,14 +1,16 @@
 package com.architect.engine.tasks
 
-import com.architect.engine.helpers.HashExtensions
+import com.architect.atlas.common.helpers.FileHelpers
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -50,29 +52,30 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
     abstract val hashFile: RegularFileProperty
 
     @get:OutputFile
-    abstract val flagFile: RegularFileProperty
+    abstract val xchashFile: RegularFileProperty
 
     init {
         group = "AtlasXcode"
         description = "XCFramework Generator for Apple's Incremental Building"
-        outputs.upToDateWhen { false }
     }
 
     @TaskAction
     fun checkAndBuildXCFramework() {
-        val shouldRebuild = flagFile.asFile.get().readText() == "true"
-        logger.lifecycle(if (shouldRebuild) "✅ Incremental Building is Required. Regenerating XCFramework" else "✅ No changes detected. XCFramework is up to date.")
-        if(!shouldRebuild) return
-
         val module = moduleName.get()
         logger.lifecycle("Detected Module Name: $module")
         logger.lifecycle("🔁 Preparing Incremental Plugin")
 
-        val inputFiles = (commonMainSource.asFileTree + iosMainSource.asFileTree).files
-        val currentHash = HashExtensions.hashFiles(inputFiles)
-
         val isDebug = cacheXCFramework.getOrElse(false)
         val xcOutDir = File(xcFrameworkOutputPath.get())
+
+        val prevHashFile = hashFile.asFile.get()
+        val currentXcHash = xchashFile.asFile.orNull
+        if (currentXcHash?.exists() == true) {
+            if (currentXcHash.readText() == prevHashFile.readText()) {
+                logger.lifecycle("🔁 XC Framework Exists. Skipping Generation (Hash has not changed)")
+                return
+            }
+        }
 
         val isSimulator = System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
         val buildType = if (isDebug) "debug" else "release"
@@ -123,7 +126,7 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
         }
 
         xcOutDir.copyRecursively(targetFramework, overwrite = true)
-        hashFile.get().asFile.writeText(currentHash)
+        xchashFile.asFile.get().writeText(hashFile.asFile.get().readText())
 
         logger.lifecycle("✅ Updating Build Hash")
         logger.lifecycle("✅ XCFramework copied to: ${targetFramework.absolutePath}")

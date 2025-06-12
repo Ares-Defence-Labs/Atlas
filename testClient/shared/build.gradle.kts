@@ -7,6 +7,10 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
 
+    id("io.github.thearchitect123.atlasGraphGenerator")
+    id("io.github.thearchitect123.atlasResourcesGenerator")
+    id("io.github.thearchitect123.atlasNavigationEngineGenerator")
+    id("io.github.thearchitect123.atlasFlowsGenPlugin")
     id("io.github.thearchitect123.incrementalBuildEngine") // latest version
 }
 
@@ -19,11 +23,10 @@ kotlin {
         }
     }
 
-    val iosX64 = iosX64()
     val iosArm64 = iosArm64()
     val iosSimulatorArm64 = iosSimulatorArm64()
 
-    listOf(iosX64, iosArm64, iosSimulatorArm64).forEach {
+    listOf(iosArm64, iosSimulatorArm64).forEach {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
@@ -39,6 +42,7 @@ kotlin {
     }
 
     sourceSets {
+        kotlin.applyDefaultHierarchyTemplate()
         val commonMain by getting {
             dependencies {
                 implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
@@ -60,14 +64,9 @@ kotlin {
             }
         }
 
-        val iosMain by creating {
-            dependsOn(commonMain) // ✅ Ensure iOS depends on `commonMain`
-        }
-
-        // ✅ Ensure iOS targets use iosMain
-        val iosX64Main by getting { dependsOn(iosMain) }
-        val iosArm64Main by getting { dependsOn(iosMain) }
-        val iosSimulatorArm64Main by getting { dependsOn(iosMain) }
+        val iosMain by getting
+        val iosArm64Main by getting
+        val iosSimulatorArm64Main by getting
     }
 }
 
@@ -75,10 +74,11 @@ android {
     namespace = "com.architect.atlastestclient"
     compileSdk = 35
     defaultConfig {
-        minSdk = 24
+        minSdk = 26
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
+

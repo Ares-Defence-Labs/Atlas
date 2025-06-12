@@ -9,28 +9,26 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 
 class AtlasResourceGenPlugin : Plugin<Project> {
-    private fun taskOrderConfig(
-        project: Project,
-        generateDependencyGraphTask: Task
-    ) {
-        TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
-    }
-
     private fun configureResourceTaskGraph(
         project: Project,
         generateDependencyGraphTask: Task
     ) {
-        val graphsDep = project.tasks.findByName("generateDependencyGraph")
-        if (graphsDep != null) {
-            generateDependencyGraphTask.mustRunAfter(graphsDep)
-        }
+        generateDependencyGraphTask.mustRunAfter("debugAssetsCopyForAGP")
 
-        val navDep = project.tasks.findByName("generateNavAtlasEngine")
-        if (navDep != null) {
-            generateDependencyGraphTask.mustRunAfter(navDep)
-        }
+        val masterKeyHandler = project.tasks.findByName("masterKeyHandler")
+        if (masterKeyHandler == null) {
+            val graphsDep = project.tasks.findByName("generateDependencyGraph")
+            if (graphsDep != null) {
+                generateDependencyGraphTask.mustRunAfter(graphsDep)
+            }
 
-        taskOrderConfig(project, generateDependencyGraphTask)
+            val navDep = project.tasks.findByName("generateNavAtlasEngine")
+            if (navDep != null) {
+                generateDependencyGraphTask.mustRunAfter(navDep)
+            }
+
+            TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
+        }
     }
 
     private fun configureAppleResourceTaskGraph(
@@ -39,48 +37,26 @@ class AtlasResourceGenPlugin : Plugin<Project> {
     ) {
         val stringsGraph = project.tasks.findByName("generateAtlasStringsGraph")
         val colorGraph = project.tasks.findByName("generateAtlasColorsGraph")
-        val imagesGraph = project.tasks.findByName("generateAtlasImagesGraph")
-        val fontsGraph = project.tasks.findByName("generateAtlasFontsGraph")
 
-        generateDependencyGraphTask.dependsOn(stringsGraph)
         generateDependencyGraphTask.mustRunAfter(stringsGraph)
-
-        generateDependencyGraphTask.dependsOn(colorGraph)
         generateDependencyGraphTask.mustRunAfter(colorGraph)
-
-        generateDependencyGraphTask.dependsOn(imagesGraph)
-        generateDependencyGraphTask.mustRunAfter(imagesGraph)
-
-        generateDependencyGraphTask.dependsOn(fontsGraph)
-        generateDependencyGraphTask.mustRunAfter(fontsGraph)
     }
 
     override fun apply(project: Project) {
-        val isiOSTarget = !ProjectFinder.isBuildingForAndroid(project)
+
         project.afterEvaluate {
             val generateStringsResources = ResPluginHelpers.getStringResourceTask(project)
             val generateColorsResources = ResPluginHelpers.getColorsResourceTask(project)
-            val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
-            val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
 
             configureResourceTaskGraph(project, generateStringsResources.get())
             configureResourceTaskGraph(project, generateColorsResources.get())
-            configureResourceTaskGraph(project, generateImagesResources.get())
-            configureResourceTaskGraph(project, generateFontsResources.get())
-
-            generateColorsResources.configure()
-            {
+            generateColorsResources.configure {
                 mustRunAfter(generateStringsResources)
             }
 
-            generateImagesResources.configure {
-                dependsOn(generateColorsResources)
-            }
-            generateFontsResources.configure {
-                dependsOn(generateImagesResources)
-            }
-
+            val isiOSTarget = ProjectFinder.isBuildingForIos(project)
             if (isiOSTarget) {
+                // apple tasks
                 val generateAtlasXCAssetFileResources =
                     AppleResPluginHelpers.getAtlasXCAssetFilePackagingTask(project)
                 val generateAppleFontFiles =
@@ -88,20 +64,40 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 val generateAppleScriptsGenFontFiles =
                     AppleResPluginHelpers.getAppleFontsPackagingResourceTask(project)
 
-                configureResourceTaskGraph(project, generateAtlasXCAssetFileResources.get())
-                configureResourceTaskGraph(project, generateAppleFontFiles.get())
-                configureResourceTaskGraph(project, generateAppleScriptsGenFontFiles.get())
+                val masterKeyHandler = project.tasks.findByName("masterKeyHandler")
+                if (masterKeyHandler == null) {
+                    configureResourceTaskGraph(project, generateAtlasXCAssetFileResources.get())
+                    configureResourceTaskGraph(project, generateAppleFontFiles.get())
+                    configureResourceTaskGraph(project, generateAppleScriptsGenFontFiles.get())
 
-                configureAppleResourceTaskGraph(project, generateAtlasXCAssetFileResources.get())
-                configureAppleResourceTaskGraph(project, generateAppleFontFiles.get())
-                configureAppleResourceTaskGraph(project, generateAppleScriptsGenFontFiles.get())
+                    configureAppleResourceTaskGraph(
+                        project,
+                        generateAtlasXCAssetFileResources.get()
+                    )
+                    configureAppleResourceTaskGraph(project, generateAppleFontFiles.get())
+                    configureAppleResourceTaskGraph(project, generateAppleScriptsGenFontFiles.get())
 
-                generateAppleFontFiles.configure {
-                    dependsOn(generateAtlasXCAssetFileResources)
+                    generateAppleFontFiles.configure {
+                        mustRunAfter(generateAtlasXCAssetFileResources)
+                    }
+
+                    generateAppleScriptsGenFontFiles.configure {
+                        mustRunAfter(generateAppleFontFiles)
+                    }
                 }
+            } else {
+                // android tasks
+                val generateImagesResources = ResPluginHelpers.getImageResourceTask(project)
+                val generateFontsResources = ResPluginHelpers.getFontsResourceTask(project)
 
-                generateAppleScriptsGenFontFiles.configure {
-                    dependsOn(generateAppleFontFiles)
+                configureResourceTaskGraph(project, generateImagesResources.get())
+                configureResourceTaskGraph(project, generateFontsResources.get())
+
+                generateImagesResources.configure {
+                    mustRunAfter(generateColorsResources)
+                }
+                generateFontsResources.configure {
+                    mustRunAfter(generateImagesResources)
                 }
             }
         }

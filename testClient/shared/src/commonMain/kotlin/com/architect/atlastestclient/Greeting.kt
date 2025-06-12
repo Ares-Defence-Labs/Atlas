@@ -3,8 +3,13 @@ package com.architect.atlastestclient
 import com.architect.atlas.atlasflow.MutableAtlasFlowState
 import com.architect.atlas.atlasflow.asCFlow
 import com.architect.atlas.container.annotations.Singleton
+import com.architect.atlas.container.annotations.ViewModels
 import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlastestclient.software.TestSingle
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import otr.artifacts.coreServices.services.viewModels.PaymentListConfigurationBaseScreenViewModel
+import otr.artifacts.coreServices.services.viewModels.SharedBaseScreenViewModel
 
 class Greeting {
     private val platform: Platform = getPlatform()
@@ -14,19 +19,18 @@ class Greeting {
     }
 }
 
-class CompTestStandard{
-    companion object{
-        var test = MutableAtlasFlowState("")
-        fun getTestSingle(name: String) : TestSingle?{
-            ///AtlasDI.injectContainer(AtlasContainer)
-//            test.
-//            test.asStateFlow().asCFlow().observe {
-//
-//            }
-//
-//            test.asStateFlow().asCFlow().observeMain {
-//
-//            }
+class CompTestStandard {
+    companion object {
+
+        val serviceHandle = AtlasDI.resolveLazyService<TestSingle>()
+        fun getTestSingle(name: String): TestSingle? {
+            GlobalScope.launch {
+                repeat(1000) {
+                    GlobalScope.launch {
+                        serviceHandle.value.helloThere()
+                    }
+                }
+            }
 
             return AtlasDI.resolveServiceNullableByName(name)
         }
@@ -35,6 +39,6 @@ class CompTestStandard{
 
 
 @Singleton
-class TestSampleData{
+class TestSampleData {
 
 }

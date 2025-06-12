@@ -1,6 +1,7 @@
 package com.architect.atlasResGen.tasks.platform
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.Directory
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
@@ -43,10 +44,26 @@ abstract class XcFontAssetsPackagingTask : DefaultTask() {
         val updateScript = generateCopyFontsScript()
         val copyScript = generateInjectPlistScript()
 
-        if (updateScript.exists() && copyScript.exists()) {
+        val srcDir = File(fontDirectory)
+        val appName = File(iOSProjectDirectory).name
+        val dstDir = File("$iOSProjectDirectory/$appName/Resources/Fonts")
+
+        val srcFonts =
+            srcDir.listFiles { _, name -> name.endsWith(".ttf") || name.endsWith(".otf") }
+                ?.map { it.name }?.toSet() ?: emptySet()
+        val dstFonts =
+            dstDir.listFiles { _, name -> name.endsWith(".ttf") || name.endsWith(".otf") }
+                ?.map { it.name }?.toSet() ?: emptySet()
+
+        val missingFonts = srcFonts.subtract(dstFonts)
+        if (missingFonts.isNotEmpty() || forceRegenerate) {
+            logger.lifecycle("🔍 Missing or forced fonts detected. Will run scripts.")
             runShellScript(updateScript)
             runShellScript(copyScript)
+        } else {
+            logger.lifecycle("✅ All fonts already present. Skipping script execution.")
         }
+
     }
 
     private fun runShellScript(script: File) {

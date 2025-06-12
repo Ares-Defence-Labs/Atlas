@@ -11,44 +11,40 @@ class AtlasFlowsGenPlugin : Plugin<Project> {
     private val resourceGenTasks = listOf(
         "generateAtlasStringsGraph",
         "generateAtlasColorsGraph",
-        "generateAtlasImagesGraph",
-        "generateAtlasFontsGraph",
         "appleFontsGenTask",
         "appleFontsPackagingGenTask",
         "applePackageXcodeGenTask"
     )
 
-    private fun taskOrderConfig(
-        project: Project,
-        generateDependencyGraphTask: Task
-    ) {
-        TaskMngrHelpers.taskOrderConfig(project, generateDependencyGraphTask)
-    }
-
     override fun apply(project: Project) {
-        val isIOS = !ProjectFinder.isBuildingForAndroid(project)
-        if (isIOS) {
-            project.afterEvaluate {
-                val swiftFlows = ResPluginHelpers.getSwiftUIBindingsEngineGenTask(project).get()
-                taskOrderConfig(
-                    project,
-                    swiftFlows
-                )
+        project.afterEvaluate {
+            val isIOS = ProjectFinder.isBuildingForIos(project)
+            if (isIOS) {
+                val swiftFlows = ResPluginHelpers.getSwiftUIBindingsEngineGenTask(project)
+                val masterKeyHandler = project.tasks.findByName("masterKeyHandler")
+                if (masterKeyHandler == null) {
+                    val graphsDep = project.tasks.findByName("generateDependencyGraph")
+                    if (graphsDep != null) {
+                        swiftFlows.configure {
+                            mustRunAfter(graphsDep)
+                        }
+                    }
 
-                val graphsDep = project.tasks.findByName("generateDependencyGraph")
-                if (graphsDep != null) {
-                    swiftFlows.mustRunAfter(graphsDep)
-                }
+                    val navDep = project.tasks.findByName("generateNavAtlasEngine")
+                    if (navDep != null) {
+                        swiftFlows.configure {
+                            mustRunAfter(navDep)
+                        }
+                    }
 
-                val navDep = project.tasks.findByName("generateNavAtlasEngine")
-                if (navDep != null) {
-                    swiftFlows.mustRunAfter(navDep)
-                }
-
-                resourceGenTasks.forEach { taskName ->
-                    val resTask = project.tasks.findByName(taskName)
-                    if (resTask != null) {
-                        swiftFlows.mustRunAfter(taskName)
+                    TaskMngrHelpers.taskOrderConfig(project, swiftFlows.get())
+                    resourceGenTasks.forEach { taskName ->
+                        val resTask = project.tasks.findByName(taskName)
+                        if (resTask != null) {
+                            swiftFlows.configure {
+                                mustRunAfter(taskName)
+                            }
+                        }
                     }
                 }
             }

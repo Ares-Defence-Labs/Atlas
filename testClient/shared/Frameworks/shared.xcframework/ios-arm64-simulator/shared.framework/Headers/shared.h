@@ -6,7 +6,7 @@
 #import <Foundation/NSString.h>
 #import <Foundation/NSValue.h>
 
-@class SharedAnyKmpObjectFlow, SharedAtlasColorsCompanion, SharedAtlasContainer, SharedAtlasDICompanion, SharedAtlasStringsCompanion, SharedAtomicfuNativeMutexNode, SharedAtomicfuSynchronizedObject, SharedAtomicfuSynchronizedObjectLockState, SharedAtomicfuSynchronizedObjectStatus, SharedBaseComps, SharedBufferOverflow, SharedCFlow<T>, SharedChannelFactory, SharedChannelFlow<T>, SharedCloseableCoroutineDispatcher, SharedCompTestStandardCompanion, SharedCoroutineDispatcher, SharedCoroutineDispatcherKey, SharedCoroutineExceptionHandlerKey, SharedCoroutineName, SharedCoroutineNameKey, SharedCoroutineStart, SharedDispatchers, SharedGlobalScope, SharedJobKey, SharedJobSupport, SharedKotlinAbstractCoroutineContextElement, SharedKotlinAbstractCoroutineContextKey<B, E>, SharedKotlinArray<T>, SharedKotlinAtomicReference<T>, SharedKotlinCancellationException, SharedKotlinEnum<E>, SharedKotlinEnumCompanion, SharedKotlinException, SharedKotlinIllegalStateException, SharedKotlinIntArray, SharedKotlinIntIterator, SharedKotlinIntProgression, SharedKotlinIntProgressionCompanion, SharedKotlinIntRange, SharedKotlinIntRangeCompanion, SharedKotlinLongArray, SharedKotlinLongIterator, SharedKotlinLongProgression, SharedKotlinLongProgressionCompanion, SharedKotlinLongRange, SharedKotlinLongRangeCompanion, SharedKotlinNoSuchElementException, SharedKotlinNothing, SharedKotlinRuntimeException, SharedKotlinThrowable, SharedKotlinUnit, SharedLockFreeLinkedListNode, SharedMainCoroutineDispatcher, SharedMutableAtlasFlowState<T>, SharedMutableCFlow<T>, SharedNonCancellable, SharedNonDisposableHandle, SharedPerson, SharedPlatformColor, SharedSampleProcess, SharedSharingCommand, SharedSharingStartedCompanion, SharedSwiftClassGeneratorCompanion, SharedTestIOSCompanion, SharedTestSingle, SharedThreadSafeHeap<T>, SharedTimeoutCancellationException, SharedViewModel, UIColor, UILabel, UISlider, UISwitch, UITextField, UIView;
+@class SharedAnyKmpObjectFlow, SharedAtlasColorsCompanion, SharedAtlasContainer, SharedAtlasDICompanion, SharedAtlasFontsCompanion, SharedAtlasImagesCompanion, SharedAtlasStringsCompanion, SharedAtomicfuNativeMutexNode, SharedAtomicfuSynchronizedObject, SharedAtomicfuSynchronizedObjectLockState, SharedAtomicfuSynchronizedObjectStatus, SharedBaseComps, SharedBufferOverflow, SharedCFlow<T>, SharedChannelFactory, SharedChannelFlow<T>, SharedCloseableCoroutineDispatcher, SharedCompTestStandardCompanion, SharedCoroutineDispatcher, SharedCoroutineDispatcherKey, SharedCoroutineExceptionHandlerKey, SharedCoroutineName, SharedCoroutineNameKey, SharedCoroutineStart, SharedDispatchers, SharedGlobalScope, SharedJobKey, SharedJobSupport, SharedKotlinAbstractCoroutineContextElement, SharedKotlinAbstractCoroutineContextKey<B, E>, SharedKotlinArray<T>, SharedKotlinAtomicReference<T>, SharedKotlinCancellationException, SharedKotlinEnum<E>, SharedKotlinEnumCompanion, SharedKotlinException, SharedKotlinIllegalStateException, SharedKotlinIntArray, SharedKotlinIntIterator, SharedKotlinIntProgression, SharedKotlinIntProgressionCompanion, SharedKotlinIntRange, SharedKotlinIntRangeCompanion, SharedKotlinLongArray, SharedKotlinLongIterator, SharedKotlinLongProgression, SharedKotlinLongProgressionCompanion, SharedKotlinLongRange, SharedKotlinLongRangeCompanion, SharedKotlinNoSuchElementException, SharedKotlinNothing, SharedKotlinRuntimeException, SharedKotlinThrowable, SharedKotlinUnit, SharedLockFreeLinkedListNode, SharedMainCoroutineDispatcher, SharedMutableAtlasFlowState<T>, SharedMutableCFlow<T>, SharedNonCancellable, SharedNonDisposableHandle, SharedPerson, SharedPlatformColor, SharedSampleProcess, SharedSharingCommand, SharedSharingStartedCompanion, SharedSwiftClassGeneratorCompanion, SharedTestIOSCompanion, SharedTestSingle, SharedThreadSafeHeap<T>, SharedTimeoutCancellationException, SharedViewModel, UIColor, UIFont, UIImage, UILabel, UISlider, UISwitch, UITextField, UIView;
 
 @protocol SharedAtlasContainerContract, SharedBroadcastChannel, SharedCancellableContinuation, SharedChannel, SharedChannelIterator, SharedChildHandle, SharedChildJob, SharedCompletableDeferred, SharedCompletableJob, SharedCopyableThrowable, SharedCoroutineExceptionHandler, SharedCoroutineScope, SharedDNSTest, SharedDeferred, SharedDisposableHandle, SharedDisposableHandle_, SharedFlow, SharedFlowCollector, SharedFusibleFlow, SharedHello, SharedJob, SharedKotlinAutoCloseable, SharedKotlinClosedRange, SharedKotlinComparable, SharedKotlinContinuation, SharedKotlinContinuationInterceptor, SharedKotlinCoroutineContext, SharedKotlinCoroutineContextElement, SharedKotlinCoroutineContextKey, SharedKotlinFunction, SharedKotlinIterable, SharedKotlinIterator, SharedKotlinKAnnotatedElement, SharedKotlinKClass, SharedKotlinKClassifier, SharedKotlinKDeclarationContainer, SharedKotlinLazy, SharedKotlinOpenEndRange, SharedKotlinSequence, SharedKotlinSuspendFunction0, SharedKotlinSuspendFunction1, SharedKotlinSuspendFunction2, SharedKotlinSuspendFunction3, SharedKotlinSuspendFunction4, SharedKotlinSuspendFunction5, SharedKotlinSuspendFunction6, SharedMainDispatcherFactory, SharedMutableSharedFlow, SharedMutableStateFlow, SharedMutex, SharedParentJob, SharedPlatform, SharedPoppable, SharedProducerScope, SharedPushable, SharedReceiveChannel, SharedRunnable, SharedSelectBuilder, SharedSelectClause, SharedSelectClause0, SharedSelectClause1, SharedSelectClause2, SharedSelectInstance, SharedSemaphore, SharedSendChannel, SharedSharedFlow, SharedSharingStarted, SharedStateFlow, SharedTestProcess;
 
@@ -388,6 +388,99 @@ __attribute__((swift_name("PlatformColor")))
 - (NSString *)swiftUIColor __attribute__((swift_name("swiftUIColor()")));
 - (UIColor *)uiColor __attribute__((swift_name("uiColor()")));
 @property (readonly) NSString *raw __attribute__((swift_name("raw")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("AtlasFonts")))
+@interface SharedAtlasFonts : SharedBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@property (class, readonly, getter=companion) SharedAtlasFontsCompanion *companion __attribute__((swift_name("companion")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("AtlasFonts.Companion")))
+@interface SharedAtlasFontsCompanion : SharedBase
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
++ (instancetype)companion __attribute__((swift_name("init()")));
+@property (class, readonly, getter=shared) SharedAtlasFontsCompanion *shared __attribute__((swift_name("shared")));
+- (UIFont *)roboto_blackSize:(double)size __attribute__((swift_name("roboto_black(size:)")));
+- (UIFont *)roboto_blackitalicSize:(double)size __attribute__((swift_name("roboto_blackitalic(size:)")));
+- (UIFont *)roboto_boldSize:(double)size __attribute__((swift_name("roboto_bold(size:)")));
+- (UIFont *)roboto_bolditalicSize:(double)size __attribute__((swift_name("roboto_bolditalic(size:)")));
+- (UIFont *)roboto_condensed_blackSize:(double)size __attribute__((swift_name("roboto_condensed_black(size:)")));
+- (UIFont *)roboto_condensed_blackitalicSize:(double)size __attribute__((swift_name("roboto_condensed_blackitalic(size:)")));
+- (UIFont *)roboto_condensed_boldSize:(double)size __attribute__((swift_name("roboto_condensed_bold(size:)")));
+- (UIFont *)roboto_condensed_bolditalicSize:(double)size __attribute__((swift_name("roboto_condensed_bolditalic(size:)")));
+- (UIFont *)roboto_condensed_extraboldSize:(double)size __attribute__((swift_name("roboto_condensed_extrabold(size:)")));
+- (UIFont *)roboto_condensed_extrabolditalicSize:(double)size __attribute__((swift_name("roboto_condensed_extrabolditalic(size:)")));
+- (UIFont *)roboto_condensed_extralightSize:(double)size __attribute__((swift_name("roboto_condensed_extralight(size:)")));
+- (UIFont *)roboto_condensed_extralightitalicSize:(double)size __attribute__((swift_name("roboto_condensed_extralightitalic(size:)")));
+- (UIFont *)roboto_condensed_italicSize:(double)size __attribute__((swift_name("roboto_condensed_italic(size:)")));
+- (UIFont *)roboto_condensed_lightSize:(double)size __attribute__((swift_name("roboto_condensed_light(size:)")));
+- (UIFont *)roboto_condensed_lightitalicSize:(double)size __attribute__((swift_name("roboto_condensed_lightitalic(size:)")));
+- (UIFont *)roboto_condensed_mediumSize:(double)size __attribute__((swift_name("roboto_condensed_medium(size:)")));
+- (UIFont *)roboto_condensed_mediumitalicSize:(double)size __attribute__((swift_name("roboto_condensed_mediumitalic(size:)")));
+- (UIFont *)roboto_condensed_regularSize:(double)size __attribute__((swift_name("roboto_condensed_regular(size:)")));
+- (UIFont *)roboto_condensed_semiboldSize:(double)size __attribute__((swift_name("roboto_condensed_semibold(size:)")));
+- (UIFont *)roboto_condensed_semibolditalicSize:(double)size __attribute__((swift_name("roboto_condensed_semibolditalic(size:)")));
+- (UIFont *)roboto_condensed_thinSize:(double)size __attribute__((swift_name("roboto_condensed_thin(size:)")));
+- (UIFont *)roboto_condensed_thinitalicSize:(double)size __attribute__((swift_name("roboto_condensed_thinitalic(size:)")));
+- (UIFont *)roboto_extraboldSize:(double)size __attribute__((swift_name("roboto_extrabold(size:)")));
+- (UIFont *)roboto_extrabolditalicSize:(double)size __attribute__((swift_name("roboto_extrabolditalic(size:)")));
+- (UIFont *)roboto_extralightSize:(double)size __attribute__((swift_name("roboto_extralight(size:)")));
+- (UIFont *)roboto_extralightitalicSize:(double)size __attribute__((swift_name("roboto_extralightitalic(size:)")));
+- (UIFont *)roboto_italicSize:(double)size __attribute__((swift_name("roboto_italic(size:)")));
+- (UIFont *)roboto_lightSize:(double)size __attribute__((swift_name("roboto_light(size:)")));
+- (UIFont *)roboto_lightitalicSize:(double)size __attribute__((swift_name("roboto_lightitalic(size:)")));
+- (UIFont *)roboto_mediumSize:(double)size __attribute__((swift_name("roboto_medium(size:)")));
+- (UIFont *)roboto_mediumitalicSize:(double)size __attribute__((swift_name("roboto_mediumitalic(size:)")));
+- (UIFont *)roboto_regularSize:(double)size __attribute__((swift_name("roboto_regular(size:)")));
+- (UIFont *)roboto_semiboldSize:(double)size __attribute__((swift_name("roboto_semibold(size:)")));
+- (UIFont *)roboto_semibolditalicSize:(double)size __attribute__((swift_name("roboto_semibolditalic(size:)")));
+- (UIFont *)roboto_semicondensed_blackSize:(double)size __attribute__((swift_name("roboto_semicondensed_black(size:)")));
+- (UIFont *)roboto_semicondensed_blackitalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_blackitalic(size:)")));
+- (UIFont *)roboto_semicondensed_boldSize:(double)size __attribute__((swift_name("roboto_semicondensed_bold(size:)")));
+- (UIFont *)roboto_semicondensed_bolditalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_bolditalic(size:)")));
+- (UIFont *)roboto_semicondensed_extraboldSize:(double)size __attribute__((swift_name("roboto_semicondensed_extrabold(size:)")));
+- (UIFont *)roboto_semicondensed_extrabolditalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_extrabolditalic(size:)")));
+- (UIFont *)roboto_semicondensed_extralightSize:(double)size __attribute__((swift_name("roboto_semicondensed_extralight(size:)")));
+- (UIFont *)roboto_semicondensed_extralightitalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_extralightitalic(size:)")));
+- (UIFont *)roboto_semicondensed_italicSize:(double)size __attribute__((swift_name("roboto_semicondensed_italic(size:)")));
+- (UIFont *)roboto_semicondensed_lightSize:(double)size __attribute__((swift_name("roboto_semicondensed_light(size:)")));
+- (UIFont *)roboto_semicondensed_lightitalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_lightitalic(size:)")));
+- (UIFont *)roboto_semicondensed_mediumSize:(double)size __attribute__((swift_name("roboto_semicondensed_medium(size:)")));
+- (UIFont *)roboto_semicondensed_mediumitalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_mediumitalic(size:)")));
+- (UIFont *)roboto_semicondensed_regularSize:(double)size __attribute__((swift_name("roboto_semicondensed_regular(size:)")));
+- (UIFont *)roboto_semicondensed_semiboldSize:(double)size __attribute__((swift_name("roboto_semicondensed_semibold(size:)")));
+- (UIFont *)roboto_semicondensed_semibolditalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_semibolditalic(size:)")));
+- (UIFont *)roboto_semicondensed_thinSize:(double)size __attribute__((swift_name("roboto_semicondensed_thin(size:)")));
+- (UIFont *)roboto_semicondensed_thinitalicSize:(double)size __attribute__((swift_name("roboto_semicondensed_thinitalic(size:)")));
+- (UIFont *)roboto_thinSize:(double)size __attribute__((swift_name("roboto_thin(size:)")));
+- (UIFont *)roboto_thinitalicSize:(double)size __attribute__((swift_name("roboto_thinitalic(size:)")));
+- (UIFont *)testfontfileSize:(double)size __attribute__((swift_name("testfontfile(size:)")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("AtlasImages")))
+@interface SharedAtlasImages : SharedBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@property (class, readonly, getter=companion) SharedAtlasImagesCompanion *companion __attribute__((swift_name("companion")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("AtlasImages.Companion")))
+@interface SharedAtlasImagesCompanion : SharedBase
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
++ (instancetype)companion __attribute__((swift_name("init()")));
+@property (class, readonly, getter=shared) SharedAtlasImagesCompanion *shared __attribute__((swift_name("shared")));
+@property (readonly) UIImage * _Nullable android_svg __attribute__((swift_name("android_svg")));
+@property (readonly) UIImage * _Nullable home_72dp_000000_fill0_wght400_grad0_opsz48 __attribute__((swift_name("home_72dp_000000_fill0_wght400_grad0_opsz48")));
+@property (readonly) UIImage * _Nullable home_72dp_000000_fill0_wght400_grad0_opsz49 __attribute__((swift_name("home_72dp_000000_fill0_wght400_grad0_opsz49")));
+@property (readonly) UIImage * _Nullable sample_home __attribute__((swift_name("sample_home")));
 @end
 
 __attribute__((objc_subclassing_restricted))

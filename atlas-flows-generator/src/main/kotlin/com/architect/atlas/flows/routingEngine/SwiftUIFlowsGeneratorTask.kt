@@ -26,7 +26,9 @@ abstract class SwiftUIFlowsGeneratorTask : DefaultTask() {
 
     @TaskAction
     fun generateNavigatorClass() {
-        generateIOSSwiftBridge()
+        if(!File(outputIosDir.get().asFile, "FlowsSwiftExtensions.swift").exists()) {
+            generateIOSSwiftBridge()
+        }
     }
 
     private fun generateIOSSwiftBridge() {

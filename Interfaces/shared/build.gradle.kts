@@ -47,18 +47,21 @@ kotlin {
     listOf(
         iosX64(),
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
+        macosArm64()
     ).forEach {
         it.binaries.framework {
-            baseName = "shared"
+            baseName = "atlasCoreShared"
             isStatic = true
         }
     }
 
     sourceSets {
+        kotlin.applyDefaultHierarchyTemplate()
         val commonMain by getting {
             dependencies {
                 implementation(libs.coroutines.core)
+                implementation("org.jetbrains.kotlinx:atomicfu:0.27.0")
             }
         }
 
@@ -79,6 +82,8 @@ kotlin {
             }
         }
 
+        val macosArm64Main by getting
+        val macosMain by getting
         val iosArm64Main by getting
         val iosX64Main by getting
         val iosSimulatorArm64Main by getting
@@ -100,13 +105,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-////////////////////////
+//////////////////////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-core",
-//        version = "0.6.7"
+//        version = "0.7.6"
 //    )
 //
 //    // Configure POM metadata for the published artifact

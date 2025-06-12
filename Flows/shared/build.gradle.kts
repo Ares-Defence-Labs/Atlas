@@ -42,18 +42,17 @@ kotlin {
     }
 
     // 🟢 WebAssembly (WASM) - Experimental
-//    @OptIn(ExperimentalWasmDsl::class)
-//    wasmJs()
-//    @OptIn(ExperimentalWasmDsl::class)
-//    wasmWasi()
+    wasmJs()
+    wasmWasi()
 
     listOf(
         iosX64(),
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
+        macosArm64()
     ).forEach {
         it.binaries.framework {
-            baseName = "shared"
+            baseName = "atlasFlowsShared"
             isStatic = true
 
             @OptIn(ExperimentalKotlinGradlePluginApi::class)
@@ -62,33 +61,28 @@ kotlin {
     }
 
     sourceSets {
+        kotlin.applyDefaultHierarchyTemplate()
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+                implementation(libs.kotlinx.coroutines.core)
             }
         }
 
-        val jvmMain by getting {
-            dependencies {
-
-            }
-        }
+        val jvmMain by getting
         val androidMain by getting {
             dependencies{
                 implementation(libs.androidx.lifecycle.common.jvm)
             }
         }
 
-        val iosMain by getting{
 
-        }
+        val macosArm64Main by getting
+        val macosMain by getting
 
-        val iosArm64Main by getting{
-        }
-        val iosX64Main by getting{
-        }
-        val iosSimulatorArm64Main by getting{
-        }
+        val iosMain by getting
+        val iosArm64Main by getting
+        val iosX64Main by getting
+        val iosSimulatorArm64Main by getting
     }
 }
 
@@ -109,7 +103,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.1.8"
+        version = "0.2.8"
     )
 
     // Configure POM metadata for the published artifact

@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-////////////
+//////////////
 repositories {
     google()
     mavenCentral()
@@ -40,7 +40,7 @@ gradlePlugin {
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.1")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.4")
 }
 ////
 ////
@@ -49,7 +49,7 @@ dependencies{
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-navEngine-generator",
-//        version = "0.3.3"
+//        version = "0.3.4"
 //    )
 //
 //    // Configure POM metadata for the published artifact

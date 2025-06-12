@@ -77,6 +77,7 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         val nonSvgFiles = imageFiles.filter { it.extension.lowercase() != "svg" }
         val svgFiles = imageFiles.filter { it.extension.lowercase() == "svg" }
 
+        // each of the images, need to be checked if they currently exist
         generateAndroidActualObject(snakeToPath)
         prepareSvgFilesForAssetManager(svgFiles)
         generateScaledDrawablesWithThumbnailator(nonSvgFiles)
@@ -140,7 +141,15 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         targetDir.mkdirs()
 
         val filteredImages =
-            imageFiles.filter { !it.exists() || forceRegenerate }
+            imageFiles.filter {
+                !File(targetDir, it.name).exists() || forceRegenerate
+            }
+
+        if (filteredImages.isEmpty()) {
+            logger.warn("All images already exist")
+            return
+        }
+
         filteredImages.forEach { sourceFile ->
             val targetFile = File(targetDir, sourceFile.name)
 
@@ -152,6 +161,11 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     }
 
     private fun generateScaledDrawablesWithThumbnailator(nonSvgFiles: List<File>) {
+        if (nonSvgFiles.isEmpty()) {
+            logger.warn("No Images can be found to copy to drawables")
+            return
+        }
+
         val baseOutputDir = androidResourcesDrawableDir.asFile.get()
         val densities = mapOf(
             "mdpi" to 1.0,
@@ -161,9 +175,7 @@ abstract class AtlasImagePluginTask : DefaultTask() {
             "xxxhdpi" to 4.0
         )
 
-        val filteredImages =
-            nonSvgFiles.filter { !it.exists() || forceRegenerate }
-        filteredImages.forEach { imageFile ->
+        nonSvgFiles.forEach { imageFile ->
             densities.forEach { (density, scale) ->
                 try {
                     val targetDir = File(baseOutputDir, "drawable-$density")
@@ -173,6 +185,11 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
                     val outputFile =
                         File(targetDir, "${imageFile.nameWithoutExtension}.${imageFile.extension}")
+                    if(outputFile.exists() && !forceRegenerate){
+                        logger.lifecycle("PNG Image already exists ${outputFile.name}")
+                        return
+                    }
+
                     Thumbnails.of(imageFile)
                         .scale(scale)
                         .outputFormat(imageFile.extension)

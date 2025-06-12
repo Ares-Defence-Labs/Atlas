@@ -35,8 +35,8 @@ class MutableAtlasFlowState<T : Any>(initialValue: T) {
 
     fun asStateFlow(): StateFlow<T> = state
     fun asMutableStateFlow(): MutableStateFlow<T> = _state
-    fun asSwiftFlow(): AnyKmpObjectFlow {
-        return asMutableStateFlow().asSwiftFlow()
-    }
+    fun asMutableStateCFlow(): MutableCFlow<T> = _state.asMutableCFlow()
+    fun asStateCFlow(): StateCFlow<T> = _state.asCStateFlow()
+    fun asCFlow(): CFlow<T> = _state.asCFlow()
 }
 
