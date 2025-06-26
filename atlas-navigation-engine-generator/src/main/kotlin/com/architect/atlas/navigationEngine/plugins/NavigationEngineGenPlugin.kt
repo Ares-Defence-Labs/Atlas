@@ -12,7 +12,6 @@ class NavigationEngineGenPlugin : Plugin<Project> {
             val masterKeyHandler = project.tasks.findByName("masterKeyHandler")
             val navTask = ResPluginHelpers.getNavEngineGenTask(project)
             if (masterKeyHandler == null) {
-                project.logger.lifecycle("CANNOT FIND MASTER KEY")
                 TaskMngrHelpers.taskOrderConfig(project, navTask.get())
             }
 

@@ -1,53 +1,42 @@
 import SwiftUI
 import shared
 
+//@AtlasTab(CoreDashboardTabViewModel::class, position = 0, holder = TabParentViewModel::class)
 //@AtlasScreen(viewModel: DroidStandard.self, initial: true)
 struct ContentView: View {
     let vm: DroidStandard
-//    @StateObject var name: FlowBinding<String>
-//    @StateObject var samples: FlowBinding<[SampleProcess]>
-    
-    
-//    init(vm: DroidStandard) {
-//
-//        self.vm = vm
-//        _name = StateObject(wrappedValue: FlowBinding(flow: vm.testText.asSwiftFlow(), adapter: stringAdapter))
-//        _samples = StateObject(wrappedValue: FlowBinding(flow: vm.resultsSamples.asSwiftFlow(), adapter: makeListAdapter(SampleProcess.self)))
-//    }
     
     var body: some View {
-//        List(samples.value, id: \.id) { person in
-//            Text(person.name)
-//        }
-//
-//        VStack{
-//            Text(name)
-//        }.onAppear{
-//            let currentValue = stringAdapter.fromKotlin(vm.testText.asSwiftFlow().getValue())
-//            observe(vm.testText.asSwiftFlow(), adapter: stringAdapter) { res in
-//            print ("RES \(res)")
-//            }
-//        }
-//        
-//        List {
-//            ForEachBinding(samples.listBinding, id: \.self) { sample in
-//                //let rec = sample.wrappedValue as Sample
-//                Text(sample[\.result].value())
-//            }
-//        }
-        //Text("Hello There OTF FONT FILE").font(Font(AtlasFonts.companion.testfontfile(size: 12)))
-        Text("")
+        Text("First Screen")
+            .background(Color.blue)
+            .containerShape(Rectangle())
+            .frame(maxWidth: .infinity, maxHeight: 50).onTapGesture {
+                vm.openSecondScreen()
+                }
     }
 }
 
-
 //@AtlasScreen(viewModel: DroidStandardSecond.self)
 struct ContentViewSecond: View {
-    let vm : DroidStandardSecond?
-    //    let greet = Greeting().greet()
+    let vm : DroidStandardSecond
     
     var body: some View {
-        Text("Hello There")
+        Text("Second Screen").background(Color.blue)
+            .containerShape(Rectangle())
+            .onTapGesture {
+                vm.openThirdScreenEntireStack()
+            }.frame(maxWidth: .infinity, maxHeight: 50)
+    }
+}
+
+//@AtlasScreen(viewModel: DroidStandardThird.self)
+struct ContentViewThird: View {
+    let vm : DroidStandardThird?
+    
+    var body: some View {
+        Text("Third Screen").onTapGesture {
+            
+        }
     }
 }
 

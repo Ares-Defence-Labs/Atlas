@@ -8,7 +8,7 @@
 
 @class SharedAnyKmpObjectFlow, SharedAtlasColorsCompanion, SharedAtlasContainer, SharedAtlasDICompanion, SharedAtlasFontsCompanion, SharedAtlasImagesCompanion, SharedAtlasStringsCompanion, SharedAtomicfuNativeMutexNode, SharedAtomicfuSynchronizedObject, SharedAtomicfuSynchronizedObjectLockState, SharedAtomicfuSynchronizedObjectStatus, SharedBaseComps, SharedBufferOverflow, SharedCFlow<T>, SharedChannelFactory, SharedChannelFlow<T>, SharedCloseableCoroutineDispatcher, SharedCompTestStandardCompanion, SharedCoroutineDispatcher, SharedCoroutineDispatcherKey, SharedCoroutineExceptionHandlerKey, SharedCoroutineName, SharedCoroutineNameKey, SharedCoroutineStart, SharedDispatchers, SharedGlobalScope, SharedJobKey, SharedJobSupport, SharedKotlinAbstractCoroutineContextElement, SharedKotlinAbstractCoroutineContextKey<B, E>, SharedKotlinArray<T>, SharedKotlinAtomicReference<T>, SharedKotlinCancellationException, SharedKotlinEnum<E>, SharedKotlinEnumCompanion, SharedKotlinException, SharedKotlinIllegalStateException, SharedKotlinIntArray, SharedKotlinIntIterator, SharedKotlinIntProgression, SharedKotlinIntProgressionCompanion, SharedKotlinIntRange, SharedKotlinIntRangeCompanion, SharedKotlinLongArray, SharedKotlinLongIterator, SharedKotlinLongProgression, SharedKotlinLongProgressionCompanion, SharedKotlinLongRange, SharedKotlinLongRangeCompanion, SharedKotlinNoSuchElementException, SharedKotlinNothing, SharedKotlinRuntimeException, SharedKotlinThrowable, SharedKotlinUnit, SharedLockFreeLinkedListNode, SharedMainCoroutineDispatcher, SharedMutableAtlasFlowState<T>, SharedMutableCFlow<T>, SharedNonCancellable, SharedNonDisposableHandle, SharedPerson, SharedPlatformColor, SharedSampleProcess, SharedSharingCommand, SharedSharingStartedCompanion, SharedSwiftClassGeneratorCompanion, SharedTestIOSCompanion, SharedTestSingle, SharedThreadSafeHeap<T>, SharedTimeoutCancellationException, SharedViewModel, UIColor, UIFont, UIImage, UILabel, UISlider, UISwitch, UITextField, UIView;
 
-@protocol SharedAtlasContainerContract, SharedBroadcastChannel, SharedCancellableContinuation, SharedChannel, SharedChannelIterator, SharedChildHandle, SharedChildJob, SharedCompletableDeferred, SharedCompletableJob, SharedCopyableThrowable, SharedCoroutineExceptionHandler, SharedCoroutineScope, SharedDNSTest, SharedDeferred, SharedDisposableHandle, SharedDisposableHandle_, SharedFlow, SharedFlowCollector, SharedFusibleFlow, SharedHello, SharedJob, SharedKotlinAutoCloseable, SharedKotlinClosedRange, SharedKotlinComparable, SharedKotlinContinuation, SharedKotlinContinuationInterceptor, SharedKotlinCoroutineContext, SharedKotlinCoroutineContextElement, SharedKotlinCoroutineContextKey, SharedKotlinFunction, SharedKotlinIterable, SharedKotlinIterator, SharedKotlinKAnnotatedElement, SharedKotlinKClass, SharedKotlinKClassifier, SharedKotlinKDeclarationContainer, SharedKotlinLazy, SharedKotlinOpenEndRange, SharedKotlinSequence, SharedKotlinSuspendFunction0, SharedKotlinSuspendFunction1, SharedKotlinSuspendFunction2, SharedKotlinSuspendFunction3, SharedKotlinSuspendFunction4, SharedKotlinSuspendFunction5, SharedKotlinSuspendFunction6, SharedMainDispatcherFactory, SharedMutableSharedFlow, SharedMutableStateFlow, SharedMutex, SharedParentJob, SharedPlatform, SharedPoppable, SharedProducerScope, SharedPushable, SharedReceiveChannel, SharedRunnable, SharedSelectBuilder, SharedSelectClause, SharedSelectClause0, SharedSelectClause1, SharedSelectClause2, SharedSelectInstance, SharedSemaphore, SharedSendChannel, SharedSharedFlow, SharedSharingStarted, SharedStateFlow, SharedTestProcess;
+@protocol SharedAtlasContainerContract, SharedAtlasNavigationService, SharedBroadcastChannel, SharedCancellableContinuation, SharedChannel, SharedChannelIterator, SharedChildHandle, SharedChildJob, SharedCompletableDeferred, SharedCompletableJob, SharedCopyableThrowable, SharedCoroutineExceptionHandler, SharedCoroutineScope, SharedDNSTest, SharedDeferred, SharedDisposableHandle, SharedDisposableHandle_, SharedFlow, SharedFlowCollector, SharedFusibleFlow, SharedHello, SharedJob, SharedKotlinAutoCloseable, SharedKotlinClosedRange, SharedKotlinComparable, SharedKotlinContinuation, SharedKotlinContinuationInterceptor, SharedKotlinCoroutineContext, SharedKotlinCoroutineContextElement, SharedKotlinCoroutineContextKey, SharedKotlinFunction, SharedKotlinIterable, SharedKotlinIterator, SharedKotlinKAnnotatedElement, SharedKotlinKClass, SharedKotlinKClassifier, SharedKotlinKDeclarationContainer, SharedKotlinLazy, SharedKotlinOpenEndRange, SharedKotlinSequence, SharedKotlinSuspendFunction0, SharedKotlinSuspendFunction1, SharedKotlinSuspendFunction2, SharedKotlinSuspendFunction3, SharedKotlinSuspendFunction4, SharedKotlinSuspendFunction5, SharedKotlinSuspendFunction6, SharedMainDispatcherFactory, SharedMutableSharedFlow, SharedMutableStateFlow, SharedMutex, SharedParentJob, SharedPlatform, SharedPoppable, SharedProducerScope, SharedPushable, SharedReceiveChannel, SharedRunnable, SharedSelectBuilder, SharedSelectClause, SharedSelectClause0, SharedSelectClause1, SharedSelectClause2, SharedSelectInstance, SharedSemaphore, SharedSendChannel, SharedSharedFlow, SharedSharingStarted, SharedStateFlow, SharedTestProcess;
 
 NS_ASSUME_NONNULL_BEGIN
 #pragma clang diagnostic push
@@ -171,6 +171,7 @@ __attribute__((swift_name("AtlasNavigationService")))
 - (void)navigateToPageViewModelClass:(id<SharedKotlinKClass>)viewModelClass params:(id _Nullable)params __attribute__((swift_name("navigateToPage(viewModelClass:params:)")));
 - (void)navigateToPageModalViewModelClass:(id<SharedKotlinKClass>)viewModelClass params:(id _Nullable)params __attribute__((swift_name("navigateToPageModal(viewModelClass:params:)")));
 - (void)navigateToPagePushAndReplaceViewModelClass:(id<SharedKotlinKClass>)viewModelClass params:(id _Nullable)params __attribute__((swift_name("navigateToPagePushAndReplace(viewModelClass:params:)")));
+- (void)navigateToPagePushAndReplaceCurrentScreenViewModelClass:(id<SharedKotlinKClass>)viewModelClass params:(id _Nullable)params __attribute__((swift_name("navigateToPagePushAndReplaceCurrentScreen(viewModelClass:params:)")));
 - (void)popPageAnimate:(BOOL)animate params:(id _Nullable)params __attribute__((swift_name("popPage(animate:params:)")));
 - (void)popPagesWithCountCountOfPages:(int32_t)countOfPages animate:(BOOL)animate params:(id _Nullable)params __attribute__((swift_name("popPagesWithCount(countOfPages:animate:params:)")));
 - (void)popToPageRoute:(NSString *)route params:(id _Nullable)params __attribute__((swift_name("popToPage(route:params:)")));
@@ -329,7 +330,7 @@ __attribute__((swift_name("AtlasDI.Companion")))
 - (id)resolveService __attribute__((swift_name("resolveService()")));
 - (id _Nullable)resolveServiceNullableClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolveServiceNullable(clazz:)")));
 - (id _Nullable)resolveServiceNullableByNameClazz:(NSString *)clazz __attribute__((swift_name("resolveServiceNullableByName(clazz:)")));
-- (NSString *)resolveServiceNullableByNameServiceClazz:(id)clazz __attribute__((swift_name("resolveServiceNullableByNameService(clazz:)")));
+- (id _Nullable)resolveServiceNullableByNameServiceClazz:(id)clazz __attribute__((swift_name("resolveServiceNullableByNameService(clazz:)")));
 - (id _Nullable)resolveViewModelClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolveViewModel(clazz:)")));
 @property id<SharedAtlasContainerContract> _Nullable container __attribute__((swift_name("container")));
 @end
@@ -350,6 +351,12 @@ __attribute__((swift_name("SwiftClassGenerator.Companion")))
 + (instancetype)companion __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) SharedSwiftClassGeneratorCompanion *shared __attribute__((swift_name("shared")));
 - (NSString *)getClazzType:(id)type __attribute__((swift_name("getClazz(type:)")));
+
+/**
+ * @note This method converts instances of IllegalArgumentException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (NSString * _Nullable)getQualifiedNameOfInstanceInstance:(id)instance error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("getQualifiedNameOfInstance(instance:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -528,7 +535,7 @@ __attribute__((swift_name("CompTestStandard.Companion")))
 + (instancetype)companion __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) SharedCompTestStandardCompanion *shared __attribute__((swift_name("shared")));
 - (SharedTestSingle * _Nullable)getTestSingleName:(NSString *)name __attribute__((swift_name("getTestSingle(name:)")));
-@property SharedMutableAtlasFlowState<NSString *> *test __attribute__((swift_name("test")));
+@property (readonly) id<SharedKotlinLazy> serviceHandle __attribute__((swift_name("serviceHandle")));
 @end
 
 __attribute__((swift_name("Hello")))
@@ -655,14 +662,7 @@ __attribute__((swift_name("TestIOS.Companion")))
 + (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
 + (instancetype)companion __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) SharedTestIOSCompanion *shared __attribute__((swift_name("shared")));
-- (NSString *)registerServices __attribute__((swift_name("registerServices()")));
-@end
-
-__attribute__((objc_subclassing_restricted))
-__attribute__((swift_name("TestSampleData")))
-@interface SharedTestSampleData : SharedBase
-- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
-+ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)registerServicesAtlasNavigationService:(id<SharedAtlasNavigationService>)atlasNavigationService __attribute__((swift_name("registerServices(atlasNavigationService:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -703,6 +703,7 @@ __attribute__((swift_name("DroidStandard")))
 - (void)onInitializeWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("onInitialize(completionHandler:)")));
 - (void)onPopParamsParams:(SharedInt *)params __attribute__((swift_name("onPopParams(params:)")));
 - (void)onPushParamsParams:(NSString *)params __attribute__((swift_name("onPushParams(params:)")));
+- (void)openSecondScreen __attribute__((swift_name("openSecondScreen()")));
 - (void)setHelloTestingS:(NSString *)s __attribute__((swift_name("setHelloTesting(s:)")));
 @property (readonly) SharedMutableAtlasFlowState<SharedBoolean *> *isShown __attribute__((swift_name("isShown")));
 @property NSString *q __attribute__((swift_name("q")));
@@ -727,6 +728,32 @@ __attribute__((swift_name("DroidStandardSecond")))
 - (void)onInitializeWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("onInitialize(completionHandler:)")));
 - (void)onPopParamsParams:(SharedInt *)params __attribute__((swift_name("onPopParams(params:)")));
 - (void)onPushParamsParams:(NSString *)params __attribute__((swift_name("onPushParams(params:)")));
+- (void)openThirdScreen __attribute__((swift_name("openThirdScreen()")));
+- (void)openThirdScreenEntireStack __attribute__((swift_name("openThirdScreenEntireStack()")));
+- (void)openThirdScreenPush __attribute__((swift_name("openThirdScreenPush()")));
+- (void)setHelloTestingS:(NSString *)s __attribute__((swift_name("setHelloTesting(s:)")));
+@property NSString *q __attribute__((swift_name("q")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("DroidStandardThird")))
+@interface SharedDroidStandardThird : SharedViewModel <SharedPushable, SharedPoppable>
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)helloThere __attribute__((swift_name("helloThere()")));
+- (void)onAppearing __attribute__((swift_name("onAppearing()")));
+- (void)onDestroy __attribute__((swift_name("onDestroy()")));
+- (void)onDisappearing __attribute__((swift_name("onDisappearing()")));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void)onInitializeWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("onInitialize(completionHandler:)")));
+- (void)onPopParamsParams:(SharedInt *)params __attribute__((swift_name("onPopParams(params:)")));
+- (void)onPushParamsParams:(NSString *)params __attribute__((swift_name("onPushParams(params:)")));
+- (void)replaceEntireStackThirdScreenWithSecond __attribute__((swift_name("replaceEntireStackThirdScreenWithSecond()")));
+- (void)replaceThirdScreenWithSecond __attribute__((swift_name("replaceThirdScreenWithSecond()")));
 - (void)setHelloTestingS:(NSString *)s __attribute__((swift_name("setHelloTesting(s:)")));
 @property NSString *q __attribute__((swift_name("q")));
 @end
@@ -3395,6 +3422,15 @@ __attribute__((swift_name("KotlinLazy")))
 @required
 - (BOOL)isInitialized __attribute__((swift_name("isInitialized()")));
 @property (readonly) id _Nullable value __attribute__((swift_name("value")));
+@end
+
+__attribute__((swift_name("KotlinIllegalArgumentException")))
+@interface SharedKotlinIllegalArgumentException : SharedKotlinRuntimeException
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (instancetype)initWithMessage:(NSString * _Nullable)message __attribute__((swift_name("init(message:)"))) __attribute__((objc_designated_initializer));
+- (instancetype)initWithCause:(SharedKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(cause:)"))) __attribute__((objc_designated_initializer));
+- (instancetype)initWithMessage:(NSString * _Nullable)message cause:(SharedKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(message:cause:)"))) __attribute__((objc_designated_initializer));
 @end
 
 __attribute__((swift_name("KotlinSequence")))

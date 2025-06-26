@@ -1,6 +1,5 @@
 package com.architect.atlas.architecture.mvvm
 
-import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -8,13 +7,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Suppress("EmptyDefaultConstructor")
-actual open class ViewModel actual constructor() : ViewModel() {
+actual open class ViewModel actual constructor() : androidx.lifecycle.ViewModel() {
     actual val viewModelScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    actual val viewModelScopeWithoutCancel: CoroutineScope = CoroutineScope(Dispatchers.Main)
 
     init {
         viewModelScope.launch {
             withContext(Dispatchers.Default) {
                 onInitialize()
+            }
+        }
+
+        viewModelScopeWithoutCancel.launch {
+            withContext(Dispatchers.Default) {
+                onInitializeWithoutCancel()
             }
         }
     }
@@ -45,5 +51,8 @@ actual open class ViewModel actual constructor() : ViewModel() {
     }
 
     actual open fun onForeground() {
+    }
+
+    actual open suspend fun onInitializeWithoutCancel() {
     }
 }

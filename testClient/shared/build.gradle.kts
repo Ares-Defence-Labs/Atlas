@@ -10,7 +10,6 @@ plugins {
     id("io.github.thearchitect123.atlasGraphGenerator")
     id("io.github.thearchitect123.atlasResourcesGenerator")
     id("io.github.thearchitect123.atlasNavigationEngineGenerator")
-    id("io.github.thearchitect123.atlasFlowsGenPlugin")
     id("io.github.thearchitect123.incrementalBuildEngine") // latest version
 }
 

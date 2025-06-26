@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-//////////
+//////
 repositories {
     google()
     mavenCentral()
@@ -49,7 +49,7 @@ dependencies{
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-incremental-engine",
-//        version = "0.0.7"
+//        version = "0.0.9"
 //    )
 //
 //    // Configure POM metadata for the published artifact

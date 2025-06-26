@@ -3,11 +3,13 @@ import shared
 
 @main
 struct iOSApp: App {
+    init(){
+        TestIOS.companion.registerServices(atlasNavigationService: IOSAtlasNavigationService())
+      print ("CLASSES FOUND \(SwiftClassGenerator.companion.getClazz(type: DroidStandard.self))")
+    }
     var body: some Scene {
         WindowGroup {
-            Text("Just Swift – No Kotlin").onAppear{
-                CompTestStandard.companion.getTestSingle(name: "")
-            }
+            UIKitNavWrapperView()
         }
     }
 }

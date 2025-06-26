@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-//
+
 //////////////////////////
 repositories {
     google()
@@ -52,13 +52,13 @@ dependencies{
 
     implementation("com.twelvemonkeys.imageio:imageio-core:3.12.0")
 }
-//
+////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-res-generator",
-//        version = "0.4.8"
+//        version = "0.5.0"
 //    )
 //
 //    // Configure POM metadata for the published artifact

@@ -9,10 +9,18 @@ import kotlinx.coroutines.withContext
 @Suppress("EmptyDefaultConstructor")
 actual open class ViewModel actual constructor() {
     actual val viewModelScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    actual val viewModelScopeWithoutCancel: CoroutineScope = CoroutineScope(Dispatchers.Main)
+
     init {
         viewModelScope.launch {
             withContext(Dispatchers.Default) {
                 onInitialize()
+            }
+        }
+
+        viewModelScopeWithoutCancel.launch {
+            withContext(Dispatchers.Default) {
+                onInitializeWithoutCancel()
             }
         }
     }
@@ -29,7 +37,11 @@ actual open class ViewModel actual constructor() {
 
     }
 
-    actual open fun onDestroy(){
+    actual open suspend fun onInitialize() {
+
+    }
+
+    actual open fun onDestroy() {
 
     }
 
@@ -39,6 +51,6 @@ actual open class ViewModel actual constructor() {
     actual open fun onForeground() {
     }
 
-    actual open suspend fun onInitialize() {
+    actual open suspend fun onInitializeWithoutCancel() {
     }
 }

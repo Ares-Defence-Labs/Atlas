@@ -8,8 +8,6 @@ import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlastestclient.software.TestSingle
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import otr.artifacts.coreServices.services.viewModels.PaymentListConfigurationBaseScreenViewModel
-import otr.artifacts.coreServices.services.viewModels.SharedBaseScreenViewModel
 
 class Greeting {
     private val platform: Platform = getPlatform()
@@ -35,10 +33,4 @@ class CompTestStandard {
             return AtlasDI.resolveServiceNullableByName(name)
         }
     }
-}
-
-
-@Singleton
-class TestSampleData {
-
 }

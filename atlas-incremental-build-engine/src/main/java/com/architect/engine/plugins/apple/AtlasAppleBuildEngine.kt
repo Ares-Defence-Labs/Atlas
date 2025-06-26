@@ -31,7 +31,6 @@ class AtlasAppleBuildEngine : Plugin<Project> {
                 "generateAtlasColorsGraph",
 
                 // apple tasks
-                "generateSwiftUIAtlasEngine",
                 "appleFontsGenTask",
                 "appleFontsPackagingGenTask",
                 "applePackageXcodeGenTask",
@@ -66,16 +65,8 @@ class AtlasAppleBuildEngine : Plugin<Project> {
                 ?.mustRunAfter("generateAtlasImagesGraph")
 
             if (isiOS) {
-                project.tasks.findByName("generateSwiftUIAtlasEngine")
-                    ?.mustRunAfter("generateDependencyGraph")
-                project.tasks.findByName("generateSwiftUIAtlasEngine")
-                    ?.mustRunAfter("generateNavAtlasEngine")
-                project.tasks.findByName("generateSwiftUIAtlasEngine")
-                    ?.mustRunAfter("generateAtlasStringsGraph")
-                project.tasks.findByName("generateSwiftUIAtlasEngine")
-                    ?.mustRunAfter("generateAtlasColorsGraph")
                 project.tasks.findByName("appleFontsGenTask")
-                    ?.mustRunAfter("generateSwiftUIAtlasEngine")
+                    ?.mustRunAfter("generateAtlasColorsGraph")
                 project.tasks.findByName("appleFontsPackagingGenTask")
                     ?.mustRunAfter("appleFontsGenTask")
                 project.tasks.findByName("applePackageXcodeGenTask")

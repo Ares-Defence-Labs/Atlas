@@ -35,10 +35,12 @@ import com.architect.atlas.architecture.navigation.AtlasNavigationService
 import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.architecture.navigation.annotations.AtlasScreen
 import com.architect.atlas.architecture.navigation.annotations.AtlasTab
+import com.architect.atlas.container.AtlasContainer
 //import com.architect.atlas.container.AtlasContainer
 //import com.architect.atlas.container.AtlasContainer
 import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlas.navigation.AtlasNavGraph
+
 import com.architect.atlas.navigation.AtlasNavigation
 import com.architect.atlas.navigation.AtlasTabItem
 import com.architect.atlas.navigation.TabParentViewModelNavGraph
@@ -49,6 +51,7 @@ import com.architect.atlastestclient.tabs.TabParentViewModel
 import com.architect.atlastestclient.tabs.coreTabs.CoreDashboardTabViewModel
 import com.architect.atlastestclient.tabs.coreTabs.CoreSettingsTabViewModel
 import com.architect.kmpessentials.KmpAndroid
+import com.architect.kmpessentials.alerts.KmpAlert
 import com.google.android.material.tabs.TabItem
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.cancel
@@ -78,7 +81,7 @@ class MainActivity : FragmentActivity() {
         //val fonts = AtlasFonts.roboto_semicondensed_blackitalic(this)
 
 
-//        AtlasDI.injectContainer(AtlasContainer);
+        AtlasDI.injectContainer(AtlasContainer);
 //        AtlasDI.resolveService<Dep>()
 
         //AtlasDI.registerFactory()<>()<>()
@@ -89,7 +92,6 @@ class MainActivity : FragmentActivity() {
         setContent {
             AtlasNavGraph()
         }
-        val t: ViewModel
     }
 }
 //
@@ -119,7 +121,7 @@ fun GreetingSecondView(vm: DroidStandardSecond) {
         contentAlignment = Alignment.Center
     ) {
         Button({
-            AtlasNavigation.navigateToPage(TabParentViewModel::class)
+            AtlasNavigation.popPage()
         }) {
             Text(text = "Second Screen. CLICK ME!!!")
         }
@@ -131,15 +133,11 @@ fun GreetingSecondView(vm: DroidStandardSecond) {
 @AtlasScreen(TabParentViewModel::class, isTabHolder = true)
 @Composable
 fun GreetingThirdTabHolder(vm: TabParentViewModel) {
-    val navController = rememberNavController()
-    TabParentViewModelTabsNavigation.navController = navController
 
-    val t: Drawable
     val items = listOf(
         AtlasTabItem("Dashboard", CoreDashboardTabViewModel::class, Icons.Default.Home),
         AtlasTabItem("Settings", CoreSettingsTabViewModel::class, Icons.Default.Settings)
     )
-
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -158,7 +156,9 @@ fun GreetingThirdTabHolder(vm: TabParentViewModel) {
         }
     ) { innerPadding ->
         Box(Modifier.padding(innerPadding)) {
-            TabParentViewModelNavGraph()
+            TabParentViewModelNavGraph {
+                KmpAlert.showAlert("Position $it", "Changed")
+            }
         }
     }
 }

@@ -13,5 +13,11 @@ actual class SwiftClassGenerator {
                 else -> null
             }!!
         }
+
+        @Throws(IllegalArgumentException::class)
+        fun getQualifiedNameOfInstance(instance: Any): String {
+            return instance::class.qualifiedName
+                ?: throw IllegalArgumentException("Could not resolve qualified name.")
+        }
     }
 }

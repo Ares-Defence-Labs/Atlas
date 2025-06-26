@@ -52,8 +52,8 @@ class AtlasDI {
             return container?.resolveByName(clazz)
         }
 
-        fun resolveServiceNullableByNameService(clazz: Any): String {
-            return SwiftClassGenerator.getClazz(clazz)
+        fun <T : Any> resolveServiceNullableByNameService(clazz: Any): T? {
+            return container?.resolveByName(SwiftClassGenerator.getClazz(clazz))
         }
 
         /**

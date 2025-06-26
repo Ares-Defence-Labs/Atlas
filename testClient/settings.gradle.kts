@@ -10,7 +10,6 @@ pluginManagement {
     includeBuild("../atlas-graph-generator")
     includeBuild("../atlas-resources-generator")
     includeBuild("../atlas-navigation-engine-generator")
-    includeBuild("../atlas-flows-generator")
     includeBuild("../atlas-incremental-build-engine")
 }
 

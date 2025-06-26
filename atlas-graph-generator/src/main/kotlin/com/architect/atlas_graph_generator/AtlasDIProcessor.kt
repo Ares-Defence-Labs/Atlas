@@ -14,10 +14,20 @@ class AtlasDIProcessor : Plugin<Project> {
             val masterKeyHandler = project.tasks.findByName("masterKeyHandler")
 
             val droidModule = ProjectFinder.findAndroidClientApp(project)
+            val dataSets = project.providers
+                .gradleProperty("atlas.extraViewModelBaseClasses")
+                .forUseAtConfigurationTime()
+                .orNull
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                ?: emptySet()
             val generateDependencyGraphTask = project.tasks.register(
                 "generateDependencyGraph",
                 AtlasDIProcessorGraphTask::class.java
             ) {
+                extraViewModelBaseClasses.set(dataSets)
                 dependencyCommonMainSources.setFrom(collectCommonMainSourcesFromDependenciesOnly(project))
                 externalSourceDirs.from(
                     droidModule?.layout?.projectDirectory?.dir("src/main/kotlin")

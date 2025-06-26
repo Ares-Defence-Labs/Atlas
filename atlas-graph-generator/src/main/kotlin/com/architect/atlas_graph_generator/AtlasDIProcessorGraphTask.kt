@@ -1,15 +1,12 @@
 package com.architect.atlasGraphGenerator
 
-import groovyjarjarasm.asm.ClassReader
 import org.gradle.api.DefaultTask
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.*
 import java.io.File
-import java.util.jar.JarFile
 
 @CacheableTask
 abstract class AtlasDIProcessorGraphTask : DefaultTask() {
@@ -43,6 +40,9 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:Input
     abstract var isAndroidTarget: Boolean
 
+    @get:Input
+    abstract val extraViewModelBaseClasses: SetProperty<String>
+
     init {
         group = "Atlas"
         description = "Generates a dependency graph for the project"
@@ -70,15 +70,19 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         classHierarchy: Map<String, String?>,
         simpleToFqName: Map<String, String?>
     ): Boolean {
-        val validViewModels = setOf(
-            "com.architect.atlas.architecture.mvvm.ViewModel",
-            "androidx.lifecycle.ViewModel"
-        )
+        // here scan for all base viewmodels that inherit from the ViewModel class directly, then add them to the class heirarchy
+        val validViewModels = classHierarchy
+            .filter { (_, superClass) ->
+                superClass == "androidx.lifecycle.ViewModel" ||
+                        superClass == "com.architect.atlas.architecture.mvvm.ViewModel"
+            }
+            .map { it.key }
+            .toMutableSet()
+
+        validViewModels.addAll(extraViewModelBaseClasses.get())
 
         var current = fullyQualifiedClassName
-        val visited = mutableSetOf<String>()
-
-        while (current.isNotBlank() && visited.add(current)) {
+        while (current.isNotBlank()) {
             logger.lifecycle("🔍 Traversing: $current")
 
             if (validViewModels.contains(current)) {
@@ -93,6 +97,20 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
         logger.lifecycle("❌ No valid ViewModel found in inheritance chain for: $fullyQualifiedClassName")
         return false
+    }
+
+    fun resolveTransitiveSuperclasses(
+        className: String,
+        classHierarchy: Map<String, String>
+    ): List<String> {
+        val result = mutableListOf<String>()
+        var current = className
+        while (classHierarchy.containsKey(current)) {
+            val superClass = classHierarchy[current]!!
+            result += superClass
+            current = superClass
+        }
+        return result
     }
 
     @TaskAction
@@ -424,6 +442,48 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 //        }
 //    }
 
+    private fun getViewModelStackGen(): String {
+        if (isAndroidTarget) {
+            return """
+                 private class ViewModelEntry<T : Any>(val factory: () -> T) {
+            private var instance: T? = null
+
+            fun getOrRegenerate(): T {
+                return instance ?: factory().also { instance = it }
+            }
+
+            fun forceRegenerate() {
+                instance = factory()
+            }
+            
+            fun resetVm(){
+               instance = null         
+            }
+        }
+            """.trimIndent()
+        } else {
+            return """
+            private class ViewModelEntry<T : Any>(val factory: () -> T) {
+           private var weakRef: Lazy<WeakReference<T>> = lazy { WeakReference(factory())}
+
+            fun getOrRegenerate(): T {
+                return weakRef.value.get() ?: factory().also { newInstance ->
+                    weakRef = lazy {WeakReference(newInstance)} // ✅ Regenerate and store new instance
+                }
+            }
+            
+            fun forceRegenerate() {
+                weakRef = lazy { WeakReference(factory())} 
+            }
+            
+            fun resetVm(){
+               weakRef = lazy { WeakReference(factory())}      
+            }
+        }
+        """.trimIndent()
+        }
+    }
+
     private fun generateAtlasContainer(
         classToPackage: Map<String, String>,
         singletons: Set<String>,
@@ -494,20 +554,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         import kotlin.reflect.KClass
         import com.architect.atlas.container.dsl.AtlasContainerContract
         
-        private class ViewModelEntry<T : Any>(private val factory: () -> T) {
-           private var weakRef: Lazy<WeakReference<T>> = lazy { WeakReference(factory())}
-
-            fun getOrRegenerate(): T {
-                return weakRef.value.get() ?: factory().also { newInstance ->
-                    weakRef = lazy {WeakReference(newInstance)} // ✅ Regenerate and store new instance
-                }
-            }
-            
-            fun forceRegenerate() {
-                weakRef = lazy { WeakReference(factory())} 
-            }
-        }
-
+        ${getViewModelStackGen()}
+        
         object AtlasContainer : AtlasContainerContract {
             $providesLazyDeclarations
         
@@ -606,8 +654,12 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
        }
        
        override fun <T : Any> resetViewModel(clazz: KClass<T>) {
-          viewModels[clazz]?.forceRegenerate()
-       }
+        @Suppress("UNCHECKED_CAST")
+        val entry = viewModels[clazz] as? ViewModelEntry<T>
+            ?: error("No ViewModel registered for class:")
+
+        viewModels[clazz] = ViewModelEntry { entry.factory() }
+        }
     }
     
         
