@@ -103,7 +103,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.2.8"
+        version = "0.2.9"
     )
 
     // Configure POM metadata for the published artifact

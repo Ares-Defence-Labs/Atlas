@@ -9,6 +9,7 @@ import com.architect.atlas.container.annotations.Factory
 import com.architect.atlas.container.annotations.Singleton
 import com.architect.atlas.container.annotations.ViewModels
 import com.architect.atlas.container.dsl.AtlasDI
+import com.architect.atlastestclient.tabs.TabParentViewModel
 import com.architect.kmpessentials.alerts.KmpAlert
 import com.architect.kmpessentials.launcher.KmpLauncher
 import com.architect.kmpessentials.logging.KmpLogging
@@ -163,7 +164,7 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int> {
     fun openThirdScreenPush() {
         KmpLogging.writeInfo("OPEN THIRD SCREEN", "RUNNING THIRD SCREEN")
         AtlasDI.resolveService<AtlasNavigationService>()
-            .navigateToPage(DroidStandardThird::class)
+            .navigateToPage(TabParentViewModel::class)
     }
 
     fun openThirdScreenEntireStack() {

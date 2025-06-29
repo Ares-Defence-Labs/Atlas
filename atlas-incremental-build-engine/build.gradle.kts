@@ -9,12 +9,12 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-//////
-repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal() // Local Testing Only
-}
+////
+//repositories {
+//    google()
+//    mavenCentral()
+//    gradlePluginPortal() // Local Testing Only
+//}
 
 java {
     toolchain {

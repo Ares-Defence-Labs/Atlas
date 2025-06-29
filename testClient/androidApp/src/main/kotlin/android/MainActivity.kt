@@ -47,6 +47,7 @@ import com.architect.atlas.navigation.TabParentViewModelNavGraph
 import com.architect.atlas.navigation.TabParentViewModelTabsNavigation
 import com.architect.atlastestclient.software.DroidStandard
 import com.architect.atlastestclient.software.DroidStandardSecond
+import com.architect.atlastestclient.software.DroidStandardThird
 import com.architect.atlastestclient.tabs.TabParentViewModel
 import com.architect.atlastestclient.tabs.coreTabs.CoreDashboardTabViewModel
 import com.architect.atlastestclient.tabs.coreTabs.CoreSettingsTabViewModel
@@ -85,7 +86,7 @@ class MainActivity : FragmentActivity() {
 //        AtlasDI.resolveService<Dep>()
 
         //AtlasDI.registerFactory()<>()<>()
-        //At/lasDI.registerInterfaceToInstance(AtlasNavigationService::class, AtlasNavigation)
+        AtlasDI.registerInterfaceToInstance(AtlasNavigationService::class, AtlasNavigation)
         //AtlasNavigation.navigateToPageTest(DroidStandard::class, "")
 
         KmpAndroid.initializeApp(this)
@@ -121,7 +122,7 @@ fun GreetingSecondView(vm: DroidStandardSecond) {
         contentAlignment = Alignment.Center
     ) {
         Button({
-            AtlasNavigation.popPage()
+            vm.openThirdScreenPush()
         }) {
             Text(text = "Second Screen. CLICK ME!!!")
         }
@@ -146,7 +147,7 @@ fun GreetingThirdTabHolder(vm: TabParentViewModel) {
                     NavigationBarItem(
                         selected = currentTab == tab.viewModel,
                         onClick = {
-                            TabParentViewModelTabsNavigation.navigateToTabIndex(tab.viewModel)
+                            AtlasNavigation.navigateToPagePushAndReplace(DroidStandard::class)
                         },
                         icon = { Icon(tab.icon!!, contentDescription = null) },
                         label = { Text(tab.label) }

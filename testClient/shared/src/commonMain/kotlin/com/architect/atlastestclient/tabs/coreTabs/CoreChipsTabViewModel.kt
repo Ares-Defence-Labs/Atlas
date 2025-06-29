@@ -6,12 +6,12 @@ import com.architect.kmpessentials.alerts.KmpAlert
 import com.architect.kmpessentials.logging.KmpLogging
 
 @ViewModels
-class CoreSettingsTabViewModel : ViewModel(){
+class CoreChipsTabViewModel : ViewModel(){
     override fun onAppearing() {
         super.onAppearing()
 
-        KmpLogging.writeInfo("Sample", "SETTINGS")
-        KmpAlert.showAlert("", "Settings Tab Appearing")
+        KmpLogging.writeInfo("Sample", "Chips")
+        KmpAlert.showAlert("", "Chips Tab Appearing")
     }
 }
 

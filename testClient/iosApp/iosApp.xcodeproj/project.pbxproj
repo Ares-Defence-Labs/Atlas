@@ -69,6 +69,10 @@
 		53EFA7CC2E038F1B00B6355C /* NavigationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7CA2E038F1B00B6355C /* NavigationEngine.swift */; };
 		53EFA7D72E03E61200B6355C /* shared.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 53EFA7D62E03E61200B6355C /* shared.xcframework */; };
 		53EFA7D82E03E61800B6355C /* shared.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 53EFA7D62E03E61200B6355C /* shared.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		53EFA7DF2E10F0F300B6355C /* ParentTabHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7DE2E10F0F000B6355C /* ParentTabHolder.swift */; };
+		53EFA7E32E10F20000B6355C /* TabParentViewModelTabNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7E22E10F20000B6355C /* TabParentViewModelTabNavigationService.swift */; };
+		53EFA7E52E10F6C300B6355C /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7E42E10F6C100B6355C /* SettingsTab.swift */; };
+		53EFA7E72E10FCFA00B6355C /* ContentViewFab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7E62E10FCF700B6355C /* ContentViewFab.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -148,6 +152,10 @@
 		53EFA7C92E038F1B00B6355C /* IOSAtlasNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IOSAtlasNavigationService.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/IOSAtlasNavigationService.swift; sourceTree = SOURCE_ROOT; };
 		53EFA7CA2E038F1B00B6355C /* NavigationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NavigationEngine.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/NavigationEngine.swift; sourceTree = SOURCE_ROOT; };
 		53EFA7D62E03E61200B6355C /* shared.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = shared.xcframework; path = ../shared/Frameworks/shared.xcframework; sourceTree = SOURCE_ROOT; };
+		53EFA7DE2E10F0F000B6355C /* ParentTabHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentTabHolder.swift; sourceTree = "<group>"; };
+		53EFA7E22E10F20000B6355C /* TabParentViewModelTabNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TabParentViewModelTabNavigationService.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/TabParentViewModelTabNavigationService.swift; sourceTree = SOURCE_ROOT; };
+		53EFA7E42E10F6C100B6355C /* SettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
+		53EFA7E62E10FCF700B6355C /* ContentViewFab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewFab.swift; sourceTree = "<group>"; };
 		7555FF7B242A565900829871 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -246,6 +254,7 @@
 		53CE0AA12DA7A01F00C92148 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
+				53EFA7E22E10F20000B6355C /* TabParentViewModelTabNavigationService.swift */,
 				53EFA7C92E038F1B00B6355C /* IOSAtlasNavigationService.swift */,
 				53EFA7CA2E038F1B00B6355C /* NavigationEngine.swift */,
 			);
@@ -272,6 +281,9 @@
 		7555FF7D242A565900829871 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				53EFA7E62E10FCF700B6355C /* ContentViewFab.swift */,
+				53EFA7E42E10F6C100B6355C /* SettingsTab.swift */,
+				53EFA7DE2E10F0F000B6355C /* ParentTabHolder.swift */,
 				53CE0AA12DA7A01F00C92148 /* Generated */,
 				538B59E42DA0B2D80031037F /* Resources */,
 				058557BA273AAA24004C7B11 /* Assets.xcassets */,
@@ -438,10 +450,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				53EFA7DF2E10F0F300B6355C /* ParentTabHolder.swift in Sources */,
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
+				53EFA7E32E10F20000B6355C /* TabParentViewModelTabNavigationService.swift in Sources */,
 				53EFA7CB2E038F1B00B6355C /* IOSAtlasNavigationService.swift in Sources */,
 				53EFA7CC2E038F1B00B6355C /* NavigationEngine.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
+				53EFA7E52E10F6C300B6355C /* SettingsTab.swift in Sources */,
+				53EFA7E72E10FCFA00B6355C /* ContentViewFab.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

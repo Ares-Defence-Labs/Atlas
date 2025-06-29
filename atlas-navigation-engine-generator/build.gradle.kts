@@ -9,7 +9,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.28.0"
     id("signing")
 }
-////////////////
+//////////////
 //repositories {
 //    google()
 //    mavenCentral()
@@ -49,7 +49,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-navEngine-generator",
-        version = "0.3.9"
+        version = "0.4.1"
     )
 
     // Configure POM metadata for the published artifact

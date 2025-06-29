@@ -63,7 +63,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             scanIosTabAnnotationsFromSwiftFiles(iOSOutputFiles).forEach { (holder, tabs) ->
                 generateIosTabNavigationServiceFile(holder, tabs)
             }
-
         } else {
             logger.lifecycle("WRITING NAVIGATION TO ANDROID")
             val ants = scanViewModelAnnotations()
@@ -129,7 +128,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     private fun scanIosTabAnnotationsFromSwiftFiles(sourceDirs: List<File>): Map<String, List<TabEntrySwift>> {
         val tabEntries = mutableListOf<TabEntrySwift>()
         val swiftAnnotationRegex =
-            Regex("""//@AtlasTab\(\s*(\w+)::class\s*,\s*position\s*=\s*(\d+)\s*,\s*holder\s*=\s*(\w+)::class\s*\)""")
+            Regex("""//@AtlasTab\(\s*(\w+)::class\s*,\s*position\s*=\s*(\d+)\s*,\s*holder\s*=\s*(\w+)::class(?:\s*,\s*initialSelected\s*=\s*(true|false))?\s*\)""")
 
         sourceDirs.forEach { dir ->
             if (!dir.exists()) return@forEach
@@ -143,12 +142,15 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                     val holder = match.groupValues[3]
                     val screenName = file.name.removeSuffix(".swift")
 
+                    val initialSelected =
+                        match.groupValues.getOrNull(4)?.toBooleanStrictOrNull() ?: false
                     tabEntries.add(
                         TabEntrySwift(
                             viewModel = viewModel,
                             screen = screenName + ".swift",
                             position = position,
-                            holder = holder
+                            holder = holder,
+                            initialSelected = initialSelected
                         )
                     )
                 }
@@ -235,13 +237,16 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("import androidx.compose.runtime.compositionLocalOf")
                 appendLine("import java.lang.ref.WeakReference")
 
-                appendLine("""
+                appendLine(
+                    """
                 val TabLocalAtlasNavController = compositionLocalOf<NavHostController> {
                     error("NavController not provided")
                 }
-            """.trimIndent())
+            """.trimIndent()
+                )
 
-                appendLine("""
+                appendLine(
+                    """
                     
                     object AtlasTabNavHolder {
                         private var navControllerRef: WeakReference<NavHostController>? = null
@@ -252,7 +257,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                         fun get(): NavHostController? = navControllerRef?.get()
                     }
-                """.trimIndent())
+                """.trimIndent()
+                )
                 appendLine()
                 appendLine("object ${holder}TabsNavigation : AtlasTabNavigationService {")
                 appendLine("    private var currentTab: KClass<out ViewModel>? = null")
@@ -327,12 +333,14 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import androidx.compose.runtime.setValue")
             appendLine("import androidx.compose.runtime.SideEffect")
             appendLine("import androidx.compose.runtime.CompositionLocalProvider")
-            appendLine("""
+            appendLine(
+                """
                 import com.architect.atlas.navigation.TabLocalAtlasNavController
                 import com.architect.atlas.navigation.AtlasTabNavHolder
                 import androidx.navigation.compose.currentBackStackEntryAsState
                 import androidx.compose.runtime.LaunchedEffect
-            """.trimIndent())
+            """.trimIndent()
+            )
             appendLine()
 
             appendLine("    fun tabIndex(route: String?): Int {")
@@ -483,7 +491,8 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     }
 
     private fun generateAndroidNavigation(screens: List<Pair<String, String>>) {
-        val viewModelImports = screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
+        val viewModelImports =
+            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
 
         val androidImpl = buildString {
             appendLine("package com.architect.atlas.navigation")
@@ -502,8 +511,45 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import kotlin.reflect.KClass")
             appendLine("import com.architect.atlas.container.dsl.AtlasDI")
             appendLine()
+
+            appendLine(
+                """
+                class ObservableStack<T>(
+                    private val onPop: (T) -> Unit
+                ) : MutableList<T> by mutableListOf() {
+
+                    fun removeLastSafely(): T? {
+                        if (isNotEmpty()) {
+                            val removed = removeLast()
+                            onPop(removed)
+                            return removed
+                        }
+                        return null
+                    }
+
+                    fun popMultiple(count: Int) {
+                        repeat(count) {
+                            if (isNotEmpty()) {
+                                removeLastSafely()
+                            }
+                        }
+                    }
+
+                    fun clearStack(onEach: (T) -> Unit) {
+                        for (item in this) onEach(item)
+                        clear()
+                    }
+                }
+            """.trimIndent()
+            )
             appendLine("object AtlasNavigation : AtlasNavigationService {")
-            appendLine("    private val navigationStack = mutableListOf<KClass<out ViewModel>>()")
+            appendLine(
+                """
+                private val navigationStack = ObservableStack<KClass<out ViewModel>> { poppedVm ->
+                    AtlasDI.resetViewModel(poppedVm)
+                }
+            """.trimIndent()
+            )
             appendLine("    private val viewModelToRouteMap: Map<KClass<out ViewModel>, String> = mapOf(")
             for ((viewModel, screenName) in screens) {
                 appendLine("        $viewModel::class to \"$screenName\",")
@@ -542,15 +588,16 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine()
             appendLine("    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {")
             appendLine("        postToMain {")
-            appendLine("""
+            appendLine(
+                """
                 repeat(countOfPages) {
                     if (navigationStack.size > 1) {
-                        val poppedVm = navigationStack.removeLast()
-                        AtlasDI.resetViewModel(poppedVm)
+                        navigationStack.removeLastSafely()
                         AtlasNavHolder.get()?.popBackStack()
                     }
                 }
-            """.trimIndent())
+            """.trimIndent()
+            )
             appendLine("            deliverPopParams(params)")
             appendLine("        }")
             appendLine("    }")
@@ -579,14 +626,15 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine()
             appendLine("    private fun handlePopParams(params: Any?) {")
             appendLine("        postToMain {")
-            appendLine("""
+            appendLine(
+                """
                 if (navigationStack.size > 1) {
-                    val poppedVm = navigationStack.removeLast()
-                    AtlasDI.resetViewModel(poppedVm)
+                    navigationStack.removeLastSafely()
                     deliverPopParams(params)
                     AtlasNavHolder.get()?.popBackStack()
                 }
-            """.trimIndent())
+            """.trimIndent()
+            )
             appendLine("        }")
             appendLine("    }")
             appendLine()
@@ -614,7 +662,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    }")
             appendLine()
             appendLine("    private fun replaceTopOfStack(viewModelClass: KClass<out ViewModel>) {")
-            appendLine("        if (navigationStack.isNotEmpty()) navigationStack.removeLast()")
+            appendLine("        if (navigationStack.isNotEmpty()) navigationStack.removeLastSafely()")
             appendLine("        navigationStack.add(viewModelClass)")
             appendLine("    }")
             appendLine()
@@ -755,9 +803,11 @@ fun AtlasNavGraph() {
     CompositionLocalProvider(LocalAtlasNavController provides navController) {
     
     NavHost(navController = navController, startDestination = "$start") {
-${screens.joinToString("\n") { (viewModel, screen) ->
-                    """        screen<$viewModel>("$screen") { $screen(it) }"""
-                }}
+${
+                    screens.joinToString("\n") { (viewModel, screen) ->
+                        """        screen<$viewModel>("$screen") { $screen(it) }"""
+                    }
+                }
     }
     }
 }
@@ -873,51 +923,181 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
         file.parentFile.mkdirs()
 
         val importSection = """
-        import UIKit
-        import SwiftUI
-        import shared
+    import UIKit
+    import SwiftUI
+    import $projectCoreName
     """.trimIndent()
+
+        val tabIndicesEntries = tabs.joinToString(",\n") { tab ->
+            val viewModelName = tab.viewModel.substringAfterLast(".")
+            "\"$viewModelName\": ${tab.position}"
+        }
 
         val tabMappingEntries = tabs.joinToString(",\n") { tab ->
             val viewModelName = tab.viewModel.substringAfterLast(".")
             val screenName = tab.screen.removeSuffix(".swift")
             val widgetName = screenName.replace("Screen", "Widget")
 
-            """\"$viewModelName\": {
-            let vm = AtlasDI.companion.resolveServiceNullableByName(
-                clazz: SwiftClassGenerator.companion.getClazz(type: $viewModelName.self)
-            ) as! $viewModelName
-            return LifecycleAwareHostingController(rootView: $widgetName(vm: vm), viewModel: vm)
-        }"""
+            """"$viewModelName": {
+        let vm = AtlasDI.companion.resolveServiceNullableByName(
+            clazz: SwiftClassGenerator.companion.getClazz(type: $viewModelName.self)
+        ) as! $viewModelName
+        return LifecycleAwareHostingController(rootView: $widgetName(vm: vm), viewModel: vm)
+    }"""
         }
 
         val className = "${holder.removeSuffix("ViewModel")}TabsNavigation"
 
         val classCode = """
-        @MainActor
-        class $className: NSObject {
-            static let shared = $className()
+    @MainActor
+    struct LifecycleTabAwareHostingView<Content: View, VM: ViewModel>: View {
+        @StateObject private var viewModel: VM
+        let content: (VM) -> Content
 
-            private var currentTab: ViewModel?
+        init(viewModel: VM, @ViewBuilder content: @escaping (VM) -> Content) {
+            _viewModel = StateObject(wrappedValue: viewModel)
+            self.content = content
+        }
 
-            private let tabMapping: [String: () -> UIViewController] = [
-                $tabMappingEntries
-            ]
+        var body: some View {
+            content(viewModel)
+                .onAppear { viewModel.onAppearing() }
+                .onDisappear { viewModel.onDisappearing() }
+        }
+    }
 
-            func routeToTab(viewModelType: String) -> UIViewController {
-                currentTab = nil
-                guard let builder = tabMapping[viewModelType] else {
-                    fatalError("No tab registered for \(viewModelType)")
-                }
-                let vc = builder()
-                currentTab = (vc as? LifecycleAwareHosting)?.viewModel
-                return vc
-            }
+    protocol AtlasTabItemView {
+        associatedtype Selected: View
+        associatedtype Deselected: View
 
-            func getCurrentTabViewModel() -> ViewModel? {
-                return currentTab
+        @ViewBuilder func selectedTabItem() -> Selected
+        @ViewBuilder func deselectedTabItem() -> Deselected
+    }
+
+    @MainActor
+    @ViewBuilder
+    func buildTab<T: ViewModel, Content: View, SelectedTabItem: View, DeselectedTabItem: View>(
+        _ type: T.Type,
+        selectedTabIndex: Binding<Int>,
+        tabIndex: Int,
+        selectedTabItemBuilder: () -> SelectedTabItem,
+        deselectedTabItemBuilder: () -> DeselectedTabItem,
+        screenBuilder: @escaping (T) -> Content
+    ) -> some View {
+        let vm = AtlasDI.companion.resolveServiceNullableByName(
+            clazz: SwiftClassGenerator.companion.getClazz(type: type)
+        ) as! T
+
+        LifecycleTabAwareHostingView(viewModel: vm) { vm in
+            screenBuilder(vm)
+        }
+        .tag(tabIndex)
+        .tabItem {
+            if selectedTabIndex.wrappedValue == tabIndex {
+                selectedTabItemBuilder()
+            } else {
+                deselectedTabItemBuilder()
             }
         }
+    }
+
+    @MainActor
+@ViewBuilder
+func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabItemView>(
+    fabTabIndex: Int,
+    selectedTabIndex: Binding<Int>,
+    viewModelType: T.Type,
+    itemView: ItemView,
+    @ViewBuilder fabContainer: @escaping (T) -> Content
+) -> some View {
+    let vm = AtlasDI.companion.resolveServiceNullableByName(
+        clazz: SwiftClassGenerator.companion.getClazz(type: viewModelType)
+    ) as! T
+
+    GeometryReader { geometry in
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    selectedTabIndex.wrappedValue = fabTabIndex
+                }) {
+                    ZStack {
+                        fabContainer(vm)
+                            .frame(width: 84, height: 84)
+                            .clipShape(Circle())
+                            .shadow(radius: 4)
+                        
+                        if selectedTabIndex.wrappedValue == fabTabIndex {
+                            itemView.selectedTabItem()
+                        } else {
+                            itemView.deselectedTabItem()
+                        }
+                    }
+                }
+                .padding(.bottom, geometry.safeAreaInsets.bottom + 48) // lift above tab bar
+                
+                Spacer()
+            }
+        }
+        .edgesIgnoringSafeArea(.bottom)
+    }
+}
+
+    @MainActor
+    class $className: NSObject, @preconcurrency AtlasTabNavigationService {
+        static let shared = $className()
+
+        @Published private(set) var selectedTabIndex: Int = 0
+
+        private let tabIndices: [String: Int] = [
+            $tabIndicesEntries
+        ]
+
+        private let tabMapping: [String: () -> UIViewController] = [
+            $tabMappingEntries
+        ]
+
+        private var currentTab: ViewModel?
+
+        @MainActor
+        func navigateToTabIndex(viewModelClass: KotlinKClass, params: Any? = nil) {
+            guard let viewModelName = viewModelClass.simpleName else {
+                print("Invalid ViewModel class passed")
+                return
+            }
+
+            if let index = tabIndices[viewModelName] {
+                print("Navigating to tab index \\(index) for \\(viewModelName)")
+                selectedTabIndex = index
+            } else {
+                print("Tab index for \\(viewModelName) not found")
+            }
+        }
+
+        func getSelectedTabIndex() -> Int {
+            return selectedTabIndex
+        }
+
+        func setSelectedTabIndex(_ index: Int) {
+            selectedTabIndex = index
+        }
+
+        func routeToTab(viewModelType: String) -> UIViewController {
+            currentTab = nil
+            guard let builder = tabMapping[viewModelType] else {
+                fatalError("No tab registered for \\(viewModelType)")
+            }
+            let vc = builder()
+            currentTab = (vc as? LifecycleAwareHosting)?.viewModel
+            return vc
+        }
+
+        func getCurrentTabViewModel() -> ViewModel? {
+            return currentTab
+        }
+    }
     """.trimIndent()
 
         file.writeText(
@@ -925,10 +1105,9 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
         $importSection
 
         $classCode
-    """.trimIndent()
+        """.trimIndent()
         )
     }
-
     private fun scanViewModelSwiftAnnotations(): List<Quad<String, String, String, Boolean>> {
         val results = mutableListOf<Quad<String, String, String, Boolean>>()
         val swiftRegex =
@@ -1338,7 +1517,8 @@ data class TabEntrySwift(
     val viewModel: String,
     val screen: String,
     val position: Int,
-    val holder: String
+    val holder: String,
+    val initialSelected: Boolean
 )
 
 fun String.normalizeToAscii(): String =
