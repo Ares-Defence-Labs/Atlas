@@ -6,7 +6,7 @@
 #import <Foundation/NSString.h>
 #import <Foundation/NSValue.h>
 
-@class SharedAnyKmpObjectFlow, SharedAtlasColorsCompanion, SharedAtlasContainer, SharedAtlasDICompanion, SharedAtlasFontsCompanion, SharedAtlasImagesCompanion, SharedAtlasStringsCompanion, SharedAtomicfuNativeMutexNode, SharedAtomicfuSynchronizedObject, SharedAtomicfuSynchronizedObjectLockState, SharedAtomicfuSynchronizedObjectStatus, SharedBaseComps, SharedBufferOverflow, SharedCFlow<T>, SharedChannelFactory, SharedChannelFlow<T>, SharedCloseableCoroutineDispatcher, SharedCompTestStandardCompanion, SharedCoroutineDispatcher, SharedCoroutineDispatcherKey, SharedCoroutineExceptionHandlerKey, SharedCoroutineName, SharedCoroutineNameKey, SharedCoroutineStart, SharedDispatchers, SharedGlobalScope, SharedJobKey, SharedJobSupport, SharedKotlinAbstractCoroutineContextElement, SharedKotlinAbstractCoroutineContextKey<B, E>, SharedKotlinArray<T>, SharedKotlinAtomicReference<T>, SharedKotlinCancellationException, SharedKotlinEnum<E>, SharedKotlinEnumCompanion, SharedKotlinException, SharedKotlinIllegalStateException, SharedKotlinIntArray, SharedKotlinIntIterator, SharedKotlinIntProgression, SharedKotlinIntProgressionCompanion, SharedKotlinIntRange, SharedKotlinIntRangeCompanion, SharedKotlinLongArray, SharedKotlinLongIterator, SharedKotlinLongProgression, SharedKotlinLongProgressionCompanion, SharedKotlinLongRange, SharedKotlinLongRangeCompanion, SharedKotlinNoSuchElementException, SharedKotlinNothing, SharedKotlinRuntimeException, SharedKotlinThrowable, SharedKotlinUnit, SharedLockFreeLinkedListNode, SharedMainCoroutineDispatcher, SharedMutableAtlasFlowState<T>, SharedMutableCFlow<T>, SharedNonCancellable, SharedNonDisposableHandle, SharedPerson, SharedPlatformColor, SharedSampleProcess, SharedSharingCommand, SharedSharingStartedCompanion, SharedSwiftClassGeneratorCompanion, SharedTestIOSCompanion, SharedTestSingle, SharedThreadSafeHeap<T>, SharedTimeoutCancellationException, SharedViewModel, UIColor, UIFont, UIImage, UILabel, UISlider, UISwitch, UITextField, UIView;
+@class SharedAnyKmpObjectFlow, SharedAtlasColorsCompanion, SharedAtlasContainer, SharedAtlasDICompanion, SharedAtlasFontsCompanion, SharedAtlasImagesCompanion, SharedAtlasStringsCompanion, SharedAtomicfuNativeMutexNode, SharedAtomicfuSynchronizedObject, SharedAtomicfuSynchronizedObjectLockState, SharedAtomicfuSynchronizedObjectStatus, SharedBaseComps, SharedBufferOverflow, SharedCFlow<T>, SharedChannelFactory, SharedChannelFlow<T>, SharedCloseableCoroutineDispatcher, SharedCompTestStandardCompanion, SharedCoroutineDispatcher, SharedCoroutineDispatcherKey, SharedCoroutineExceptionHandlerKey, SharedCoroutineName, SharedCoroutineNameKey, SharedCoroutineStart, SharedDispatchers, SharedGlobalScope, SharedJobKey, SharedJobSupport, SharedKotlinAbstractCoroutineContextElement, SharedKotlinAbstractCoroutineContextKey<B, E>, SharedKotlinArray<T>, SharedKotlinAtomicReference<T>, SharedKotlinCancellationException, SharedKotlinEnum<E>, SharedKotlinEnumCompanion, SharedKotlinException, SharedKotlinIllegalStateException, SharedKotlinIntArray, SharedKotlinIntIterator, SharedKotlinIntProgression, SharedKotlinIntProgressionCompanion, SharedKotlinIntRange, SharedKotlinIntRangeCompanion, SharedKotlinLongArray, SharedKotlinLongIterator, SharedKotlinLongProgression, SharedKotlinLongProgressionCompanion, SharedKotlinLongRange, SharedKotlinLongRangeCompanion, SharedKotlinNoSuchElementException, SharedKotlinNothing, SharedKotlinRuntimeException, SharedKotlinThrowable, SharedKotlinUnit, SharedLockFreeLinkedListNode, SharedMainCoroutineDispatcher, SharedMutableAtlasFlowState<T>, SharedMutableCFlow<T>, SharedNonCancellable, SharedNonDisposableHandle, SharedPerson, SharedPlatformColor, SharedSampleProcess, SharedSharingCommand, SharedSharingStartedCompanion, SharedStateCFlow<T>, SharedSwiftClassGeneratorCompanion, SharedTestIOSCompanion, SharedTestSingle, SharedThreadSafeHeap<T>, SharedTimeoutCancellationException, SharedViewModel, UIColor, UIFont, UIImage, UILabel, UISlider, UISwitch, UITextField, UIView;
 
 @protocol SharedAtlasContainerContract, SharedAtlasNavigationService, SharedBroadcastChannel, SharedCancellableContinuation, SharedChannel, SharedChannelIterator, SharedChildHandle, SharedChildJob, SharedCompletableDeferred, SharedCompletableJob, SharedCopyableThrowable, SharedCoroutineExceptionHandler, SharedCoroutineScope, SharedDNSTest, SharedDeferred, SharedDisposableHandle, SharedDisposableHandle_, SharedFlow, SharedFlowCollector, SharedFusibleFlow, SharedHello, SharedJob, SharedKotlinAutoCloseable, SharedKotlinClosedRange, SharedKotlinComparable, SharedKotlinContinuation, SharedKotlinContinuationInterceptor, SharedKotlinCoroutineContext, SharedKotlinCoroutineContextElement, SharedKotlinCoroutineContextKey, SharedKotlinFunction, SharedKotlinIterable, SharedKotlinIterator, SharedKotlinKAnnotatedElement, SharedKotlinKClass, SharedKotlinKClassifier, SharedKotlinKDeclarationContainer, SharedKotlinLazy, SharedKotlinOpenEndRange, SharedKotlinSequence, SharedKotlinSuspendFunction0, SharedKotlinSuspendFunction1, SharedKotlinSuspendFunction2, SharedKotlinSuspendFunction3, SharedKotlinSuspendFunction4, SharedKotlinSuspendFunction5, SharedKotlinSuspendFunction6, SharedMainDispatcherFactory, SharedMutableSharedFlow, SharedMutableStateFlow, SharedMutex, SharedParentJob, SharedPlatform, SharedPoppable, SharedProducerScope, SharedPushable, SharedReceiveChannel, SharedRunnable, SharedSelectBuilder, SharedSelectClause, SharedSelectClause0, SharedSelectClause1, SharedSelectClause2, SharedSelectInstance, SharedSemaphore, SharedSendChannel, SharedSharedFlow, SharedSharingStarted, SharedStateFlow, SharedTestProcess;
 
@@ -160,7 +160,14 @@ __attribute__((swift_name("ViewModel")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (void)onInitializeWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("onInitialize(completionHandler:)")));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void)onInitializeWithoutCancelWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("onInitializeWithoutCancel(completionHandler:)")));
 @property (readonly) id<SharedCoroutineScope> viewModelScope __attribute__((swift_name("viewModelScope")));
+@property (readonly) id<SharedCoroutineScope> viewModelScopeWithoutCancel __attribute__((swift_name("viewModelScopeWithoutCancel")));
 @end
 
 __attribute__((swift_name("AtlasNavigationService")))
@@ -211,6 +218,9 @@ __attribute__((swift_name("CFlow")))
 - (instancetype)initWithFlow:(id<SharedStateFlow>)flow __attribute__((swift_name("init(flow:)"))) __attribute__((objc_designated_initializer));
 - (id<SharedDisposableHandle>)observeBlock:(void (^)(T _Nullable))block __attribute__((swift_name("observe(block:)")));
 - (id<SharedDisposableHandle>)observeMainBlock:(void (^)(T _Nullable))block __attribute__((swift_name("observeMain(block:)")));
+- (id<SharedDisposableHandle>)subscribeOnCollect:(void (^)(T _Nullable))onCollect __attribute__((swift_name("subscribe(onCollect:)")));
+- (id<SharedDisposableHandle>)subscribeCoroutineScope:(id<SharedCoroutineScope>)coroutineScope dispatcher:(SharedCoroutineDispatcher *)dispatcher onCollect:(void (^)(T _Nullable))onCollect __attribute__((swift_name("subscribe(coroutineScope:dispatcher:onCollect:)")));
+@property (readonly) id<SharedStateFlow> flow __attribute__((swift_name("flow")));
 @end
 
 __attribute__((swift_name("DisposableHandle")))
@@ -223,9 +233,11 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("MutableAtlasFlowState")))
 @interface SharedMutableAtlasFlowState<T> : SharedBase
 - (instancetype)initWithInitialValue:(T)initialValue __attribute__((swift_name("init(initialValue:)"))) __attribute__((objc_designated_initializer));
+- (SharedCFlow<T> *)asCFlow __attribute__((swift_name("asCFlow()")));
+- (SharedMutableCFlow<T> *)asMutableStateCFlow __attribute__((swift_name("asMutableStateCFlow()")));
 - (id<SharedMutableStateFlow>)asMutableStateFlow __attribute__((swift_name("asMutableStateFlow()")));
+- (SharedStateCFlow<T> *)asStateCFlow __attribute__((swift_name("asStateCFlow()")));
 - (id<SharedStateFlow>)asStateFlow __attribute__((swift_name("asStateFlow()")));
-- (SharedAnyKmpObjectFlow *)asSwiftFlow __attribute__((swift_name("asSwiftFlow()")));
 - (T)getCurrentValue __attribute__((swift_name("getCurrentValue()")));
 - (void)postValueOnMainThreadValue:(T)value __attribute__((swift_name("postValueOnMainThread(value:)")));
 - (void)setValueOnContextValue:(T)value __attribute__((swift_name("setValueOnContext(value:)")));
@@ -236,6 +248,14 @@ __attribute__((swift_name("MutableCFlow")))
 @interface SharedMutableCFlow<T> : SharedCFlow<T>
 - (instancetype)initWithFlow:(id<SharedMutableStateFlow>)flow __attribute__((swift_name("init(flow:)"))) __attribute__((objc_designated_initializer));
 - (void)setValueValue:(T _Nullable)value __attribute__((swift_name("setValue(value:)")));
+@property (readonly) id<SharedMutableStateFlow> flow __attribute__((swift_name("flow")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("StateCFlow")))
+@interface SharedStateCFlow<T> : SharedCFlow<T>
+- (instancetype)initWithFlow:(id<SharedStateFlow>)flow __attribute__((swift_name("init(flow:)"))) __attribute__((objc_designated_initializer));
+@property (readonly) id<SharedStateFlow> flow __attribute__((swift_name("flow")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -283,6 +303,7 @@ __attribute__((swift_name("AtlasContainerContract")))
 @required
 - (void)registerClazz:(id<SharedKotlinKClass>)clazz instance:(id _Nullable)instance factory:(id (^ _Nullable)(void))factory scopeId:(NSString * _Nullable)scopeId viewModel:(BOOL)viewModel __attribute__((swift_name("register(clazz:instance:factory:scopeId:viewModel:)")));
 - (void)resetViewModelClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resetViewModel(clazz:)")));
+- (void)resetViewModelByNameClazz:(NSString *)clazz __attribute__((swift_name("resetViewModelByName(clazz:)")));
 - (id)resolveClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolve(clazz:)")));
 - (id)resolveByNameClazz:(NSString *)clazz __attribute__((swift_name("resolveByName(clazz:)")));
 - (id _Nullable)resolveViewModelClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolveViewModel(clazz:)")));
@@ -297,6 +318,7 @@ __attribute__((swift_name("AtlasContainer")))
 @property (class, readonly, getter=shared) SharedAtlasContainer *shared __attribute__((swift_name("shared")));
 - (void)registerClazz:(id<SharedKotlinKClass>)clazz instance:(id _Nullable)instance factory:(id (^ _Nullable)(void))factory scopeId:(NSString * _Nullable)scopeId viewModel:(BOOL)viewModel __attribute__((swift_name("register(clazz:instance:factory:scopeId:viewModel:)")));
 - (void)resetViewModelClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resetViewModel(clazz:)")));
+- (void)resetViewModelByNameClazz:(NSString *)clazz __attribute__((swift_name("resetViewModelByName(clazz:)")));
 - (id)resolveClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolve(clazz:)")));
 - (id)resolveByNameClazz:(NSString *)clazz __attribute__((swift_name("resolveByName(clazz:)")));
 - (id _Nullable)resolveViewModelClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolveViewModel(clazz:)")));
@@ -326,6 +348,7 @@ __attribute__((swift_name("AtlasDI.Companion")))
 - (void)registerSingletonInstance:(id _Nullable)instance __attribute__((swift_name("registerSingleton(instance:)")));
 - (void)registerViewModelInstance:(id _Nullable)instance __attribute__((swift_name("registerViewModel(instance:)")));
 - (void)resetViewModelClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resetViewModel(clazz:)")));
+- (void)resetViewModelByNameClazz:(NSString *)clazz __attribute__((swift_name("resetViewModelByName(clazz:)")));
 - (id<SharedKotlinLazy>)resolveLazyService __attribute__((swift_name("resolveLazyService()")));
 - (id)resolveService __attribute__((swift_name("resolveService()")));
 - (id _Nullable)resolveServiceNullableClazz:(id<SharedKotlinKClass>)clazz __attribute__((swift_name("resolveServiceNullable(clazz:)")));
@@ -818,11 +841,36 @@ __attribute__((swift_name("TabParentViewModel")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (void)onInitializeWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("onInitialize(completionHandler:)")));
+- (void)popToRoot __attribute__((swift_name("popToRoot()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("CoreChipsTabViewModel")))
+@interface SharedCoreChipsTabViewModel : SharedViewModel
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (void)onAppearing __attribute__((swift_name("onAppearing()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("CoreDashboardTabViewModel")))
 @interface SharedCoreDashboardTabViewModel : SharedViewModel
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (void)onAppearing __attribute__((swift_name("onAppearing()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("CoreFabTabViewModel")))
+@interface SharedCoreFabTabViewModel : SharedViewModel
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (void)onAppearing __attribute__((swift_name("onAppearing()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("CoreSettingsChipsStandardTabViewModel")))
+@interface SharedCoreSettingsChipsStandardTabViewModel : SharedViewModel
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 - (void)onAppearing __attribute__((swift_name("onAppearing()")));
@@ -2449,6 +2497,7 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("CFlowKt")))
 @interface SharedCFlowKt : SharedBase
 + (SharedCFlow<id> *)asCFlow:(id<SharedStateFlow>)receiver __attribute__((swift_name("asCFlow(_:)")));
++ (SharedStateCFlow<id> *)asCStateFlow:(id<SharedStateFlow>)receiver __attribute__((swift_name("asCStateFlow(_:)")));
 + (SharedMutableCFlow<id> *)asMutableCFlow:(id<SharedMutableStateFlow>)receiver __attribute__((swift_name("asMutableCFlow(_:)")));
 + (SharedAnyKmpObjectFlow *)asSwiftFlow:(id<SharedMutableStateFlow>)receiver __attribute__((swift_name("asSwiftFlow(_:)")));
 @end
@@ -2746,6 +2795,13 @@ __attribute__((swift_name("DispatchedContinuationKt")))
  *   kotlinx.coroutines.InternalCoroutinesApi
 */
 + (void)resumeCancellableWith:(id<SharedKotlinContinuation>)receiver result:(id _Nullable)result __attribute__((swift_name("resumeCancellableWith(_:result:)")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("DisposableHandleKt")))
+@interface SharedDisposableHandleKt : SharedBase
++ (id<SharedDisposableHandle>)DisposableHandleBlock:(void (^)(void))block __attribute__((swift_name("DisposableHandle(block:)")));
++ (id<SharedDisposableHandle>)plus:(id<SharedDisposableHandle>)receiver other:(id<SharedDisposableHandle>)other __attribute__((swift_name("plus(_:other:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))

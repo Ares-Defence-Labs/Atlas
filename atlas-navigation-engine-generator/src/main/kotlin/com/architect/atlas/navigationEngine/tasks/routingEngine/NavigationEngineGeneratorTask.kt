@@ -12,7 +12,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputAndroidDir: DirectoryProperty
 
-
     @get:OutputDirectory
     abstract val outputAndroidTabsDir: DirectoryProperty
 
@@ -128,12 +127,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     private fun scanIosTabAnnotationsFromSwiftFiles(sourceDirs: List<File>): Map<String, List<TabEntrySwift>> {
         val tabEntries = mutableListOf<TabEntrySwift>()
         val swiftAnnotationRegex =
-            Regex("""//@AtlasTab\(\s*(\w+)::class\s*,\s*position\s*=\s*(\d+)\s*,\s*holder\s*=\s*(\w+)::class(?:\s*,\s*initialSelected\s*=\s*(true|false))?\s*\)""")
+            Regex("""//@AtlasSwiftTab\(\s*(\w+)::class\s*,\s*position\s*=\s*(\d+)\s*,\s*holder\s*=\s*(\w+)::class(?:\s*,\s*initialSelected\s*=\s*(true|false))?\s*\)""")
 
-        sourceDirs.forEach { dir ->
-            if (!dir.exists()) return@forEach
-
-            dir.walkTopDown().filter { it.isFile && it.extension == "swift" }.forEach { file ->
+        sourceDirs.forEach {
+            it.walkTopDown().filter { it.isFile && it.extension == "swift" }.forEach { file ->
                 val content = file.readText()
 
                 swiftAnnotationRegex.findAll(content).forEach { match ->
@@ -1365,10 +1362,270 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("import UIKit")
             appendLine("import $projectCoreName")
             appendLine("import SwiftUICore")
+            appendLine("""
+                import SwiftUI
+                    import Combine
+            """.trimIndent())
             appendLine()
 
             appendLine(
-                """class IOSAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {
+                """    
+                    import Foundation
+                    import SwiftUI
+                    import Combine
+
+                    
+                    @MainActor
+                    class AlertDialogManager: ObservableObject {
+                        static let shared = AlertDialogManager()
+                        
+                        @Published var activeSheetID: String? = nil
+                        @Published var params: [String: Any] = [:]
+                        @Published var heightOffset: CGFloat = 0
+                        @Published var isPresented: Bool = false
+                        
+                        init() {
+                            NotificationCenter.default.addObserver(
+                                self,
+                                selector: #selector(handleOpenAlertDialog(_:)),
+                                name: .openAlertDialog,
+                                object: nil
+                            )
+                            
+                            NotificationCenter.default.addObserver(
+                                self,
+                                selector: #selector(dismiss(_:)),
+                                name: .dismissAlertDialog,
+                                object: nil
+                            )
+                        }
+                        
+                        @objc private func handleOpenAlertDialog(_ notification: Notification) {
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self = self,
+                                      let userInfo = notification.userInfo,
+                                      let id = userInfo["id"] as? String else { return }
+                                
+                                self.params = userInfo.reduce(into: [String: Any]()) { dict, pair in
+                                    if let key = pair.key as? String {
+                                        dict[key] = pair.value
+                                    }
+                                }
+                                
+                                self.heightOffset = userInfo["heightOffset"] as? CGFloat ?? 0
+                                self.activeSheetID = id
+                                self.isPresented = true
+                            }
+                        }
+                        
+                        @objc private func dismiss(_ notification: Notification) {
+                            activeSheetID = nil
+                            params = [:]
+                            isPresented = false
+                            print("Bottom sheet dismissed")
+                        }
+                    }
+
+
+                    @MainActor
+                    class BottomSheetManager: ObservableObject {
+                        static let shared = BottomSheetManager()
+                        
+                        @Published var activeSheetID: String? = nil
+                        @Published var params: [String: Any] = [:]
+                        @Published var heightOffset: CGFloat = 0
+                        @Published var isPresented: Bool = false
+                        
+                        init() {
+                            NotificationCenter.default.addObserver(
+                                self,
+                                selector: #selector(handleOpenBottomSheet(_:)),
+                                name: .openBottomSheet,
+                                object: nil
+                            )
+                        }
+                        
+                        @objc private func handleOpenBottomSheet(_ notification: Notification) {
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self = self,
+                                      let userInfo = notification.userInfo,
+                                      let id = userInfo["id"] as? String else { return }
+                                
+                                self.params = userInfo.reduce(into: [String: Any]()) { dict, pair in
+                                    if let key = pair.key as? String {
+                                        dict[key] = pair.value
+                                    }
+                                }
+                                
+                                self.heightOffset = userInfo["heightOffset"] as? CGFloat ?? 0
+                                self.activeSheetID = id
+                                self.isPresented = true
+                                
+                                print("Bottom sheet presented for ID: \(id)")
+                            }
+                        }
+                        
+                        func dismiss() {
+                            activeSheetID = nil
+                            params = [:]
+                            isPresented = false
+                            print("Bottom sheet dismissed")
+                        }
+                    }
+
+                    extension Notification.Name {
+                        static let openBottomSheet = Notification.Name("openBottomSheet")
+                        static let openAlertDialog = Notification.Name("openAlertDialog")
+                        static let dismissAlertDialog = Notification.Name("dismissAlertDialog")
+                    }
+
+                    extension View {
+                        func bottomSheetRegistry(
+                            id: String,
+                            @ViewBuilder content: @escaping (_ params: [String: Any]) -> some View
+                        ) -> some View {
+                            modifier(BottomSheetModifier(sheetID: id, content: content))
+                        }
+                        
+                        func alertDialogRegistry(
+                            id: String,
+                            @ViewBuilder content: @escaping (_ params: [String: Any]) -> some View
+                        ) -> some View {
+                            modifier(AlertModifier(sheetID: id, content: content))
+                        }
+                    }
+
+
+                    struct AlertModifier: ViewModifier {
+                        @ObservedObject var manager = AlertDialogManager.shared
+                        let sheetID: String
+                        let contentBuilder: ([String: Any]) -> AnyView
+                        
+                        init<T: View>(
+                            sheetID: String,
+                            @ViewBuilder content: @escaping ([String: Any]) -> T
+                        ) {
+                            self.sheetID = sheetID
+                            self.contentBuilder = { AnyView(content(${'$'}0)) }
+                        }
+                        
+                        @State private var contentHeight: CGFloat = 250
+                        @State private var yOffset: CGFloat = UIScreen.main.bounds.height
+                        
+                        func body(content viewContent: Content) -> some View {
+                            viewContent
+                                .overlay(
+                                    Group {
+                                        Color.black.opacity(manager.isPresented && manager.activeSheetID == sheetID ? 0.3 : 0)
+                                            .ignoresSafeArea()
+                                            .onTapGesture {
+                                                withAnimation {
+                                                   // manager.dismiss()
+                                                }
+                                            }
+                                        if(manager.isPresented){
+                                        alertView()
+                                            .allowsHitTesting(manager.isPresented && manager.activeSheetID == sheetID)
+                                            }
+                                    },
+                                    alignment: .bottom
+                                )
+                        }
+                        
+                        @ViewBuilder
+                        private func alertView() -> some View {
+                            ZStack(alignment: .center) {
+                                if manager.isPresented {
+                                    self.contentBuilder(manager.params)
+                                        .frame(maxWidth: .infinity, maxHeight: contentHeight + manager.heightOffset)
+                                        .background(Color.white)
+                                        .clipShape(RoundedCorner(radius: 26))
+                                        .shadow(radius: 10)
+                                        .transition(.opacity)
+                                        .animation(.easeInOut(duration: 2.0), value: manager.isPresented)
+                                }
+                            }
+                            .padding(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+                        }
+                    }
+
+                    struct BottomSheetModifier: ViewModifier {
+                        @ObservedObject var manager = BottomSheetManager.shared
+                        let sheetID: String
+                        let contentBuilder: ([String: Any]) -> AnyView
+                        
+                        init<T: View>(
+                            sheetID: String,
+                            @ViewBuilder content: @escaping ([String: Any]) -> T
+                        ) {
+                            self.sheetID = sheetID
+                            self.contentBuilder = { AnyView(content(${'$'}0)) }
+                        }
+                        
+                        @State private var contentHeight: CGFloat = 300
+                        @State private var yOffset: CGFloat = UIScreen.main.bounds.height
+                        
+                        func body(content viewContent: Content) -> some View {
+                            viewContent
+                                .overlay(
+                                    Group {
+                                        Color.black.opacity(manager.isPresented && manager.activeSheetID == sheetID ? 0.3 : 0)
+                                            .ignoresSafeArea()
+                                            .onTapGesture {
+                                                withAnimation {
+                                                    manager.dismiss()
+                                                }
+                                            }
+                                        
+                                        bottomSheetView()
+                                            .allowsHitTesting(manager.isPresented && manager.activeSheetID == sheetID)
+                                    },
+                                    alignment: .bottom
+                                )
+                        }
+                        @ViewBuilder
+                        private func bottomSheetView() -> some View {
+                            VStack(spacing: 0) {
+                                Spacer()
+                                
+                                self.contentBuilder(manager.params)
+                                    .frame(maxWidth: .infinity, maxHeight: contentHeight + manager.heightOffset)
+                                    .background(Color.white)
+                                    .clipShape(RoundedCorner(radius: 26, corners: [.topLeft, .topRight]))
+                                    .shadow(radius: 10)
+                                    .offset(y: manager.isPresented && manager.activeSheetID == sheetID ? 0 : UIScreen.main.bounds.height)
+                                    .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.85, blendDuration: 0.25),
+                                               value: manager.isPresented
+                                    )
+                            }
+                            .ignoresSafeArea(edges: .bottom)
+                        }
+                    }
+
+                    struct RoundedCorner: Shape {
+                        var radius: CGFloat = .infinity
+                        var corners: UIRectCorner = .allCorners
+                        
+                        func path(in rect: CGRect) -> Path {
+                            let path = UIBezierPath(
+                                roundedRect: rect,
+                                byRoundingCorners: corners,
+                                cornerRadii: CGSize(width: radius, height: radius)
+                            )
+                            return Path(path.cgPath)
+                        }
+                    }
+
+                    @MainActor
+                    private struct HeightPreferenceKey: @preconcurrency PreferenceKey {
+                        static var defaultValue: CGFloat = 0
+                        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+                            value = nextValue()
+                        }
+                    }
+
+                    
+                    class IOSAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {
     @MainActor
     func setNavigationStack(stack: [ViewModel], params: Any?) {
         DispatchQueue.main.async {

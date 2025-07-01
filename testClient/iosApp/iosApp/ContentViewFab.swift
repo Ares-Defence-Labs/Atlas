@@ -9,7 +9,7 @@
 import SwiftUI
 import shared
 
-//@AtlasTab(DroidStandardThird::class, position = 1, holder = TabParentViewModel::class)
+//@AtlasSwiftTab(DroidStandardThird::class, position = 1, holder = TabParentViewModel::class)
 struct ContentViewFab: View {
     let vm : DroidStandardThird
     

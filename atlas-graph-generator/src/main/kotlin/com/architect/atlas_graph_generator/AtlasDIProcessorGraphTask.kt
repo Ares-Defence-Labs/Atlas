@@ -660,6 +660,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
         viewModels[clazz] = ViewModelEntry { entry.factory() }
         }
+        
+        override fun resetViewModelByName(clazz: String) {
+       
+        }
     }
     
         

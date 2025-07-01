@@ -38,6 +38,10 @@ class AtlasDI {
             container?.resetViewModel(clazz)
         }
 
+        fun <T : Any> resetViewModelByName(clazz: String) {
+            container?.resetViewModelByName(clazz)
+        }
+
         /**
          * Fetches a registered service from the AtlasContainer (with class instance type)
          */
@@ -96,18 +100,6 @@ class AtlasDI {
             container?.register(T::class, instance, null, null, false)
                 ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
         }
-
-//        inline fun registerInstanceSwift(instance: Any, ) {
-//            val classGen = SwiftClassGenerator.getClazz(instance)
-//            val clazz: KClass<*>? = try {
-//                Class.forName(className).kotlin
-//            } catch (e: ClassNotFoundException) {
-//                null
-//            }
-//
-//            container?.register(T::class, instance, null, null, false)
-//                ?: throw IllegalStateException("❌ AtlasContainer is not initialized. Call injectContainer() first.")
-//        }
 
         inline fun <reified T : Any> registerSingleton(
             instance: T? = null,

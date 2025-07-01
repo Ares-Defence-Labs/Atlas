@@ -18,8 +18,8 @@ navigationUiKtx = "2.8.8"
 kmpessentials = "2.3.1"
 
 kotlinCore = "1.10.1"
-atlasCore = "0.6.1"
-atlasFlow = "0.1.8"
+atlasCore = "0.8.2"
+atlasFlow = "0.2.8"
 atlasViewBinding = "0.3.0"
 
 [libraries]

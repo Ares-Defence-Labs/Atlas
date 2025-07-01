@@ -9,7 +9,23 @@ struct iOSApp: App {
     }
     var body: some Scene {
         WindowGroup {
-            UIKitNavWrapperView()
+                UIKitNavWrapperView()
+                .bottomSheetRegistry(id: "BottomSheet1") { params in
+                                    let header = params["header"] as? String ?? ""
+                                    let message = params["message"] as? String ?? ""
+                                    let onPress = params["onPressBtn"] as? () -> Void ?? {}
+
+                                    BottomSheetContent(header: header, message: message, actionOnPress: onPress)
+                                }
+                .alertDialogRegistry(id: "AlertDialog1") { params in
+                                    let header = params["header"] as? String ?? ""
+                                    let message = params["message"] as? String ?? ""
+                                    let onPress = params["onPressBtn"] as? () -> Void ?? {}
+
+                                    BottomSheetContent(header: header, message: message, actionOnPress: onPress)
+                                }
+            
+            
         }
     }
 }

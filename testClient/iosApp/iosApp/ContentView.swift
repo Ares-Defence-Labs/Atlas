@@ -1,7 +1,7 @@
 import SwiftUI
 import shared
 
-//@AtlasTab(CoreDashboardTabViewModel::class, position = 0, holder = TabParentViewModel::class)
+//@AtlasSwiftTab(CoreDashboardTabViewModel::class, position = 0, holder = TabParentViewModel::class)
 struct ContentView: View {
     let vm: CoreDashboardTabViewModel
     
@@ -10,7 +10,18 @@ struct ContentView: View {
             .background(Color.red)
             .containerShape(Rectangle())
             .frame(maxWidth: .infinity, maxHeight: 50).onTapGesture {
-               // vm.openSecondScreen()
+                print("Posting bottom sheet notification")
+                NotificationCenter.default.post(
+                            name: .openBottomSheet,
+                            object: nil,
+                            userInfo: [
+                                "id": "BottomSheet1",
+                                "header": "Hello there",
+                                "message": "Sample message received",
+                                "onPressBtn": { print("Button pressed") },
+                                "heightOffset": 50
+                            ]
+                        )
                 }
     }
 }

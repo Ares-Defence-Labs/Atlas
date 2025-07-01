@@ -8,13 +8,13 @@ import org.gradle.api.tasks.TaskProvider
 import java.io.File
 
 internal object ResPluginHelpers {
-
     fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
+        val iosXcodeModule = ProjectFinder.findIosClientApp(project)!!
         val androidApp = ProjectFinder.findAndroidClientApp(project)!!
         val coutputFiles =
             project.rootProject.allprojects.map { File(it.projectDir, "src") }.toMutableList()
         val iosoutputs = coutputFiles.toMutableList()
-        iosoutputs.add(ProjectFinder.findIosClientApp(project)!!)
+        iosoutputs.add(iosXcodeModule)
 
         val moduleName = project.findProperty("atlas.coreModuleName")?.toString()
             ?: project.getSwiftImportModuleName()

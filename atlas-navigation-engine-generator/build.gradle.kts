@@ -42,14 +42,14 @@ dependencies{
     implementation("com.android.tools.build:gradle:8.2.0")
     implementation("io.github.thearchitect123:atlas-plugin-common:0.1.4")
 }
-//
+////
 //
 mavenPublishing {
     // Define coordinates for the published artifact
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-navEngine-generator",
-        version = "0.4.1"
+        version = "0.4.3"
     )
 
     // Configure POM metadata for the published artifact

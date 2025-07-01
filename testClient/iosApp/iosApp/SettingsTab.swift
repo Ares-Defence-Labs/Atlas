@@ -9,7 +9,7 @@
 import SwiftUI
 import shared
 
-//@AtlasTab(CoreSettingsTabViewModel::class, position = 2, holder = TabParentViewModel::class)
+//@AtlasSwiftTab(CoreSettingsTabViewModel::class, position = 2, holder = TabParentViewModel::class)
 struct SettingsTab: View {
     let vm : CoreSettingsTabViewModel
     
@@ -17,7 +17,27 @@ struct SettingsTab: View {
         Text("Settings Fourth Screen").background(Color.blue)
             .containerShape(Rectangle())
             .onTapGesture {
-            //    vm.openThirdScreenEntireStack()
+                NotificationCenter.default.post(
+                            name: .openAlertDialog,
+                            object: nil,
+                            userInfo: [
+                                "id": "AlertDialog1",
+                                "header": "Hello there",
+                                "message": "Sample message received",
+                                "onPressBtn": {
+                                    
+                                    NotificationCenter.default.post(
+                                                name: .dismissAlertDialog,
+                                                object: nil,
+                                                userInfo: [
+                                                    "id": "AlertDialog1",
+                                                ]
+                                            )
+                                    
+                                },
+                                "heightOffset": 50
+                            ]
+                        )
             }.frame(maxWidth: .infinity, maxHeight: 50)
     }
 }
