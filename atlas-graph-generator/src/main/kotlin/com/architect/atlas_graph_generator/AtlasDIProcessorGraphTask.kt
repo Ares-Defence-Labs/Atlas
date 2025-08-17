@@ -1,5 +1,12 @@
 package com.architect.atlasGraphGenerator
 
+import com.architect.atlas_graph_generator.helpers.buildAllowLists
+import com.architect.atlas_graph_generator.helpers.collectClassesFromRoots
+import com.architect.atlas_graph_generator.helpers.filterBySimple
+import com.architect.atlas_graph_generator.helpers.filterClassToPackage
+import com.architect.atlas_graph_generator.helpers.filterProvides
+import com.architect.atlas_graph_generator.helpers.filterProvidesByModuleMembership
+import com.architect.atlas_graph_generator.helpers.filterProvidesReturnTypes
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -14,6 +21,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:OutputDirectory
     abstract val androidOutputDir: DirectoryProperty
 
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearOSOutputDir: DirectoryProperty
+
     @get:OutputDirectory
     abstract val iOSOutputDir: DirectoryProperty
 
@@ -25,6 +36,11 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val externalSourceDirs: ConfigurableFileCollection
 
+    @get:Optional
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val wearOSSourceDirs: ConfigurableFileCollection
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val iosSourceDirs: ConfigurableFileCollection
@@ -33,9 +49,14 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val dependencyCommonMainSources: ConfigurableFileCollection
 
+    @get:Optional
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputHashFile: RegularFileProperty
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearOSModuleDirectory: DirectoryProperty
 
     @get:Input
     abstract var isAndroidTarget: Boolean
@@ -46,6 +67,11 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     init {
         group = "Atlas"
         description = "Generates a dependency graph for the project"
+
+        outputs.upToDateWhen {
+            val file = inputHashFile.orNull?.asFile
+            file != null && file.exists()
+        }
     }
 
     private fun resolveTransitiveInheritanceChain(
@@ -117,16 +143,24 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     fun generateGraph() {
         logger.lifecycle("🚀 Running generateDependencyGraph task...")
 
+        val wearContainerDir = wearOSOutputDir.orNull?.asFile
 
+        logger.lifecycle("WEARABLE $wearContainerDir")
         val androidContainerDir = androidOutputDir.get().asFile
         val iOSContainerDir = iOSOutputDir.get().asFile
 
         androidContainerDir.mkdirs()
         iOSContainerDir.mkdirs()
+        wearContainerDir?.mkdirs()
 
         val outputFile = File(androidContainerDir, "AtlasContainer.kt")
         val iosOutputFile = File(iOSContainerDir, "AtlasContainer.kt")
         val androidOutputFile = File(androidContainerDir, "ViewModelExtensions.kt")
+
+        val wearOutputFile =
+            if (wearContainerDir != null) File(wearContainerDir, "AtlasContainer.kt") else null
+        val wearVMOutputFile =
+            if (wearContainerDir != null) File(wearContainerDir, "ViewModelExtensions.kt") else null
 
         // 🔹 NEW: Delete previous files to force regeneration
         if (!isAndroidTarget) {
@@ -142,6 +176,16 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             if (androidOutputFile.exists()) {
                 logger.lifecycle("🗑 Deleting old ViewModelExtensions.kt to force regeneration")
                 androidOutputFile.delete()
+            }
+
+            if (wearOutputFile?.exists() == true) {
+                logger.lifecycle("🗑 Deleting old ViewModelExtensions.kt to force regeneration for WearOS")
+                wearOutputFile.delete()
+            }
+
+            if (wearVMOutputFile?.exists() == true) {
+                logger.lifecycle("🗑 Deleting old ViewModelExtensions.kt to force regeneration for WearOS")
+                wearVMOutputFile.delete()
             }
         }
 
@@ -176,12 +220,12 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             projectRootDir.files
         if (isAndroidTarget) {
             allSourceDirs.addAll(externalSourceDirs.files)
+            allSourceDirs.addAll(wearOSSourceDirs.files)
         } else {
             allSourceDirs.addAll(iosSourceDirs.files)
         }
 
         allSourceDirs.addAll(dependencyCommonMainSources.files)
-
         allSourceDirs
             .filter { it.isDirectory && it.path.contains("src") && it.path.contains("kotlin") }
             .forEach { sourceDir ->
@@ -222,29 +266,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
         logger.lifecycle("🔍 Return Types for Provides ${providesReturnTypes.map { "${it.key} : ${it.value}\n" }}")
         logger.lifecycle("DEP FILES : ${dependencyCommonMainSources.files.count()}")
-//        val classRegex = Regex("""class\s+(\w+)\s*:\s*([\w.<>]+)""")
-//        dependencyCommonMainSources.files
-//            .filter { it.isDirectory }
-//            .flatMap { it.walkTopDown().filter { it.isFile && it.extension == "kt" } }
-//            .forEach { file ->
-//                val content = file.readText()
-//
-//                val packageMatch = Regex("""^package\s+([\w.]+)""").find(content)
-//                val packageName = packageMatch?.groupValues?.get(1)?.trim() ?: return@forEach
-//
-//                classRegex.findAll(content).forEach { match ->
-//                    val className = match.groupValues[1]
-//                    val baseClassRaw = match.groupValues[2].split("<").first().trim()
-//
-//                    val fullyQualifiedName = "$packageName.$className"
-//                    val resolvedBaseClass = simpleToFqName[baseClassRaw] ?: baseClassRaw
-//
-//                    classHierarchy[fullyQualifiedName] = resolvedBaseClass
-//                    simpleToFqName[className] = fullyQualifiedName
-//
-//                    logger.lifecycle("📘 Class from dependency: $fullyQualifiedName → $resolvedBaseClass")
-//                }
-//            }
 
         // ✅ First pass: Collect all class declarations across all files
         allSourceDirs
@@ -283,12 +304,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                     }
                 }
             }
-
-//        resolveTransitiveInheritanceChain(
-//            classHierarchy,
-//            simpleToFqName,
-//            importMappings
-//        )
 
         logger.lifecycle("📚 Final class hierarchy map:")
         classHierarchy.forEach { (child, parent) ->
@@ -384,23 +399,112 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         // prepare annotation file
         if (isAndroidTarget) {
             logger.lifecycle("WRITING DEPENDENCY GRAPH TO ANDROID")
-            outputFile.writeText(
-                generateAtlasContainer(
-                    classToPackage,
-                    singletons,
-                    factories,
-                    scopedInstances,
-                    viewModels,
-                    modules,
-                    provides,
-                    providesReturnTypes
-                )
+            val vmLayout = generateAndroidExtensions()
+
+            // --- ANDROID allow-lists: Android app roots + commonMain (EXCLUDES Wear roots) ---
+            val androidRoots = externalSourceDirs.files
+            val commonRoots = dependencyCommonMainSources.files
+
+            logger.lifecycle("DROID MODULE PATH : ${externalSourceDirs.asPath}")
+            logger.lifecycle(
+                "ANDROID PRE COLLECTIONS ${
+                    androidRoots.map { it.path }.joinToString { "\n" }
+                }"
+            )
+            logger.lifecycle("COMMONMAIN POST COLLECTIONS ${commonRoots.map { it.path }.joinToString { "\n" }}")
+
+
+            val (androidFq, androidSimple) = run {
+                val (fqA, simpleA) = buildAllowLists(androidRoots)
+                val (fqC, simpleC) = buildAllowLists(commonRoots)
+
+                (fqA + fqC) to (simpleA + simpleC)
+            }
+
+            val androidClassToPackage = filterClassToPackage(classToPackage, androidSimple)
+            val androidSingletons = filterBySimple(singletons, androidSimple) { it }
+            val androidFactories = filterBySimple(factories, androidSimple) { it }
+            val androidScoped = filterBySimple(scopedInstances, androidSimple) { it }
+            val androidViewModels = filterBySimple(viewModels, androidSimple) { it }
+            val androidModules = filterBySimple(modules, androidSimple) { it }
+
+            val (commonFq,  _)  = collectClassesFromRoots(commonRoots)
+            val androidMembership = androidFq + commonFq
+            val androidProvides = filterProvidesByModuleMembership(
+                provides = provides,
+                inModuleFq = androidMembership,
+                classToPackage = androidClassToPackage,
+                requireModuleOwner = true
             )
 
-            androidOutputFile.writeText(generateAndroidExtensions())
+            val androidProvidesReturnTypes =
+                filterProvidesReturnTypes(providesReturnTypes, androidFq, androidSimple)
 
-            logger.lifecycle("✅ Generated AtlasContainer.kt at: ${outputFile.absolutePath}")
-            logger.lifecycle("✅ Generated ViewModelExtensions.kt at: ${androidOutputFile.absolutePath}")
+            // --- Generate ANDROID (no Wear-only modules leak in) ---
+            outputFile.writeText(
+                generateAtlasContainer(
+                    androidClassToPackage,
+                    androidSingletons,
+                    androidFactories,
+                    androidScoped,
+                    androidViewModels,
+                    androidModules,
+                    androidProvides,
+                    androidProvidesReturnTypes
+                )
+            )
+            androidOutputFile.writeText(vmLayout)
+
+            logger.lifecycle("✅ Android container generated (kept Android+commonMain; excluded Wear-only types).")
+
+            // --- Wear branch below (unchanged logic but using the same helpers) ---
+            val wearModuleRoot: File? = wearOSModuleDirectory.orNull?.asFile
+            if (wearOutputFile != null && wearModuleRoot != null && wearModuleRoot.exists()) {
+                logger.lifecycle("Logging WearOS Module Root: ${wearModuleRoot.absolutePath}")
+
+                val wearRoots: Set<File> = wearOSSourceDirs.files
+                val (allowedFq, allowedSimple) = run {
+                    val (fqA, simpleA) = buildAllowLists(wearRoots)
+                    val (fqC, simpleC) = buildAllowLists(commonRoots)
+
+                    (fqA + fqC) to (simpleA + simpleC)
+                }
+
+                val wearClassToPackage = filterClassToPackage(classToPackage, allowedSimple)
+                val wearSingletons = filterBySimple(singletons, allowedSimple) { it }
+                val wearFactories = filterBySimple(factories, allowedSimple) { it }
+                val wearScoped = filterBySimple(scopedInstances, allowedSimple) { it }
+                val wearViewModels = filterBySimple(viewModels, allowedSimple) { it }
+                val wearModules = filterBySimple(modules, allowedSimple) { it }
+
+                val wearMembership = allowedFq + commonFq
+                val wearProvides = filterProvidesByModuleMembership(
+                    provides = provides,
+                    inModuleFq = wearMembership,
+                    classToPackage = wearClassToPackage,
+                    requireModuleOwner = true
+                )
+
+                val wearProvidesReturnTypes =
+                    filterProvidesReturnTypes(providesReturnTypes, allowedFq, allowedSimple)
+
+                wearOutputFile.writeText(
+                    generateAtlasContainer(
+                        wearClassToPackage,
+                        wearSingletons,
+                        wearFactories,
+                        wearScoped,
+                        wearViewModels,
+                        wearModules,
+                        wearProvides,
+                        wearProvidesReturnTypes
+                    )
+                )
+                wearVMOutputFile?.writeText(vmLayout)
+                logger.lifecycle("✅ Wear container generated (kept Wear+commonMain; excluded Android-only).")
+            } else {
+                logger.lifecycle("ℹ️ Skipping WearOS: no wear module root / output.")
+            }
         } else {
             logger.lifecycle("WRITING DEPENDENCY GRAPH TO IOS")
             iosOutputFile.writeText(
@@ -419,32 +523,8 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         }
     }
 
-//    private fun resolveTransitiveInheritanceChain(
-//        classHierarchy: MutableMap<String, String?>,
-//        simpleToFqName: MutableMap<String, String?>,
-//        importMappings: MutableMap<String, String?>
-//    ) {
-//        val visited = mutableSetOf<String>()
-//
-//        for ((child, directParent) in classHierarchy) {
-//            var current = directParent
-//            while (current != null && current !in visited) {
-//                visited += current
-//
-//                val nextParent = classHierarchy[current]
-//                    ?: simpleToFqName[current]
-//                    ?: importMappings[current]
-//                    ?: break
-//
-//                classHierarchy[current] = nextParent
-//                current = nextParent
-//            }
-//        }
-//    }
-
     private fun getViewModelStackGen(): String {
-        if (isAndroidTarget) {
-            return """
+        return """
                  private class ViewModelEntry<T : Any>(val factory: () -> T) {
             private var instance: T? = null
 
@@ -461,27 +541,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             }
         }
             """.trimIndent()
-        } else {
-            return """
-            private class ViewModelEntry<T : Any>(val factory: () -> T) {
-           private var weakRef: Lazy<WeakReference<T>> = lazy { WeakReference(factory())}
-
-            fun getOrRegenerate(): T {
-                return weakRef.value.get() ?: factory().also { newInstance ->
-                    weakRef = lazy {WeakReference(newInstance)} // ✅ Regenerate and store new instance
-                }
-            }
-            
-            fun forceRegenerate() {
-                weakRef = lazy { WeakReference(factory())} 
-            }
-            
-            fun resetVm(){
-               weakRef = lazy { WeakReference(factory())}      
-            }
-        }
-        """.trimIndent()
-        }
     }
 
     private fun generateAtlasContainer(
@@ -558,8 +617,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         
         object AtlasContainer : AtlasContainerContract {
             $providesLazyDeclarations
-        
-            private var allRegisteredClassDefinitions = mutableMapOf<String, KClass<*>>()
     
             private val singletons: MutableMap<KClass<*>, Lazy<Any>> = mutableMapOf()
             private val factories: MutableMap<KClass<*>, () -> Lazy<Any>> = mutableMapOf()
@@ -576,26 +633,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 ${if (modules.isNotEmpty()) modules.joinToString("\n") { "modules[${it}::class] = ${it}()" } else "// No Modules registered"}
                 
                 $providesRegistrations
-        
-            forceRefreshNamedDependencies()
-            }
-            
-            private fun forceRefreshNamedDependencies() {
-                val allKClasses = buildSet {
-                    addAll(singletons.keys)
-                    addAll(factories.keys)
-                    addAll(viewModels.keys)
-                    addAll(modules.keys)
-                    addAll(provides.keys)
-                    addAll(scoped.keys)
-                }
-
-               for (kclass in allKClasses) {
-                  val key = kclass.qualifiedName ?: kclass.simpleName ?: "UNKNOWN"
-                  if (key !in allRegisteredClassDefinitions) {
-                     allRegisteredClassDefinitions[key] = kclass
-                  }
-               }  
             }
             
             override fun <T : Any> resolve(clazz: KClass<T>): T {
@@ -608,12 +645,37 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             }
             
             override fun <T : Any> resolveByName(clazz: String): T {
-                val kclass = allRegisteredClassDefinitions[clazz]
-                    ?: throw IllegalArgumentException("No registered class found for: " + clazz)
-
-                @Suppress("UNCHECKED_CAST")
-                return resolve(kclass as KClass<T>)
+        val kclass = singletons.toList().firstOrNull {
+            it.first.simpleName?.contains(clazz) ?: false || it.first.qualifiedName?.contains(clazz)
+                    ?: false
+        }
+            ?: factories.toList().firstOrNull {
+                it.first.simpleName?.contains(clazz) ?: false || it.first.qualifiedName?.contains(
+                    clazz
+                ) ?: false
             }
+                ?: viewModels.toList().firstOrNull {
+                    it.first.simpleName?.contains(clazz) ?: false || it.first.qualifiedName?.contains(
+                        clazz
+                    )
+                            ?: false
+                }
+                    ?: provides.toList().firstOrNull {
+                        it.first.simpleName?.contains(clazz) ?: false || it.first.qualifiedName?.contains(
+                            clazz
+                        )
+                                ?: false
+                    }
+                        ?: modules.toList().firstOrNull {
+                            it.first.simpleName?.contains(clazz) ?: false || it.first.qualifiedName?.contains(
+                                clazz
+                            )
+                                    ?: false
+                        }
+
+            @Suppress("UNCHECKED_CAST")
+            return resolve(kclass?.first as KClass<T>)
+          }
             
             // dynamic registration (invoked by DSL API)
             // These are internal APIs ON ATLAS (DO NOT USE IN YOUR APP DIRECTLY)
@@ -644,8 +706,6 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                         throw IllegalArgumentException("❌ Could not register this type. No valid type specified")
                     }
                 }
-                
-                forceRefreshNamedDependencies()
             }
                  
         override fun <T : Any> resolveViewModel(clazz: KClass<T>): T? {
@@ -654,15 +714,15 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
        }
        
        override fun <T : Any> resetViewModel(clazz: KClass<T>) {
-        @Suppress("UNCHECKED_CAST")
-        val entry = viewModels[clazz] as? ViewModelEntry<T>
-            ?: error("No ViewModel registered for class:")
+            @Suppress("UNCHECKED_CAST")
+            val entry = viewModels[clazz] as? ViewModelEntry<T>
+                ?: error("❌ No ViewModel factory registered for class:")
 
-        viewModels[clazz] = ViewModelEntry { entry.factory() }
+            viewModels[clazz] = ViewModelEntry(entry.factory)
         }
         
         override fun resetViewModelByName(clazz: String) {
-       
+             
         }
     }
     

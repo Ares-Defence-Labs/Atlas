@@ -151,6 +151,9 @@ class DroidStandard : ViewModel(), Pushable<String>, Poppable<Int> {
         KmpLogging.writeInfo("POP", "$params")
     }
 
+    fun test(){
+
+    }
 }
 
 
@@ -165,6 +168,12 @@ class DroidStandardSecond : ViewModel(), Pushable<String>, Poppable<Int> {
         KmpLogging.writeInfo("OPEN THIRD SCREEN", "RUNNING THIRD SCREEN")
         AtlasDI.resolveService<AtlasNavigationService>()
             .navigateToPage(TabParentViewModel::class)
+    }
+
+    fun popToRoot(){
+        KmpLogging.writeInfo("POPPING TO ROOT", "POPPING")
+        AtlasDI.resolveService<AtlasNavigationService>()
+            .popToRoot()
     }
 
     fun openThirdScreenEntireStack() {

@@ -8,6 +8,7 @@ import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -23,6 +24,10 @@ abstract class AtlasFontPluginTask : DefaultTask() {
     @get:OutputDirectory
     abstract val androidOutputDir: DirectoryProperty
 
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearOSOutputDir: DirectoryProperty
+
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
@@ -34,9 +39,18 @@ abstract class AtlasFontPluginTask : DefaultTask() {
     @get:OutputDirectory
     abstract var androidResourcePackageRef: String
 
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearOSResourcesFontsDir: DirectoryProperty
+
     @get:Input
     abstract var forceRegenerate: Boolean
 
+    @get:Optional
+    @get:Input
+    abstract var wearOSResourcePackageRef: String
+
+    @get:Optional
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputHashFile: RegularFileProperty
@@ -44,6 +58,11 @@ abstract class AtlasFontPluginTask : DefaultTask() {
     init {
         group = "AtlasFonts"
         description = "Generates a resource class file based on the xml specified"
+
+        outputs.upToDateWhen {
+            val file = inputHashFile.orNull?.asFile
+            file != null && file.exists()
+        }
     }
 
     @TaskAction
@@ -68,18 +87,30 @@ abstract class AtlasFontPluginTask : DefaultTask() {
             }" // safe because file is explicitly named
         }
 
-        generateAndroidActualFontObject(snakeToPath)
-        copyFontsToAndroidAssets(fontFiles)
+        generateAndroidActualFontObject(snakeToPath, false)
+        copyFontsToAndroidAssets(fontFiles, androidResourcesFontsDir.get().asFile)
+
+        val wear = wearOSResourcesFontsDir.orNull?.asFile
+        if (wear != null) {
+            generateAndroidActualFontObject(snakeToPath, true)
+            copyFontsToAndroidAssets(fontFiles, wear)
+        }
     }
 
-    private fun generateAndroidActualFontObject(entries: Map<String, String>) {
+    private fun generateAndroidActualFontObject(entries: Map<String, String>, isWearable: Boolean) {
+        val wearDirectory = wearOSOutputDir.orNull?.asFile
         val builder = StringBuilder()
         builder.appendLine("package com.architect.atlas.resources.fonts")
         builder.appendLine()
         builder.appendLine("import android.content.Context")
         builder.appendLine("import android.graphics.Typeface")
         builder.appendLine("import androidx.core.content.res.ResourcesCompat")
-        builder.appendLine("import $androidResourcePackageRef.R")
+
+        if (isWearable) {
+            builder.appendLine("import $wearOSResourcePackageRef.R")
+        } else {
+            builder.appendLine("import $androidResourcePackageRef.R")
+        }
 
         builder.appendLine()
         builder.appendLine("object AtlasFonts {")
@@ -91,17 +122,25 @@ abstract class AtlasFontPluginTask : DefaultTask() {
 
         builder.appendLine("}")
 
-        val file = File(androidOutputDir.get().asFile, "AtlasFonts.kt")
-        file.parentFile.mkdirs()
-        file.writeText(builder.toString())
+        if (!isWearable) {
+            val file = File(androidOutputDir.get().asFile, "AtlasFonts.kt")
+            file.parentFile.mkdirs()
+            file.writeText(builder.toString())
+        } else {
+            File(wearDirectory, "AtlasFonts.kt")
+                .apply {
+                    parentFile.mkdirs()
+                    writeText(builder.toString())
+                }
+        }
     }
 
-    private fun copyFontsToAndroidAssets(fontFiles: List<File>) {
-        val targetDir = androidResourcesFontsDir.asFile.get()
+    private fun copyFontsToAndroidAssets(fontFiles: List<File>, targetDir: File) {
         targetDir.mkdirs()
 
-        val filteredFonts = fontFiles.filter { !File(targetDir, it.name).exists() || forceRegenerate }
-        if(filteredFonts.isEmpty()){
+        val filteredFonts =
+            fontFiles.filter { !File(targetDir, it.name).exists() || forceRegenerate }
+        if (filteredFonts.isEmpty()) {
             logger.warn("All fonts already exist, skipping font generator")
             return
         }

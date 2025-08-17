@@ -9,6 +9,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -35,6 +36,7 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
     @get:Input
     abstract var isAndroidTarget: Boolean
 
+    @get:Optional
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputHashFile: RegularFileProperty
@@ -42,6 +44,11 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
     init {
         group = "AtlasColors"
         description = "Generates a resource class file based on the xml specified"
+
+        outputs.upToDateWhen {
+            val file = inputHashFile.orNull?.asFile
+            file != null && file.exists()
+        }
     }
 
     @TaskAction

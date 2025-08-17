@@ -1,20 +1,23 @@
 {
   "colors" : [
     {
-      "idiom" : "universal",
       "color" : {
-        "color-space" : "srgb",
+        "color-space" : "display-p3",
         "components" : {
-          "red" : "1.000",
-          "green" : "1.000",
-          "blue" : "1.000",
-          "alpha" : "1.0"
+          "alpha" : "1.000",
+          "blue" : "0xE8",
+          "green" : "0xE8",
+          "red" : "0xE8"
         }
-      }
+      },
+      "idiom" : "universal"
     }
   ],
   "info" : {
-    "version" : 1,
-    "author" : "Atlas"
+    "author" : "xcode",
+    "version" : 1
+  },
+  "properties" : {
+    "localizable" : true
   }
 }

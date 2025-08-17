@@ -83,6 +83,12 @@ object ProjectFinder {
         }
     }
 
+    fun findWearApp(sharedProject: Project): Project? {
+        return sharedProject.rootProject.subprojects.firstOrNull { subproject ->
+            subproject.name.contains("wear", ignoreCase = true)
+        }
+    }
+
     fun isBuildingForAndroid(project: Project): Boolean {
         val requestedTasks = project.gradle.startParameter.taskNames
         return requestedTasks.any { taskName ->

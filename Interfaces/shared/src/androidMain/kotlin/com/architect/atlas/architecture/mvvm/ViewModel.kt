@@ -7,7 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Suppress("EmptyDefaultConstructor")
-actual open class ViewModel actual constructor() : androidx.lifecycle.ViewModel() {
+actual open class ViewModel : androidx.lifecycle.ViewModel() {
     actual val viewModelScope: CoroutineScope = CoroutineScope(Dispatchers.Main)
     actual val viewModelScopeWithoutCancel: CoroutineScope = CoroutineScope(Dispatchers.Main)
 

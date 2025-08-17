@@ -2,11 +2,13 @@ package com.architect.atlasResGen.tasks.images
 
 import com.architect.atlas.common.helpers.FileHelpers
 import net.coobird.thumbnailator.Thumbnails
-import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import java.io.File
+import org.gradle.api.DefaultTask
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 
 @CacheableTask
 abstract class AtlasImagePluginTask : DefaultTask() {
@@ -15,6 +17,10 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val androidOutputDir: DirectoryProperty
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearOutputDir: DirectoryProperty
 
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -33,12 +39,25 @@ abstract class AtlasImagePluginTask : DefaultTask() {
     @get:OutputDirectory
     abstract var androidResourcePackageRef: String
 
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearAssetImageDir: DirectoryProperty
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearResourcesDrawableDir: DirectoryProperty
+
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
 
     @get:Input
     abstract var forceRegenerate: Boolean
 
+    @get:Optional
+    @get:Input
+    abstract var wearOSResourcePackageRef: String
+
+    @get:Optional
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputHashFile: RegularFileProperty
@@ -47,6 +66,11 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         group = "AtlasImages"
         description =
             "Generates platform-specific image class files based on images in commonMain/resources/images"
+
+        outputs.upToDateWhen {
+            val file = inputHashFile.orNull?.asFile
+            file != null && file.exists()
+        }
     }
 
     @TaskAction
@@ -78,9 +102,14 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         val svgFiles = imageFiles.filter { it.extension.lowercase() == "svg" }
 
         // each of the images, need to be checked if they currently exist
-        generateAndroidActualObject(snakeToPath)
+        generateAndroidActualObject(snakeToPath, false)
         prepareSvgFilesForAssetManager(svgFiles)
         generateScaledDrawablesWithThumbnailator(nonSvgFiles)
+
+        val wearOutput = wearOutputDir.orNull?.asFile
+        if (wearOutput != null) {
+            generateAndroidActualObject(snakeToPath, true)
+        }
     }
 
     private fun prepareSvgFilesForAssetManager(svgImageFiles: List<File>) {
@@ -92,7 +121,8 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         copyImagesToAndroidAssets(svgImageFiles)
     }
 
-    private fun generateAndroidActualObject(entries: Map<String, String>) {
+    private fun generateAndroidActualObject(entries: Map<String, String>, isWearable: Boolean) {
+        val wearOutput = wearOutputDir.orNull?.asFile
         val builder = StringBuilder()
         builder.appendLine("package com.architect.atlas.resources.images")
         builder.appendLine()
@@ -103,7 +133,13 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         builder.appendLine("import android.graphics.drawable.Drawable")
         builder.appendLine("import com.caverock.androidsvg.SVG")
         builder.appendLine("import androidx.appcompat.content.res.AppCompatResources")
-        builder.appendLine("import $androidResourcePackageRef.R")
+
+        if (isWearable) {
+            builder.appendLine("import $wearOSResourcePackageRef.R")
+        } else {
+            builder.appendLine("import $androidResourcePackageRef.R")
+        }
+
         builder.appendLine()
         builder.appendLine("object AtlasImages {")
 
@@ -131,9 +167,15 @@ abstract class AtlasImagePluginTask : DefaultTask() {
 
         builder.appendLine("}")
 
-        val file = File(androidOutputDir.get().asFile, "AtlasImages.kt")
-        file.parentFile.mkdirs()
-        file.writeText(builder.toString())
+        if (!isWearable) {
+            val file = File(androidOutputDir.get().asFile, "AtlasImages.kt")
+            file.parentFile.mkdirs()
+            file.writeText(builder.toString())
+        } else {
+            val wearFile = File(wearOutput, "AtlasImages.kt")
+            wearFile.parentFile.mkdirs()
+            wearFile.writeText(builder.toString())
+        }
     }
 
     private fun copyImagesToAndroidAssets(imageFiles: List<File>) {
@@ -158,6 +200,30 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         }
 
         logger.lifecycle("✅ Copied ${imageFiles.size} images to Android assets: ${targetDir.absolutePath}")
+
+        // wear os components
+        val wearTargetDir = wearAssetImageDir.orNull?.asFile
+        if (wearTargetDir != null) {
+            wearTargetDir.mkdirs()
+            val wearFilteredImages =
+                imageFiles.filter {
+                    !File(wearTargetDir, it.name).exists() || forceRegenerate
+                }
+
+            if (wearFilteredImages.isEmpty()) {
+                logger.warn("All images already exist")
+                return
+            }
+
+            wearFilteredImages.forEach { sourceFile ->
+                val targetFile = File(wearTargetDir, sourceFile.name)
+
+                logger.lifecycle("Moving SVG to AssetManager ${sourceFile.name}")
+                sourceFile.copyTo(targetFile, overwrite = true)
+            }
+
+            logger.lifecycle("✅ Copied ${imageFiles.size} images to Android assets: ${wearTargetDir.absolutePath}")
+        }
     }
 
     private fun generateScaledDrawablesWithThumbnailator(nonSvgFiles: List<File>) {
@@ -167,6 +233,7 @@ abstract class AtlasImagePluginTask : DefaultTask() {
         }
 
         val baseOutputDir = androidResourcesDrawableDir.asFile.get()
+        val wearbaseOutputDir = wearResourcesDrawableDir.orNull?.asFile
         val densities = mapOf(
             "mdpi" to 1.0,
             "hdpi" to 1.5,
@@ -179,13 +246,24 @@ abstract class AtlasImagePluginTask : DefaultTask() {
             densities.forEach { (density, scale) ->
                 try {
                     val targetDir = File(baseOutputDir, "drawable-$density")
+                    val wearTargetDir = if (wearbaseOutputDir != null) File(
+                        wearbaseOutputDir,
+                        "drawable-$density"
+                    ) else null
+
                     if (!targetDir.exists()) {
                         targetDir.mkdirs()
                     }
 
+                    if (wearbaseOutputDir != null) {
+                        if (wearTargetDir?.exists() == false) {
+                            wearTargetDir.mkdirs()
+                        }
+                    }
+
                     val outputFile =
                         File(targetDir, "${imageFile.nameWithoutExtension}.${imageFile.extension}")
-                    if(outputFile.exists() && !forceRegenerate){
+                    if (outputFile.exists() && !forceRegenerate) {
                         logger.lifecycle("PNG Image already exists ${outputFile.name}")
                         return
                     }
@@ -203,6 +281,33 @@ abstract class AtlasImagePluginTask : DefaultTask() {
                             )
                         }"
                     )
+
+                    // wearOS file
+                    if (wearbaseOutputDir != null) {
+                        val wearOutputFile =
+                            File(
+                                wearTargetDir,
+                                "${imageFile.nameWithoutExtension}.${imageFile.extension}"
+                            )
+                        if (wearOutputFile.exists() && !forceRegenerate) {
+                            logger.lifecycle("PNG Image already exists ${outputFile.name}")
+                            return
+                        }
+
+                        Thumbnails.of(imageFile)
+                            .scale(scale)
+                            .outputFormat(imageFile.extension)
+                            .allowOverwrite(true)
+                            .toFile(wearOutputFile)
+
+                        logger.lifecycle(
+                            "✅ [${density.padEnd(6)}] ${wearOutputFile.name} → ${
+                                wearTargetDir?.relativeTo(
+                                    wearbaseOutputDir
+                                )
+                            }"
+                        )
+                    }
                 } catch (e: Exception) {
                     logger.error("❌ Failed to generate scaled image for: ${imageFile.name}", e)
                 }

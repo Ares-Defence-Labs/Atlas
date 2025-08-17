@@ -14,6 +14,8 @@ class AtlasDIProcessor : Plugin<Project> {
             val masterKeyHandler = project.tasks.findByName("masterKeyHandler")
 
             val droidModule = ProjectFinder.findAndroidClientApp(project)
+            val wearOSModule = ProjectFinder.findWearApp(project)
+
             val dataSets = project.providers
                 .gradleProperty("atlas.extraViewModelBaseClasses")
                 .forUseAtConfigurationTime()
@@ -23,6 +25,7 @@ class AtlasDIProcessor : Plugin<Project> {
                 ?.filter { it.isNotBlank() }
                 ?.toSet()
                 ?: emptySet()
+
             val generateDependencyGraphTask = project.tasks.register(
                 "generateDependencyGraph",
                 AtlasDIProcessorGraphTask::class.java
@@ -41,8 +44,28 @@ class AtlasDIProcessor : Plugin<Project> {
                 )
                 androidOutputDir.set(droidModule?.layout?.buildDirectory?.dir("generated/kotlin/container")!!)
                 iOSOutputDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/container"))
-                isAndroidTarget = ProjectFinder.isBuildingForAndroid(project)
-                inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
+            }
+
+            if(wearOSModule != null){
+                generateDependencyGraphTask.apply {
+                    configure {
+                        wearOSModuleDirectory.set(wearOSModule.projectDir)
+                        wearOSOutputDir.set(wearOSModule.layout.buildDirectory.dir("generated/kotlin/container"))
+                        wearOSSourceDirs.from(
+                            wearOSModule.layout.projectDirectory.dir("src/main/kotlin")
+                        )
+                    }
+                }
+            }
+
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                generateDependencyGraphTask.configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
             }
 
             if (masterKeyHandler == null) {

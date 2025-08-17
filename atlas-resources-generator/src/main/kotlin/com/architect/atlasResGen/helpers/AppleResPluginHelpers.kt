@@ -29,7 +29,15 @@ object AppleResPluginHelpers {
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/images"))
             iosAssetsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
             projectRootDir.set(project.layout.projectDirectory)
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
         }
     }
 
@@ -45,7 +53,15 @@ object AppleResPluginHelpers {
             iOSResourcesFontsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/fonts/fontFiles"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/fonts"))
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
         }
     }
 
@@ -61,7 +77,15 @@ object AppleResPluginHelpers {
                 "${project.layout.buildDirectory.asFile.get().path}/generated/iosMain/resources/fonts/fontFiles"
             injectPlistScriptFile.set(project.layout.buildDirectory.file("generated/iosMain/resources/fonts/scripts/updateInfoPlistFonts.sh"))
             copyScriptFile.set(project.layout.buildDirectory.file("generated/iosMain/resources/fonts/scripts/copyAtlasAssets.sh"))
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
         }
     }
 }

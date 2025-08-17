@@ -1,0 +1,15 @@
+{
+  "originHash" : "5262d405e6f718ddff849d12402e8ec91a4bbef32990dafe5a2a99ebb668b833",
+  "pins" : [
+    {
+      "identity" : "bottomsheet",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gaetanomatonti/BottomSheet",
+      "state" : {
+        "revision" : "d4fa33e036cf40e88a648501aacae23db8805564",
+        "version" : "0.4.1"
+      }
+    }
+  ],
+  "version" : 3
+}

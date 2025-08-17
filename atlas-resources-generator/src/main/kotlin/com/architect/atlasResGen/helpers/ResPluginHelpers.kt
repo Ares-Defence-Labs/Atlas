@@ -22,9 +22,15 @@ internal object ResPluginHelpers {
         ) {
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
-            isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
         }
     }
 
@@ -42,7 +48,12 @@ internal object ResPluginHelpers {
             project.logger.warn("⚠️ AtlasImagePlugin: Could not locate Android module. Skipping Android asset integration.")
         }
 
-        val isAndroid = androidProject != null
+        val wearOSProject = ProjectFinder.findWearApp(project)
+        if (wearOSProject == null) {
+            project.logger.warn("⚠️ AtlasImagePlugin: Could not locate wear module. Skipping wear asset integration.")
+        }
+
+        val isAndroid = androidProject != null || wearOSProject != null
         return project.tasks.register(
             imageGenTask,
             AtlasImagePluginTask::class.java
@@ -56,15 +67,37 @@ internal object ResPluginHelpers {
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
+
+            if (wearOSProject != null) {
+                configure {
+                    wearOutputDir.set(wearOSProject.layout.buildDirectory.dir("generated/kotlin/resources"))
+                    wearAssetImageDir.set(wearOSProject.layout.projectDirectory.dir("src/main/assets/images"))
+                    wearResourcesDrawableDir.set(wearOSProject.layout.projectDirectory.dir("src/main/res"))
+                    wearOSResourcePackageRef = project.findProperty("atlas.wearableBasePackage")?.toString() ?: ""
+                }
+            }
         }
     }
 
     fun getFontsResourceTask(project: Project): TaskProvider<AtlasFontPluginTask> {
+        val wearOSProject = ProjectFinder.findWearApp(project)
+        if (wearOSProject == null) {
+            project.logger.warn("⚠️ AtlasFontsPlugin: Could not locate wear module. Skipping wear asset integration.")
+        }
+
         val androidProject = ProjectFinder.findAndroidModule(project)
         if (androidProject == null) {
-            project.logger.warn("⚠️ AtlasImagePlugin: Could not locate Android module. Skipping Android asset integration.")
+            project.logger.warn("⚠️ AtlasFontsPlugin: Could not locate Android module. Skipping Android asset integration.")
         }
 
         val isAndroid = androidProject != null
@@ -78,8 +111,24 @@ internal object ResPluginHelpers {
                 if (isAndroid) getAndroidAppNamespace(androidProject!!) else ""
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             if (isAndroid) androidOutputDir.set(androidProject!!.layout.buildDirectory.dir("generated/kotlin/resources"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
+
+            if (wearOSProject != null) {
+                configure {
+                    wearOSOutputDir.set(wearOSProject.layout.buildDirectory.dir("generated/kotlin/resources"))
+                    wearOSResourcesFontsDir.set(wearOSProject.layout.projectDirectory.dir("src/main/res/font"))
+                    wearOSResourcePackageRef = project.findProperty("atlas.wearableBasePackage")?.toString() ?: ""
+                }
+            }
         }
     }
 
@@ -93,7 +142,15 @@ internal object ResPluginHelpers {
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
             isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+        }.apply {
+            val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+                include("graphInputHash.txt")
+            }
+            if (!hashFileTree.isEmpty) {
+                configure {
+                    inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+                }
+            }
         }
     }
 }

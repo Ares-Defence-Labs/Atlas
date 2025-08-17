@@ -1,5 +1,8 @@
 import org.gradle.api.internal.provider.ValueSupplier.ValueProducer.task
 
+include(":wearosapp")
+
+
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 pluginManagement {
     repositories {

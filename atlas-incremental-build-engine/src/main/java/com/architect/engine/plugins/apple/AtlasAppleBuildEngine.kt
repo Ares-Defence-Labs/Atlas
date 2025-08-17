@@ -23,36 +23,48 @@ class AtlasAppleBuildEngine : Plugin<Project> {
                 ResPluginHelpers.getIncrementalVerifierForAllModulesTask(project)
 
             val isiOS = ProjectFinder.isBuildingForIos(project)
-            val moduleTasks = if (isiOS) mutableListOf(
-                // apple tasks
-                "generateDependencyGraph",
-                "generateNavAtlasEngine",
-                "generateAtlasStringsGraph",
-                "generateAtlasColorsGraph",
+            val moduleTasks = mutableListOf<String>()
 
-                // apple tasks
-                "appleFontsGenTask",
-                "appleFontsPackagingGenTask",
-                "applePackageXcodeGenTask",
-            ) else mutableListOf(
-                // default tasks
-                "generateDependencyGraph",
-                "generateNavAtlasEngine",
-                "generateAtlasStringsGraph",
-                "generateAtlasColorsGraph",
-                "generateAtlasImagesGraph",
-                "generateAtlasFontsGraph",
-            )
+            if (project.tasks.any { it.name == "generateDependencyGraph" }) {
+                moduleTasks.add("generateDependencyGraph")
+            }
+
+            if (project.tasks.any { it.name == "generateNavAtlasEngine" }) {
+                moduleTasks.add("generateNavAtlasEngine")
+            }
+
+            if (isiOS) {
+                if (project.tasks.any { it.name == "generateAtlasStringsGraph" }) {
+                    moduleTasks.addAll(
+                        listOf(
+                            "generateAtlasStringsGraph",
+                            "generateAtlasColorsGraph",
+
+                            "appleFontsGenTask",
+                            "appleFontsPackagingGenTask",
+                            "applePackageXcodeGenTask",
+                        )
+                    )
+                }
+            } else {
+                if (project.tasks.any { it.name == "generateAtlasStringsGraph" }) {
+                    moduleTasks.addAll(
+                        listOf(
+                            "generateAtlasStringsGraph",
+                            "generateAtlasColorsGraph",
+                            "generateAtlasImagesGraph",
+                            "generateAtlasFontsGraph",
+                        )
+                    )
+                }
+            }
 
             masterKeyHandler.configure {
                 dependsOn(generateGlobalHashChecker, moduleTasks)
             }
 
             moduleTasks.forEach {
-                val task = project.tasks.findByName(it)
-                if (task != null) {
-                    task.mustRunAfter(generateGlobalHashChecker)
-                }
+                project.tasks.findByName(it)?.mustRunAfter(generateGlobalHashChecker)
             }
 
             project.tasks.findByName("generateAtlasStringsGraph")

@@ -65,12 +65,15 @@
 		538B5A182DA0B2D80031037F /* roboto_condensed_extrabolditalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59B62DA0B2D80031037F /* roboto_condensed_extrabolditalic.ttf */; };
 		538B5A192DA0B2D80031037F /* roboto_condensed_semibold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59BF2DA0B2D80031037F /* roboto_condensed_semibold.ttf */; };
 		538B5A1A2DA0B2D80031037F /* roboto_semicondensed_light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 538B59D82DA0B2D80031037F /* roboto_semicondensed_light.ttf */; };
+		53D7F3BE2E2606C700A2D085 /* BottomSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 53D7F3BD2E2606C700A2D085 /* BottomSheet */; };
+		53D7F3C02E261AF700A2D085 /* SecondContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D7F3BF2E261AF400A2D085 /* SecondContentView.swift */; };
+		53D7F3C52E26213600A2D085 /* ThirdContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D7F3C42E26213600A2D085 /* ThirdContentView.swift */; };
+		53D7F3CA2E2622F700A2D085 /* shared.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 53D7F3C82E2622EB00A2D085 /* shared.xcframework */; };
+		53D7F3CB2E2622F700A2D085 /* shared.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 53D7F3C82E2622EB00A2D085 /* shared.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		53EFA7DF2E10F0F300B6355C /* ParentTabHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7DE2E10F0F000B6355C /* ParentTabHolder.swift */; };
 		53EFA7E52E10F6C300B6355C /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7E42E10F6C100B6355C /* SettingsTab.swift */; };
 		53EFA7E72E10FCFA00B6355C /* ContentViewFab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7E62E10FCF700B6355C /* ContentViewFab.swift */; };
 		53EFA7EE2E13C5F700B6355C /* SampleBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7ED2E13C5F400B6355C /* SampleBottomSheet.swift */; };
-		53EFA7F02E13C80600B6355C /* shared.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 53EFA7EF2E13C80600B6355C /* shared.xcframework */; };
-		53EFA7F12E13C80C00B6355C /* shared.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 53EFA7EF2E13C80600B6355C /* shared.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		53EFA7F52E13CE4600B6355C /* IOSAtlasNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7F22E13CE4600B6355C /* IOSAtlasNavigationService.swift */; };
 		53EFA7F62E13CE4600B6355C /* NavigationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7F32E13CE4600B6355C /* NavigationEngine.swift */; };
 		53EFA7F72E13CE4600B6355C /* TabParentViewModelTabNavigationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EFA7F42E13CE4600B6355C /* TabParentViewModelTabNavigationService.swift */; };
@@ -84,7 +87,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				53EFA7F12E13C80C00B6355C /* shared.xcframework in Embed Frameworks */,
+				53D7F3CB2E2622F700A2D085 /* shared.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -150,11 +153,13 @@
 		538B59E02DA0B2D80031037F /* roboto_semicondensed_thinitalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_semicondensed_thinitalic.ttf; sourceTree = "<group>"; };
 		538B59E12DA0B2D80031037F /* roboto_thin.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_thin.ttf; sourceTree = "<group>"; };
 		538B59E22DA0B2D80031037F /* roboto_thinitalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_thinitalic.ttf; sourceTree = "<group>"; };
+		53D7F3BF2E261AF400A2D085 /* SecondContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondContentView.swift; sourceTree = "<group>"; };
+		53D7F3C42E26213600A2D085 /* ThirdContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThirdContentView.swift; sourceTree = "<group>"; };
+		53D7F3C82E2622EB00A2D085 /* shared.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = shared.xcframework; sourceTree = "<group>"; };
 		53EFA7DE2E10F0F000B6355C /* ParentTabHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentTabHolder.swift; sourceTree = "<group>"; };
 		53EFA7E42E10F6C100B6355C /* SettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
 		53EFA7E62E10FCF700B6355C /* ContentViewFab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewFab.swift; sourceTree = "<group>"; };
 		53EFA7ED2E13C5F400B6355C /* SampleBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleBottomSheet.swift; sourceTree = "<group>"; };
-		53EFA7EF2E13C80600B6355C /* shared.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = shared.xcframework; path = ../shared/Frameworks/shared.xcframework; sourceTree = SOURCE_ROOT; };
 		53EFA7F22E13CE4600B6355C /* IOSAtlasNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IOSAtlasNavigationService.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/IOSAtlasNavigationService.swift; sourceTree = SOURCE_ROOT; };
 		53EFA7F32E13CE4600B6355C /* NavigationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NavigationEngine.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/NavigationEngine.swift; sourceTree = SOURCE_ROOT; };
 		53EFA7F42E13CE4600B6355C /* TabParentViewModelTabNavigationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TabParentViewModelTabNavigationService.swift; path = ../shared/build/generated/iosMain/kotlin/navigation/TabParentViewModelTabNavigationService.swift; sourceTree = SOURCE_ROOT; };
@@ -168,7 +173,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				53EFA7F02E13C80600B6355C /* shared.xcframework in Frameworks */,
+				53D7F3CA2E2622F700A2D085 /* shared.xcframework in Frameworks */,
+				53D7F3BE2E2606C700A2D085 /* BottomSheet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -291,6 +297,8 @@
 		7555FF7D242A565900829871 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				53D7F3BF2E261AF400A2D085 /* SecondContentView.swift */,
+				53D7F3C42E26213600A2D085 /* ThirdContentView.swift */,
 				53EFA7EC2E13C5F000B6355C /* BottomSheet */,
 				53EFA7E62E10FCF700B6355C /* ContentViewFab.swift */,
 				53EFA7E42E10F6C100B6355C /* SettingsTab.swift */,
@@ -309,7 +317,7 @@
 		7555FFB0242A642200829871 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				53EFA7EF2E13C80600B6355C /* shared.xcframework */,
+				53D7F3C82E2622EB00A2D085 /* shared.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -360,6 +368,9 @@
 				Base,
 			);
 			mainGroup = 7555FF72242A565900829871;
+			packageReferences = (
+				53D7F3BC2E2606C700A2D085 /* XCRemoteSwiftPackageReference "BottomSheet" */,
+			);
 			productRefGroup = 7555FF7C242A565900829871 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -463,6 +474,8 @@
 			files = (
 				53EFA7DF2E10F0F300B6355C /* ParentTabHolder.swift in Sources */,
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
+				53D7F3C02E261AF700A2D085 /* SecondContentView.swift in Sources */,
+				53D7F3C52E26213600A2D085 /* ThirdContentView.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
 				53EFA7F52E13CE4600B6355C /* IOSAtlasNavigationService.swift in Sources */,
 				53EFA7F62E13CE4600B6355C /* NavigationEngine.swift in Sources */,
@@ -617,7 +630,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = orgIdentifier.iosApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -647,7 +660,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = orgIdentifier.iosApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -674,6 +687,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		53D7F3BC2E2606C700A2D085 /* XCRemoteSwiftPackageReference "BottomSheet" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gaetanomatonti/BottomSheet";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		53D7F3BD2E2606C700A2D085 /* BottomSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 53D7F3BC2E2606C700A2D085 /* XCRemoteSwiftPackageReference "BottomSheet" */;
+			productName = BottomSheet;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7555FF73242A565900829871 /* Project object */;
 }

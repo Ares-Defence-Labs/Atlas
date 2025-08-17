@@ -1,6 +1,8 @@
 package com.architect.atlas.navigationEngine.tasks.routingEngine
 
+import com.architect.atlas.navigationEngine.helpers.isUnderAny
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
@@ -11,6 +13,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val outputAndroidDir: DirectoryProperty
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val wearOSDir: DirectoryProperty
 
     @get:OutputDirectory
     abstract val outputAndroidTabsDir: DirectoryProperty
@@ -25,12 +31,17 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var outputFiles: List<File>
 
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val wearOSSourceFiles: ConfigurableFileCollection
+
     @get:Input
     abstract var iOSOutputFiles: List<File>
 
     @get:Input
     abstract var projectCoreName: String
 
+    @get:Optional
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputHashFile: RegularFileProperty
@@ -41,6 +52,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     init {
         group = "AtlasNavigation"
         description = "Generates the platform-specific navigation engine implementations."
+
+        outputs.upToDateWhen {
+            val file = inputHashFile.orNull?.asFile
+            file != null && file.exists()
+        }
     }
 
     @TaskAction
@@ -71,6 +87,23 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             generateAndroidNavigation(viewModelToScreen)
             generateAndroidNavGraph(ants)
             generateTabNavigationServices(scanTabAnnotations())
+
+            val wearOSOut = wearOSDir.orNull?.asFile
+            if (wearOSOut != null) {
+                // Build a wear-only view of the parsed annotations
+                val sourceFiles = wearOSSourceFiles.files.toList()
+                val wearAnts = if (sourceFiles.isNotEmpty()) {
+                    ants.filter { (_, _, filePath, _) -> File(filePath).isUnderAny(sourceFiles) }
+                } else {
+                    logger.warn("⚠️ No wearSourceRoots provided; Wear build will include ALL screens. Set 'wearSourceRoots' for correct filtering.")
+                    emptyList()
+                }
+
+                val wearViewModelToScreen = wearAnts.map { it.first to it.second }
+
+                generateAndroidNavigation(wearViewModelToScreen, true)
+                generateAndroidNavGraph(wearAnts, true)
+            }
         }
     }
 
@@ -487,7 +520,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         return null
     }
 
-    private fun generateAndroidNavigation(screens: List<Pair<String, String>>) {
+    private fun generateAndroidNavigation(
+        screens: List<Pair<String, String>>,
+        isWearOS: Boolean = false
+    ) {
         val viewModelImports =
             screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
 
@@ -498,6 +534,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import android.annotation.SuppressLint")
             appendLine("import androidx.navigation.NavHostController")
             appendLine("import androidx.lifecycle.ViewModelProvider")
+            appendLine("import androidx.lifecycle.ViewModelStoreOwner")
             appendLine("import androidx.lifecycle.viewmodel.compose.viewModel")
             appendLine("import com.architect.atlas.architecture.navigation.AtlasNavigationService")
             appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
@@ -517,7 +554,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                     fun removeLastSafely(): T? {
                         if (isNotEmpty()) {
-                            val removed = removeLast()
+                            val removed = removeAt(lastIndex)
                             onPop(removed)
                             return removed
                         }
@@ -590,12 +627,12 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 repeat(countOfPages) {
                     if (navigationStack.size > 1) {
                         navigationStack.removeLastSafely()
+                        deliverPopParams(params)
                         AtlasNavHolder.get()?.popBackStack()
                     }
                 }
             """.trimIndent()
             )
-            appendLine("            deliverPopParams(params)")
             appendLine("        }")
             appendLine("    }")
             appendLine()
@@ -649,9 +686,25 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        }")
             appendLine("    }")
             appendLine()
-            appendLine("    private fun resolveViewModel(vmClass: KClass<out ViewModel>): ViewModel {")
-            appendLine("        return ViewModelProvider(AtlasNavHolder.get()!!.getViewModelStoreOwner(AtlasNavHolder.get()!!.graph.id))[vmClass.java]")
-            appendLine("    }")
+
+            appendLine("""
+                private fun resolveViewModel(
+        vmClass: KClass<out com.architect.atlas.architecture.mvvm.ViewModel>,
+        owner: ViewModelStoreOwner? = null
+    ): com.architect.atlas.architecture.mvvm.ViewModel {
+        val nav = requireNotNull(AtlasNavHolder.get()) { "NavController not bound" }
+        val vmOwner: ViewModelStoreOwner =
+            owner ?: nav.currentBackStackEntry ?: nav.getViewModelStoreOwner(nav.graph.id)
+
+        @Suppress("UNCHECKED_CAST")
+        val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
+
+        val vm = ViewModelProvider(vmOwner)[androidVmClass]
+
+        @Suppress("UNCHECKED_CAST")
+        return vm as com.architect.atlas.architecture.mvvm.ViewModel
+    }
+            """.trimIndent())
             appendLine()
             appendLine("    private fun pushToStack(viewModelClass: KClass<out ViewModel>) {")
             appendLine("        if (navigationStack.isEmpty()) navigationStack.add(viewModelToRouteMap.keys.first())")
@@ -687,9 +740,18 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("}")
         }
 
-        val androidOut = outputAndroidDir.get().asFile
-        androidOut.mkdirs()
-        File(androidOut, "AtlasNavigation.kt").writeText(androidImpl)
+        if (!isWearOS) {
+            val androidOut = outputAndroidDir.get().asFile
+            androidOut.mkdirs()
+            File(androidOut, "AtlasNavigation.kt").writeText(androidImpl)
+        } else {
+            // this needs to apply a filter to remove any non wearOS modules from the appendline
+            val wearOSOut = wearOSDir.orNull?.asFile
+            if (wearOSOut != null) {
+                wearOSOut.mkdirs()
+                File(wearOSOut, "AtlasNavigation.kt").writeText(androidImpl)
+            }
+        }
     }
 
     private fun findViewModelImport(viewModelName: String): String? {
@@ -711,7 +773,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         return null
     }
 
-    private fun generateAndroidNavGraph(screens: List<Quad<String, String, String, Boolean>>) {
+    private fun generateAndroidNavGraph(
+        screens: List<Quad<String, String, String, Boolean>>,
+        isWearOS: Boolean = false
+    ) {
         val navGraph = buildString {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
@@ -831,9 +896,6 @@ inline fun <reified VM : ViewModel> NavGraphBuilder.screen(
         exitTransition = {
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(350))
         },
-        popEnterTransition = {
-            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(350))
-        },
     ) { backStackEntry ->
    val activity = LocalContext.current as ComponentActivity
 val viewModelStoreOwner = activity.viewModelStore
@@ -906,9 +968,18 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
             )
         }
 
-        val file = File(outputAndroidDir.get().asFile, "AtlasNavGraph.kt")
-        file.parentFile.mkdirs()
-        file.writeText(navGraph)
+        if (!isWearOS) {
+            val file = File(outputAndroidDir.get().asFile, "AtlasNavGraph.kt")
+            file.parentFile.mkdirs()
+            file.writeText(navGraph)
+        } else {
+            val wearOSOut = wearOSDir.orNull?.asFile
+            if (wearOSOut != null) {
+                val wearFile = File(wearOSDir.get().asFile, "AtlasNavGraph.kt")
+                wearFile.parentFile.mkdirs()
+                wearFile.writeText(navGraph)
+            }
+        }
     }
 
     // IOS Specific Generators
@@ -936,11 +1007,12 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
             val widgetName = screenName.replace("Screen", "Widget")
 
             """"$viewModelName": {
-        let vm = AtlasDI.companion.resolveServiceNullableByName(
-            clazz: SwiftClassGenerator.companion.getClazz(type: $viewModelName.self)
-        ) as! $viewModelName
-        return LifecycleAwareHostingController(rootView: $widgetName(vm: vm), viewModel: vm)
-    }"""
+                let vmName = SwiftClassGenerator.companion.getClazz(type: $viewModelName.self)
+                let vm = AtlasDI.companion.resolveServiceNullableByName(
+                    clazz: vmName
+                ) as! $viewModelName
+                return LifecycleAwareHostingController(rootView: $widgetName(vm: vm), viewModel: vm, viewModelName: vmName)
+            }"""
         }
 
         val className = "${holder.removeSuffix("ViewModel")}TabsNavigation"
@@ -1105,6 +1177,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
         """.trimIndent()
         )
     }
+
     private fun scanViewModelSwiftAnnotations(): List<Quad<String, String, String, Boolean>> {
         val results = mutableListOf<Quad<String, String, String, Boolean>>()
         val swiftRegex =
@@ -1202,8 +1275,9 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                 appendLine("            if let pc = params {")
                 appendLine("                resolved.tryHandlePush(params: pc)")
                 appendLine("            }")
+                appendLine("            let vmName = SwiftClassGenerator.companion.getClazz(type: $vm.self)")
                 appendLine("            let view = $screenName(vm: resolved)")
-                appendLine("            let controller = LifecycleAwareHostingController(rootView: view, viewModel: resolved)")
+                appendLine("            let controller = LifecycleAwareHostingController(rootView: view, viewModel: resolved, viewModelName: vmName)")
                 appendLine("            controller.navigationController?.setNavigationBarHidden(true, animated: false)")
                 appendLine("            if isModal {")
                 appendLine("                nav?.present(controller, animated: true)")
@@ -1226,7 +1300,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("                prev.onPopParams(params: pc)")
             appendLine("            }")
             appendLine("        }")
-            appendLine("        stack.removeAll()")
+            appendLine("        if stack.count > 1 { stack.removeSubrange(1..<stack.count) }")
             appendLine("        UIApplication.globalRootNav?.popToRootViewController(animated: animate)")
             appendLine("    }")
 
@@ -1270,7 +1344,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                 appendLine("    if viewModelType.hasSuffix(\"$vmSimpleName\") {")
                 appendLine("        let vm = viewModel as! $vm")
                 appendLine("        let view = $screenName(vm: vm)")
-                appendLine("        return LifecycleAwareHostingController(rootView: view, viewModel: vm)")
+                appendLine("        return LifecycleAwareHostingController(rootView: view, viewModel: vm, viewModelName: \"$vmSimpleName\")")
                 appendLine("    }")
             }
 
@@ -1287,13 +1361,15 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                 """
             struct UIKitNavWrapperView: UIViewControllerRepresentable {
                 func makeUIViewController(context: Context) -> UIViewController {
+                    let vmName = SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)
                     let resolved = AtlasDI.companion.resolveServiceNullableByName(
-                            clazz: SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)
+                            clazz: vmName
                         ) as! $initialViewModel
                     let root = $initialScreen(
                         vm: resolved
                     )
-                    let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved)
+                    
+                    let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved, viewModelName: vmName)
                     let navController = UINavigationController(rootViewController: hostingController)
                     UIApplication.globalRootNav = navController
                     return navController
@@ -1308,8 +1384,10 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
 
             class LifecycleAwareHostingController<Content: View>: UIHostingController<Content>, @preconcurrency LifecycleAwareHosting {
                let viewModel: ViewModel
-               init(rootView: Content, viewModel: ViewModel) {
+               let viewModelName: String
+               init(rootView: Content, viewModel: ViewModel, viewModelName: String) {
                    self.viewModel = viewModel
+                   self.viewModelName = viewModelName
                    super.init(rootView: rootView)
                }
                
@@ -1331,6 +1409,8 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                        Task { @MainActor in
                            self.viewModel.onDestroy()
                            self.viewModel.onCleared()
+                           
+                           AtlasDI.companion.resetViewModelByName(clazz: viewModelName)
                        }
                    }
                    super.willMove(toParent: parent)
@@ -1362,18 +1442,45 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("import UIKit")
             appendLine("import $projectCoreName")
             appendLine("import SwiftUICore")
-            appendLine("""
+            appendLine(
+                """
                 import SwiftUI
                     import Combine
-            """.trimIndent())
+            """.trimIndent()
+            )
             appendLine()
 
             appendLine(
                 """    
                     import Foundation
                     import SwiftUI
+                    import UIKit
                     import Combine
 
+                    extension UIApplication {
+                        static var topViewController: UIViewController? {
+                            guard let keyWindow = shared.connectedScenes
+                                .compactMap({ ${'$'}0 as? UIWindowScene })
+                                .flatMap({ ${'$'}0.windows })
+                                .first(where: { ${'$'}0.isKeyWindow }) else {
+                                    return nil
+                            }
+                            return topViewController(base: keyWindow.rootViewController)
+                        }
+
+                        private static func topViewController(base: UIViewController?) -> UIViewController? {
+                            if let nav = base as? UINavigationController {
+                                return topViewController(base: nav.visibleViewController)
+                            }
+                            if let tab = base as? UITabBarController {
+                                return topViewController(base: tab.selectedViewController)
+                            }
+                            if let presented = base?.presentedViewController {
+                                return topViewController(base: presented)
+                            }
+                            return base
+                        }
+                    }
                     
                     @MainActor
                     class AlertDialogManager: ObservableObject {
@@ -1515,21 +1622,21 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                         func body(content viewContent: Content) -> some View {
                             viewContent
                                 .overlay(
-                                    Group {
-                                        Color.black.opacity(manager.isPresented && manager.activeSheetID == sheetID ? 0.3 : 0)
-                                            .ignoresSafeArea()
-                                            .onTapGesture {
-                                                withAnimation {
-                                                   // manager.dismiss()
-                                                }
-                                            }
-                                        if(manager.isPresented){
-                                        alertView()
-                                            .allowsHitTesting(manager.isPresented && manager.activeSheetID == sheetID)
-                                            }
-                                    },
-                                    alignment: .bottom
-                                )
+    ZStack {
+        if manager.isPresented && manager.activeSheetID == sheetID {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation {
+                    }
+                }
+
+            alertView()
+                .allowsHitTesting(true)
+        }
+    },
+    alignment: .bottom
+)
                         }
                         
                         @ViewBuilder
@@ -1569,26 +1676,34 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                             viewContent
                                 .overlay(
                                     Group {
-                                        Color.black.opacity(manager.isPresented && manager.activeSheetID == sheetID ? 0.3 : 0)
-                                            .ignoresSafeArea()
-                                            .onTapGesture {
-                                                withAnimation {
-                                                    manager.dismiss()
+                                        if manager.isPresented && manager.activeSheetID == sheetID {
+                                            Color.black.opacity(0.3)
+                                                .ignoresSafeArea()
+                                                .onTapGesture {
+                                                    withAnimation {
+                                                        manager.dismiss()
+                                                    }
                                                 }
-                                            }
-                                        
-                                        bottomSheetView()
-                                            .allowsHitTesting(manager.isPresented && manager.activeSheetID == sheetID)
+                                        }
+                                    }
+                                )
+                                .overlay(
+                                    Group {
+                                            
+                                            bottomSheetView()
                                     },
                                     alignment: .bottom
                                 )
                         }
                         @ViewBuilder
-                        private func bottomSheetView() -> some View {
-                            VStack(spacing: 0) {
-                                Spacer()
-                                
-                                self.contentBuilder(manager.params)
+                        private func bottomSheetView() -> some View {       
+                                Group {
+            if manager.isPresented && manager.activeSheetID == sheetID {
+                contentBuilder(manager.params)
+            } else {
+                EmptyView() 
+            }
+        }
                                     .frame(maxWidth: .infinity, maxHeight: contentHeight + manager.heightOffset)
                                     .background(Color.white)
                                     .clipShape(RoundedCorner(radius: 26, corners: [.topLeft, .topRight]))
@@ -1596,9 +1711,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                                     .offset(y: manager.isPresented && manager.activeSheetID == sheetID ? 0 : UIScreen.main.bounds.height)
                                     .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.85, blendDuration: 0.25),
                                                value: manager.isPresented
-                                    )
-                            }
-                            .ignoresSafeArea(edges: .bottom)
+                                    ).ignoresSafeArea()
                         }
                     }
 
@@ -1626,7 +1739,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
 
                     
                     class IOSAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {
-    @MainActor
     func setNavigationStack(stack: [ViewModel], params: Any?) {
         DispatchQueue.main.async {
               NavigationEngine.shared.setNavigationStack(stack: stack.map { "\(${'$'}0)" }, params: params)
@@ -1637,43 +1749,38 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
         return []
     }
     
-    @MainActor
     func navigateToPage(viewModelClass: any KotlinKClass, params: Any?) {
             DispatchQueue.main.async {
                 NavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)
             }
     }
     
-    @MainActor
     func navigateToPagePushAndReplace(viewModelClass: any KotlinKClass, params: Any?) {
-        DispatchQueue.main.async {
-            guard let nav = UIApplication.globalRootNav else { return }
+    DispatchQueue.main.async {
+        guard let nav = UIApplication.globalRootNav else { return }
 
-            guard let rootVC = nav.viewControllers.first as? LifecycleAwareHosting else { 
-            print("CANNOT FIND ROOTVC \(nav.viewControllers.first as? LifecycleAwareHosting)")
-            return }
+        // Resolve class name and view model instance
+        guard let className = viewModelClass.qualifiedName,
+              let newViewModel = AtlasDI.companion.resolveServiceNullableByName(clazz: className) as? ViewModel,
+              let controller = NavigationEngine.shared.createViewController(viewModelType: className, viewModel: newViewModel)
+        else {
+            return
+        }
 
-            let className = try? SwiftClassGenerator.companion.getQualifiedNameOfInstance(instance: rootVC.viewModel)
-            
-            print("VM CLASS \(className)")
-            
-            let newRootVM = AtlasDI.companion.resolveServiceNullableByName(clazz: className!) as? ViewModel
-            print("VM DATA FOUND \(newRootVM)")
-            
-            guard let rootViewController = NavigationEngine.shared.createViewController(viewModelType: className!, viewModel: newRootVM!)
-            else {
-            print("CANNOT FIND CLASS NAME (SOMETHING BROKE)")
-            return }
+        // Set new stack with just the new controller
+        nav.setViewControllers([controller], animated: true)
 
-            nav.setViewControllers([rootViewController], animated: false)
-            NavigationEngine.shared.stack.removeAll()
-            NavigationEngine.shared.stack.append(newRootVM!)
+        // Clear and set the navigation stack in your engine
+        NavigationEngine.shared.stack.removeAll()
+        NavigationEngine.shared.stack.append(newViewModel)
 
-            NavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)
+        // Optionally handle push params directly
+        if let pushable = newViewModel as? Pushable, let p = params {
+            pushable.onPushParams(params: p)
         }
     }
+}
     
-    @MainActor
     func navigateToPagePushAndReplaceCurrentScreen(viewModelClass: any KotlinKClass, params: Any?) {
         DispatchQueue.main.async {
             guard let nav = UIApplication.globalRootNav else { return }
@@ -1690,49 +1797,42 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
         }
     }
     
-    @MainActor
     func navigateToPageModal(viewModelClass: any KotlinKClass, params: Any?) {
             DispatchQueue.main.async {
                 NavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params, isModal: true)
             }
     }
     
-    @MainActor
     func popPagesWithCount(countOfPages: Int32, animate: Bool, params: Any?) {
         DispatchQueue.main.async {
              NavigationEngine.shared.popPagesWithCount(count: Int(countOfPages), animate: animate, params: params)
         }
     }
 
-    @MainActor
     func popToRoot(animate: Bool = true, params: Any? = nil) {
         DispatchQueue.main.async {
             NavigationEngine.shared.popToRoot(animate: animate, params: params)
         }
     }
 
-    @MainActor
     func popPage(animate: Bool = true, params: Any? = nil) {
         DispatchQueue.main.async {
             NavigationEngine.shared.popPage(animate: animate, params: params)
         }
     }
 
-    @MainActor
     func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {
         DispatchQueue.main.async {
             NavigationEngine.shared.popPagesWithCount(count: count, animate: animate, params: params)
         }
     }
 
-    @MainActor
     func popToPage(route: String, params: Any? = nil) {
         DispatchQueue.main.async {
             NavigationEngine.shared.popToPage(route: route, params: params)
         }
     }
 
-    @MainActor
     func dismissModal(animate: Bool = true, params: Any? = nil) {
         DispatchQueue.main.async {
            NavigationEngine.shared.dismissModal(animate: animate, params: params)

@@ -7,10 +7,17 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import java.io.File
 
+fun File.isUnderAny(roots: List<File>): Boolean {
+    val p = this.toPath().normalize()
+    return roots.any { p.startsWith(it.toPath().normalize()) }
+}
+
 internal object ResPluginHelpers {
+
     fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
         val iosXcodeModule = ProjectFinder.findIosClientApp(project)!!
         val androidApp = ProjectFinder.findAndroidClientApp(project)!!
+        val wearApp = ProjectFinder.findWearApp(project)
         val coutputFiles =
             project.rootProject.allprojects.map { File(it.projectDir, "src") }.toMutableList()
         val iosoutputs = coutputFiles.toMutableList()
@@ -19,11 +26,10 @@ internal object ResPluginHelpers {
         val moduleName = project.findProperty("atlas.coreModuleName")?.toString()
             ?: project.getSwiftImportModuleName()
 
-        return project.tasks.register(
+        val projectTask = project.tasks.register(
             "generateNavAtlasEngine",
             NavigationEngineGeneratorTask::class.java
         ) {
-            inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             projectCoreName = moduleName
             iOSOutputFiles = iosoutputs
             outputFiles = coutputFiles
@@ -31,8 +37,28 @@ internal object ResPluginHelpers {
             outputAndroidTabsDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/navigation/tabs"))
             projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/navigation"))
-            isIOSTarget = !ProjectFinder.isBuildingForAndroid(project)
+            isIOSTarget = ProjectFinder.isBuildingForIos(project)
         }
+
+        val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
+            include("graphInputHash.txt")
+        }
+        if (!hashFileTree.isEmpty) {
+            projectTask.configure {
+                inputHashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
+            }
+        }
+
+        if (wearApp != null) {
+            projectTask.configure {
+                wearOSDir.set(wearApp.layout.buildDirectory.dir("generated/kotlin/navigation"))
+                wearOSSourceFiles.from(
+                    wearApp.layout.projectDirectory.dir("src/main/kotlin")
+                )
+            }
+        }
+
+        return projectTask
     }
 }
 

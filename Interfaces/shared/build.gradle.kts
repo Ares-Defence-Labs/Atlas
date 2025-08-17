@@ -18,6 +18,8 @@ kotlin {
                 jvmTarget = "1.8"
             }
         }
+
+        publishLibraryVariants("release")
     }
 
     // watchOS (Apple)
@@ -61,7 +63,6 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(libs.coroutines.core)
-                implementation("org.jetbrains.kotlinx:atomicfu:0.27.0")
             }
         }
 
@@ -75,10 +76,7 @@ kotlin {
         }
         val androidMain by getting {
             dependencies {
-                implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
-                implementation("androidx.core:core:1.16.0")
-                implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.1")
-                implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.1")
+                implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2")
             }
         }
 
@@ -105,13 +103,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
-////////////////////////
+////////////////////////////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-core",
-//        version = "0.8.2"
+//        version = "0.9.0"
 //    )
 //
 //    // Configure POM metadata for the published artifact

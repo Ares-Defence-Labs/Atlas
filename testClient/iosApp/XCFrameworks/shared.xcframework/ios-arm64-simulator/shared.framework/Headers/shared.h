@@ -728,6 +728,7 @@ __attribute__((swift_name("DroidStandard")))
 - (void)onPushParamsParams:(NSString *)params __attribute__((swift_name("onPushParams(params:)")));
 - (void)openSecondScreen __attribute__((swift_name("openSecondScreen()")));
 - (void)setHelloTestingS:(NSString *)s __attribute__((swift_name("setHelloTesting(s:)")));
+- (void)test __attribute__((swift_name("test()")));
 @property (readonly) SharedMutableAtlasFlowState<SharedBoolean *> *isShown __attribute__((swift_name("isShown")));
 @property NSString *q __attribute__((swift_name("q")));
 @property (readonly) SharedMutableAtlasFlowState<NSArray<SharedSampleProcess *> *> *resultsSamples __attribute__((swift_name("resultsSamples")));
@@ -754,6 +755,7 @@ __attribute__((swift_name("DroidStandardSecond")))
 - (void)openThirdScreen __attribute__((swift_name("openThirdScreen()")));
 - (void)openThirdScreenEntireStack __attribute__((swift_name("openThirdScreenEntireStack()")));
 - (void)openThirdScreenPush __attribute__((swift_name("openThirdScreenPush()")));
+- (void)popToRoot __attribute__((swift_name("popToRoot()")));
 - (void)setHelloTestingS:(NSString *)s __attribute__((swift_name("setHelloTesting(s:)")));
 @property NSString *q __attribute__((swift_name("q")));
 @end
@@ -858,6 +860,7 @@ __attribute__((swift_name("CoreDashboardTabViewModel")))
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 - (void)onAppearing __attribute__((swift_name("onAppearing()")));
+- (void)openDroidScreen __attribute__((swift_name("openDroidScreen()")));
 @end
 
 __attribute__((objc_subclassing_restricted))

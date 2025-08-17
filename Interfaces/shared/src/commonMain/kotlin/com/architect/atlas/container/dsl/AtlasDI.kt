@@ -39,7 +39,9 @@ class AtlasDI {
         }
 
         fun <T : Any> resetViewModelByName(clazz: String) {
-            container?.resetViewModelByName(clazz)
+            val imClass = resolveServiceNullableByName<T>(clazz)
+                ?: throw IllegalStateException("Could not find view model of type $clazz")
+            container?.resetViewModel(imClass::class)
         }
 
         /**

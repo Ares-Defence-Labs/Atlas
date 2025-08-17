@@ -19,6 +19,8 @@ kotlin {
                 jvmTarget = "1.8"
             }
         }
+
+        publishLibraryVariants("release")
     }
 
     // watchOS (Apple)
@@ -103,7 +105,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.2.9"
+        version = "0.3.3"
     )
 
     // Configure POM metadata for the published artifact
