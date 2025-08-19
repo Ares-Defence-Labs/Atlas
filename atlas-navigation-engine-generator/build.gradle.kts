@@ -10,11 +10,11 @@ plugins {
     id("signing")
 }
 //////////////////
-//repositories {
-//    google()
-//    mavenCentral()
-//    gradlePluginPortal() // Local Testing Only
-//}
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
 
 java {
     toolchain {
@@ -49,7 +49,7 @@ dependencies{
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-navEngine-generator",
-//        version = "0.5.9"
+//        version = "0.6.0"
 //    )
 //
 //    // Configure POM metadata for the published artifact

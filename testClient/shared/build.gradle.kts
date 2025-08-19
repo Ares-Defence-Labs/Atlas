@@ -13,6 +13,16 @@ plugins {
     id("io.github.thearchitect123.incrementalBuildEngine") // latest version
 }
 
+project.afterEvaluate{
+    tasks.named("extractDeepLinksDebug").configure{
+        dependsOn("generateAtlasImagesGraph")
+    }
+
+    tasks.named("generateDebugResources").configure{
+        dependsOn("generateAtlasImagesGraph")
+    }
+}
+
 kotlin {
     androidTarget {
         compilations.all {

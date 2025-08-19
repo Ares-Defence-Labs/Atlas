@@ -1,12 +1,13 @@
 package com.architect.atlastestclient.android
 
 import android.content.res.Configuration
-import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.provider.CalendarContract.Colors
 import android.provider.Settings.Global
 import android.widget.ImageView
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -24,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.res.ResourcesCompat
@@ -101,8 +103,11 @@ class MainActivity : FragmentActivity() {
 @Composable
 fun GreetingView(vm: DroidStandard) {
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier
+            .background(androidx.compose.ui.graphics.Color.Red)
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center,
+
     ) {
         Button({
             GlobalScope.launch {
@@ -118,7 +123,8 @@ fun GreetingView(vm: DroidStandard) {
 @Composable
 fun GreetingSecondView(vm: DroidStandardSecond) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .background(androidx.compose.ui.graphics.Color.Green).fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Button({

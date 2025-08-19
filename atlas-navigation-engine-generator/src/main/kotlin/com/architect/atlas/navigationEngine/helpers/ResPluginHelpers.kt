@@ -35,6 +35,9 @@ internal object ResPluginHelpers {
             outputFiles = coutputFiles
             outputAndroidDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/navigation"))
             outputAndroidTabsDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/navigation/tabs"))
+            androidSourceFiles.from(
+                androidApp.layout.projectDirectory.dir("src/main/kotlin")
+            )
             projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/navigation"))
             isIOSTarget = ProjectFinder.isBuildingForIos(project)

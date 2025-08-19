@@ -35,6 +35,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val wearOSSourceFiles: ConfigurableFileCollection
 
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val androidSourceFiles: ConfigurableFileCollection
+
     @get:Input
     abstract var iOSOutputFiles: List<File>
 
@@ -81,11 +85,19 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         } else {
             logger.lifecycle("WRITING NAVIGATION TO ANDROID")
             val ants = scanViewModelAnnotations()
-            val viewModelToScreen =
-                ants.map { it.first to it.second } // Drop path, keep (viewModel, screen)
+            val droidSourceFiles = androidSourceFiles.files.toList()
+            val droidAnts = if (droidSourceFiles.isNotEmpty()) {
+                ants.filter { (_, _, filePath, _) -> File(filePath).isUnderAny(droidSourceFiles) }
+            } else {
+                logger.warn("⚠️ No wearSourceRoots provided; Wear build will include ALL screens. Set 'wearSourceRoots' for correct filtering.")
+                emptyList()
+            }
 
-            generateAndroidNavigation(viewModelToScreen)
-            generateAndroidNavGraph(ants)
+            val wearViewModelToScreen = droidAnts.map { it.first to it.second }
+
+            // requires filtering by android type
+            generateAndroidNavigation(wearViewModelToScreen)
+            generateAndroidNavGraph(droidAnts)
             generateTabNavigationServices(scanTabAnnotations())
 
             val wearOSOut = wearOSDir.orNull?.asFile
@@ -519,7 +531,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         }
         return null
     }
-
     private fun generateAndroidNavigation(
         screens: List<Pair<String, String>>,
         isWearOS: Boolean = false
@@ -546,62 +557,95 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import com.architect.atlas.container.dsl.AtlasDI")
             appendLine()
 
-            appendLine(
-                """
-                class ObservableStack<T>(
-                    private val onPop: (T) -> Unit
-                ) : MutableList<T> by mutableListOf() {
+            // We don't manually trigger resets here; listener handles pops.
+            appendLine("""class ObservableStack<T> : MutableList<T> by mutableListOf()""")
 
-                    fun removeLastSafely(): T? {
-                        if (isNotEmpty()) {
-                            val removed = removeAt(lastIndex)
-                            onPop(removed)
-                            return removed
-                        }
-                        return null
-                    }
-
-                    fun popMultiple(count: Int) {
-                        repeat(count) {
-                            if (isNotEmpty()) {
-                                removeLastSafely()
-                            }
-                        }
-                    }
-
-                    fun clearStack(onEach: (T) -> Unit) {
-                        for (item in this) onEach(item)
-                        clear()
-                    }
-                }
-            """.trimIndent()
-            )
+            appendLine()
             appendLine("object AtlasNavigation : AtlasNavigationService {")
             appendLine(
                 """
-                private val navigationStack = ObservableStack<KClass<out ViewModel>> { poppedVm ->
-                    AtlasDI.resetViewModel(poppedVm)
-                }
+            // --- Bound NavController + public-friendly route stack mirror ---
+            private var navController: NavHostController? = null
+
+            // Stack of canonical routes (root..top), e.g. "Screen?pushParam={pushParam}"
+            private val routeStack = mutableListOf<String>()
+
+            // Optional mirror of VM classes (root..top) for debugging/inspection
+            private val navigationStack = ObservableStack<KClass<out ViewModel>>()
+
+            // VM -> base route (without args placeholder)
+            private val viewModelToRouteMap: Map<KClass<out ViewModel>, String> = mapOf(
             """.trimIndent()
             )
-            appendLine("    private val viewModelToRouteMap: Map<KClass<out ViewModel>, String> = mapOf(")
             for ((viewModel, screenName) in screens) {
                 appendLine("        $viewModel::class to \"$screenName\",")
             }
             appendLine("    )")
+
+            appendLine()
+            appendLine(
+                """
+            private fun canonicalRoute(base: String): String = "${'$'}base?pushParam={pushParam}"
+
+            private val routeToViewModelMap: Map<String, KClass<out ViewModel>> =
+                viewModelToRouteMap.map { (vm, base) -> canonicalRoute(base) to vm }.toMap()
+
+            fun bindToNavController(controller: NavHostController) {
+                if (navController === controller) return
+                navController = controller
+                routeStack.clear()
+                navigationStack.clear()
+
+                controller.addOnDestinationChangedListener { _, destination, _ ->
+                    val newRoute = destination.route ?: return@addOnDestinationChangedListener
+
+                    // If stack empty -> first destination; push and return
+                    if (routeStack.isEmpty()) {
+                        routeStack.add(newRoute)
+                        routeToViewModelMap[newRoute]?.let { navigationStack.add(it) }
+                        return@addOnDestinationChangedListener
+                    }
+
+                    val top = routeStack.last()
+                    if (newRoute == top) {
+                        // No change that affects stack
+                        return@addOnDestinationChangedListener
+                    }
+
+                    if (routeStack.contains(newRoute)) {
+                        // POP: remove everything above newRoute; reset VMs for removed routes
+                        while (routeStack.isNotEmpty() && routeStack.last() != newRoute) {
+                            val removedRoute = routeStack.removeLast()
+                            routeToViewModelMap[removedRoute]?.let { vm ->
+                                // Keep VM mirror consistent
+                                if (navigationStack.isNotEmpty() && navigationStack.last() == vm) {
+                                    navigationStack.removeAt(navigationStack.lastIndex)
+                                } else {
+                                    navigationStack.remove(vm) // just in case
+                                }
+                                AtlasDI.resetViewModel(vm)
+                            }
+                        }
+                    } else {
+                        // FORWARD NAV: push new route and VM mirror (no reset)
+                        routeStack.add(newRoute)
+                        routeToViewModelMap[newRoute]?.let { navigationStack.add(it) }
+                    }
+                }
+            }
+            """.trimIndent()
+            )
+
             appendLine()
             appendLine("    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        pushToStack(viewModelClass)")
             appendLine("        navigateWithRoute(viewModelClass, params)")
             appendLine("    }")
             appendLine()
             appendLine("    override fun <T : ViewModel> navigateToPagePushAndReplace(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        replaceTopOfStack(viewModelClass)")
             appendLine("        navigateWithRoute(viewModelClass, params, popAll = true)")
             appendLine("    }")
             appendLine()
             appendLine("    override fun <T : ViewModel> navigateToPagePushAndReplaceCurrentScreen(viewModelClass: KClass<T>, params: Any?) {")
-            appendLine("        replaceTopOfStack(viewModelClass)")
             appendLine("        navigateWithRoute(viewModelClass, params, popCurrent = true)")
             appendLine("    }")
             appendLine()
@@ -609,135 +653,182 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    override fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any?) {}")
             appendLine("    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()")
             appendLine()
-            appendLine("    override fun popToRoot(animate: Boolean, params: Any?) {")
-            appendLine("        postToMain {")
-            appendLine("            val popCount = navigationStack.size - 1")
-            appendLine("            if (popCount > 0) popPagesWithCount(popCount, animate, params) else handlePopParams(params)")
-            appendLine("        }")
-            appendLine("    }")
-            appendLine()
-            appendLine("    override fun popPage(animate: Boolean, params: Any?) {")
-            appendLine("        handlePopParams(params)")
-            appendLine("    }")
-            appendLine()
-            appendLine("    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {")
-            appendLine("        postToMain {")
+
+            // Pops rely on NavController; listener will reset VMs and shrink stacks.
             appendLine(
                 """
-                repeat(countOfPages) {
-                    if (navigationStack.size > 1) {
-                        navigationStack.removeLastSafely()
-                        deliverPopParams(params)
-                        AtlasNavHolder.get()?.popBackStack()
+            override fun popToRoot(animate: Boolean, params: Any?) {
+                postToMain {
+                    val nav = navController ?: return@postToMain
+                    // Deliver params to the VM that will become visible after the overall pop
+                    deliverPopParamsToPrevious(params)
+                    // Pop until the stack has only one destination left
+                    while (true) {
+                        val canPop = nav.popBackStack()
+                        if (!canPop) break
+                        // Stop when only one canonical route remains in our mirror
+                        if (routeStack.size <= 1) break
                     }
                 }
+            }
             """.trimIndent()
             )
-            appendLine("        }")
-            appendLine("    }")
+
             appendLine()
-            appendLine("    override fun popToPage(route: String, params: Any?) {")
-            appendLine("        handlePopParams(params)")
-            appendLine("    }")
-            appendLine()
-            appendLine("    override fun dismissModal(animate: Boolean, params: Any?) {")
-            appendLine("        handlePopParams(params)")
-            appendLine("    }")
-            appendLine()
-            appendLine("    private fun <T : ViewModel> navigateWithRoute(viewModelClass: KClass<T>, params: Any?, popAll: Boolean = false, popCurrent: Boolean = false) {")
-            appendLine("        val route = viewModelToRouteMap[viewModelClass] ?: error(\"No screen registered for \$viewModelClass\")")
-            appendLine("        val encoded = encodeParam(params)")
-            appendLine("        postToMain {")
-            appendLine("            AtlasNavHolder.get()?.navigate(\"\$route?pushParam=\$encoded\") {")
-            appendLine("                when {")
-            appendLine("                    popAll -> popUpTo(0) { inclusive = true }")
-            appendLine("                    popCurrent -> popUpTo(AtlasNavHolder.get()!!.currentDestination?.id ?: 0) { inclusive = true }")
-            appendLine("                }")
-            appendLine("                launchSingleTop = true")
-            appendLine("            }")
-            appendLine("        }")
-            appendLine("    }")
-            appendLine()
-            appendLine("    private fun handlePopParams(params: Any?) {")
-            appendLine("        postToMain {")
             appendLine(
                 """
-                if (navigationStack.size > 1) {
-                    navigationStack.removeLastSafely()
-                    deliverPopParams(params)
-                    AtlasNavHolder.get()?.popBackStack()
+            override fun popPage(animate: Boolean, params: Any?) {
+                postToMain {
+                    val nav = navController ?: return@postToMain
+                    deliverPopParamsToPrevious(params)
+                    nav.popBackStack()
                 }
+            }
             """.trimIndent()
             )
-            appendLine("        }")
-            appendLine("    }")
-            appendLine()
-            appendLine("    private fun deliverPopParams(params: Any?) {")
-            appendLine("        val previousVmClass = navigationStack.lastOrNull() ?: return")
-            appendLine("        val encoded = encodeParam(params) ?: return")
-            appendLine("        AtlasNavHolder.get()?.currentBackStackEntry?.let {")
-            appendLine("            val vm = resolveViewModel(previousVmClass)")
-            appendLine("            decodeParam(encoded)?.let { decoded ->")
-            appendLine("                if (vm is Poppable<*>) {")
-            appendLine("                    @Suppress(\"UNCHECKED_CAST\")")
-            appendLine("                    (vm as Poppable<Any>).onPopParams(decoded)")
-            appendLine("                }")
-            appendLine("            }")
-            appendLine("        }")
-            appendLine("    }")
-            appendLine()
 
-            appendLine("""
-                private fun resolveViewModel(
-        vmClass: KClass<out com.architect.atlas.architecture.mvvm.ViewModel>,
-        owner: ViewModelStoreOwner? = null
-    ): com.architect.atlas.architecture.mvvm.ViewModel {
-        val nav = requireNotNull(AtlasNavHolder.get()) { "NavController not bound" }
-        val vmOwner: ViewModelStoreOwner =
-            owner ?: nav.currentBackStackEntry ?: nav.getViewModelStoreOwner(nav.graph.id)
+            appendLine()
+            appendLine(
+                """
+            override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {
+                postToMain {
+                    val nav = navController ?: return@postToMain
+                    repeat(countOfPages) {
+                        deliverPopParamsToPrevious(params)
+                        if (!nav.popBackStack()) return@postToMain
+                    }
+                }
+            }
+            """.trimIndent()
+            )
 
-        @Suppress("UNCHECKED_CAST")
-        val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
+            appendLine()
+            appendLine(
+                """
+            override fun popToPage(route: String, params: Any?) {
+                postToMain {
+                    val nav = navController ?: return@postToMain
+                    // Deliver once before the cascade; listener handles VM resets
+                    deliverPopParamsToPrevious(params)
 
-        val vm = ViewModelProvider(vmOwner)[androidVmClass]
+                    val target = canonicalRoute(route)
+                    // Pop until 'target' is directly beneath the current
+                    while (routeStack.size > 1 && routeStack.dropLast(1).lastOrNull() != target) {
+                        if (!nav.popBackStack()) break
+                    }
+                }
+            }
+            """.trimIndent()
+            )
 
-        @Suppress("UNCHECKED_CAST")
-        return vm as com.architect.atlas.architecture.mvvm.ViewModel
-    }
-            """.trimIndent())
             appendLine()
-            appendLine("    private fun pushToStack(viewModelClass: KClass<out ViewModel>) {")
-            appendLine("        if (navigationStack.isEmpty()) navigationStack.add(viewModelToRouteMap.keys.first())")
-            appendLine("        navigationStack.add(viewModelClass)")
-            appendLine("    }")
+            appendLine(
+                """
+            override fun dismissModal(animate: Boolean, params: Any?) {
+                popPage(animate, params)
+            }
+            """.trimIndent()
+            )
+
+            // Navigate helper
             appendLine()
-            appendLine("    private fun replaceTopOfStack(viewModelClass: KClass<out ViewModel>) {")
-            appendLine("        if (navigationStack.isNotEmpty()) navigationStack.removeLastSafely()")
-            appendLine("        navigationStack.add(viewModelClass)")
-            appendLine("    }")
+            appendLine(
+                """
+            private fun <T : ViewModel> navigateWithRoute(
+                viewModelClass: KClass<T>,
+                params: Any?,
+                popAll: Boolean = false,
+                popCurrent: Boolean = false
+            ) {
+                val routeBase = viewModelToRouteMap[viewModelClass] ?: error("No screen registered for $${"viewModelClass"}")
+                val encoded = encodeParam(params)
+                postToMain {
+                    val nav = navController ?: return@postToMain
+                    nav.navigate("${"$"}routeBase?pushParam=${"$"}encoded") {
+                        when {
+                            popAll -> popUpTo(0) { inclusive = true }
+                            popCurrent -> popUpTo(nav.currentDestination?.id ?: 0) { inclusive = true }
+                        }
+                        launchSingleTop = true
+                    }
+                }
+            }
+            """.trimIndent()
+            )
+
+            // Use public previousBackStackEntry to deliver pop params to the VM that becomes visible
             appendLine()
-            appendLine("    private fun encodeParam(param: Any?): String? {")
-            appendLine("        return param?.let {")
-            appendLine("            when (it) {")
-            appendLine("                is String, is Number, is Boolean -> it.toString()")
-            appendLine("                else -> Json.encodeToString(it)")
-            appendLine("            }")
-            appendLine("        }")
-            appendLine("    }")
+            appendLine(
+                """
+            private fun deliverPopParamsToPrevious(params: Any?) {
+                val nav = navController ?: return
+                val prevRoute = nav.previousBackStackEntry?.destination?.route ?: return
+                val prevVmClass = routeToViewModelMap[prevRoute] ?: return
+
+                val encoded = encodeParam(params) ?: return
+                decodeParam(encoded)?.let { decoded ->
+                    val vm = resolveViewModel(prevVmClass)
+                    if (vm is Poppable<*>) {
+                        @Suppress("UNCHECKED_CAST")
+                        (vm as Poppable<Any>).onPopParams(decoded)
+                    }
+                }
+            }
+            """.trimIndent()
+            )
+
+            // Resolve VM against current graph owner
             appendLine()
-            appendLine("    private fun decodeParam(encoded: String): Any? {")
-            appendLine("        return when {")
-            appendLine("            encoded.toIntOrNull() != null -> encoded.toInt()")
-            appendLine("            encoded.toDoubleOrNull() != null -> encoded.toDouble()")
-            appendLine("            encoded.equals(\"true\", true) || encoded.equals(\"false\", true) -> encoded.toBoolean()")
-            appendLine("            else -> runCatching { Json.decodeFromString<Any>(encoded) }.getOrNull() ?: encoded")
-            appendLine("        }")
-            appendLine("    }")
+            appendLine(
+                """
+            private fun resolveViewModel(
+                vmClass: KClass<out com.architect.atlas.architecture.mvvm.ViewModel>,
+                owner: ViewModelStoreOwner? = null
+            ): com.architect.atlas.architecture.mvvm.ViewModel {
+                val nav = requireNotNull(navController) { "NavController not bound. Call AtlasNavigation.bindToNavController(navController) first." }
+                val vmOwner: ViewModelStoreOwner =
+                    owner ?: nav.currentBackStackEntry ?: nav.getViewModelStoreOwner(nav.graph.id)
+
+                @Suppress("UNCHECKED_CAST")
+                val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
+
+                val vm = ViewModelProvider(vmOwner)[androidVmClass]
+
+                @Suppress("UNCHECKED_CAST")
+                return vm as com.architect.atlas.architecture.mvvm.ViewModel
+            }
+            """.trimIndent()
+            )
+
+            // Encoding helpers
             appendLine()
-            appendLine("    private fun postToMain(block: () -> Unit) {")
-            appendLine("        android.os.Handler(android.os.Looper.getMainLooper()).post(block)")
-            appendLine("    }")
-            appendLine("}")
+            appendLine(
+                """
+            private fun encodeParam(param: Any?): String? {
+                return param?.let {
+                    when (it) {
+                        is String, is Number, is Boolean -> it.toString()
+                        else -> Json.encodeToString(it)
+                    }
+                }
+            }
+
+            private fun decodeParam(encoded: String): Any? {
+                return when {
+                    encoded.toIntOrNull() != null -> encoded.toInt()
+                    encoded.toDoubleOrNull() != null -> encoded.toDouble()
+                    encoded.equals("true", true) || encoded.equals("false", true) -> encoded.toBoolean()
+                    else -> runCatching { Json.decodeFromString<Any>(encoded) }.getOrNull() ?: encoded
+                }
+            }
+
+            private fun postToMain(block: () -> Unit) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post(block)
+            }
+            """.trimIndent()
+            )
+
+            appendLine("}") // end object
         }
 
         if (!isWearOS) {
@@ -745,7 +836,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             androidOut.mkdirs()
             File(androidOut, "AtlasNavigation.kt").writeText(androidImpl)
         } else {
-            // this needs to apply a filter to remove any non wearOS modules from the appendline
             val wearOSOut = wearOSDir.orNull?.asFile
             if (wearOSOut != null) {
                 wearOSOut.mkdirs()
@@ -831,6 +921,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.architect.atlas.container.AtlasContainer
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.LaunchedEffect
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -861,6 +952,8 @@ import java.lang.ref.WeakReference
 @Composable
 fun AtlasNavGraph() {
     val navController = rememberNavController()
+    LaunchedEffect(navController) { AtlasNavigation.bindToNavController(navController) }
+    
     AtlasNavHolder.bind(navController)
     CompositionLocalProvider(LocalAtlasNavController provides navController) {
     
@@ -890,12 +983,17 @@ inline fun <reified VM : ViewModel> NavGraphBuilder.screen(
             nullable = true
             defaultValue = null
         }),
-        enterTransition = {
+         enterTransition = {
             slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(350))
         },
-        exitTransition = {
+        exitTransition = { ExitTransition.None },
+
+        // POP: top slides out to the right; previous does NOT move
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = {
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(350))
         },
+
     ) { backStackEntry ->
    val activity = LocalContext.current as ComponentActivity
 val viewModelStoreOwner = activity.viewModelStore
