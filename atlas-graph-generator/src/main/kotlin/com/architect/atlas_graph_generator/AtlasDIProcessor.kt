@@ -42,9 +42,14 @@ class AtlasDIProcessor : Plugin<Project> {
                 projectRootDir.from(
                     project.layout.projectDirectory.dir("src/commonMain/kotlin")
                 )
+
+                androidMainRootDir.from(
+                    project.layout.projectDirectory.dir("src/androidMain/kotlin")
+                )
                 androidOutputDir.set(droidModule?.layout?.buildDirectory?.dir("generated/kotlin/container")!!)
                 iOSOutputDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/container"))
                 isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
+                androidBasePackageRef = ProjectFinder.getAndroidAppNamespace(droidModule)
             }
 
             if(wearOSModule != null){
@@ -55,6 +60,7 @@ class AtlasDIProcessor : Plugin<Project> {
                         wearOSSourceDirs.from(
                             wearOSModule.layout.projectDirectory.dir("src/main/kotlin")
                         )
+                        wearOSBasePackageRef = project.findProperty("atlas.wearableBasePackage")?.toString() ?: ""
                     }
                 }
             }

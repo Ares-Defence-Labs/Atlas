@@ -89,7 +89,6 @@ fun filterProvidesByModuleMembership(
             inModuleFq.any { it.endsWith(".${returnTypeFqcn.substringAfterLast('.')}") }
 
     val moduleFq = classToPackage[info.module]?.let { "$it.${info.module}" }
-
     val moduleOk = if (!requireModuleOwner) {
         true
     } else {

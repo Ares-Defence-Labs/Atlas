@@ -4,12 +4,9 @@ import com.architect.atlas.container.annotations.Module
 import com.architect.atlas.container.annotations.Provides
 
 @Module
-class TestModule{
+class SampleTestModule{
     @Provides
-    fun testService() : SampleClass{
-        return SampleClass()
+    fun sampleTestService() : String {
+        return ""
     }
 }
-
-
-

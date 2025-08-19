@@ -34,6 +34,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val androidMainRootDir: ConfigurableFileCollection
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val externalSourceDirs: ConfigurableFileCollection
 
     @get:Optional
@@ -63,6 +67,13 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
     @get:Input
     abstract val extraViewModelBaseClasses: SetProperty<String>
+
+    @get:Optional
+    @get:Input
+    abstract var wearOSBasePackageRef: String
+
+    @get:Input
+    abstract var androidBasePackageRef: String
 
     init {
         group = "Atlas"
@@ -221,6 +232,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         if (isAndroidTarget) {
             allSourceDirs.addAll(externalSourceDirs.files)
             allSourceDirs.addAll(wearOSSourceDirs.files)
+            allSourceDirs.addAll(androidMainRootDir.files)
         } else {
             allSourceDirs.addAll(iosSourceDirs.files)
         }
@@ -403,7 +415,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
 
             // --- ANDROID allow-lists: Android app roots + commonMain (EXCLUDES Wear roots) ---
             val androidRoots = externalSourceDirs.files
-            val commonRoots = dependencyCommonMainSources.files
+            val commonRoots = dependencyCommonMainSources.files + androidMainRootDir.files
 
             logger.lifecycle("DROID MODULE PATH : ${externalSourceDirs.asPath}")
             logger.lifecycle(
@@ -411,9 +423,13 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                     androidRoots.map { it.path }.joinToString { "\n" }
                 }"
             )
-            logger.lifecycle("COMMONMAIN POST COLLECTIONS ${commonRoots.map { it.path }.joinToString { "\n" }}")
+            logger.lifecycle(
+                "COMMONMAIN POST COLLECTIONS ${
+                    commonRoots.map { it.path }.joinToString { "\n" }
+                }"
+            )
 
-
+            val (commonFq, _) = collectClassesFromRoots(commonRoots)
             val (androidFq, androidSimple) = run {
                 val (fqA, simpleA) = buildAllowLists(androidRoots)
                 val (fqC, simpleC) = buildAllowLists(commonRoots)
@@ -428,17 +444,21 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             val androidViewModels = filterBySimple(viewModels, androidSimple) { it }
             val androidModules = filterBySimple(modules, androidSimple) { it }
 
-            val (commonFq,  _)  = collectClassesFromRoots(commonRoots)
-            val androidMembership = androidFq + commonFq
-            val androidProvides = filterProvidesByModuleMembership(
-                provides = provides,
-                inModuleFq = androidMembership,
-                classToPackage = androidClassToPackage,
-                requireModuleOwner = true
-            )
+            // either android base contains the key, or the file is included inside commonMain/androidMain
+            val androidProvides = provides.filter {
+                it.key.contains(androidBasePackageRef) || commonFq.any { r ->
+                    r.contains(it.key)
+                }
+            }
+            val androidProvidesReturnTypes = providesReturnTypes.filter {
+                it.key.contains(androidBasePackageRef) || commonFq.any { r ->
+                    r.contains(it.key)
+                }
+            }
 
-            val androidProvidesReturnTypes =
-                filterProvidesReturnTypes(providesReturnTypes, androidFq, androidSimple)
+            logger.lifecycle("ANDROID PACKAGE NAMESPACE $androidBasePackageRef")
+            logger.lifecycle("ANDROID PROVIDES $androidProvides")
+            logger.lifecycle("ANDROID PROVIDES RETURN TYPES $androidProvidesReturnTypes")
 
             // --- Generate ANDROID (no Wear-only modules leak in) ---
             outputFile.writeText(
@@ -477,16 +497,17 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                 val wearViewModels = filterBySimple(viewModels, allowedSimple) { it }
                 val wearModules = filterBySimple(modules, allowedSimple) { it }
 
-                val wearMembership = allowedFq + commonFq
-                val wearProvides = filterProvidesByModuleMembership(
-                    provides = provides,
-                    inModuleFq = wearMembership,
-                    classToPackage = wearClassToPackage,
-                    requireModuleOwner = true
-                )
-
+                val wearProvides = provides.filter {
+                    it.key.contains(wearOSBasePackageRef) || commonFq.any { r ->
+                        r.contains(it.key)
+                    }
+                }
                 val wearProvidesReturnTypes =
-                    filterProvidesReturnTypes(providesReturnTypes, allowedFq, allowedSimple)
+                    providesReturnTypes.filter {
+                        it.key.contains(wearOSBasePackageRef) || commonFq.any { r ->
+                            r.contains(it.key)
+                        }
+                    }
 
                 wearOutputFile.writeText(
                     generateAtlasContainer(
