@@ -13,13 +13,18 @@ plugins {
     id("io.github.thearchitect123.incrementalBuildEngine") // latest version
 }
 
+
 project.afterEvaluate{
     tasks.named("extractDeepLinksDebug").configure{
-        dependsOn("generateAtlasImagesGraph")
+        dependsOn(":shared:generateAtlasImagesGraph")
     }
 
     tasks.named("generateDebugResources").configure{
-        dependsOn("generateAtlasImagesGraph")
+        dependsOn(":shared:generateAtlasImagesGraph")
+    }
+
+    tasks.named("generateDebugResources").configure{
+        dependsOn(":shared:generateAtlasFontsGraph")
     }
 }
 

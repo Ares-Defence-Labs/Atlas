@@ -724,7 +724,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                         scoped.getOrPut(clazz) { mutableMapOf() }[scopeId] = factory?.invoke() ?: instance!!
                     }
                     else -> {
-                        throw IllegalArgumentException("❌ Could not register this type. No valid type specified")
+                        //singletons[clazz] = lazy { clazz.objectInstance?.let { return it } }
                     }
                 }
             }

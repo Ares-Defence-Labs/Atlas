@@ -108,7 +108,7 @@ fun GreetingView(vm: DroidStandard) {
             .fillMaxSize(),
         contentAlignment = Alignment.Center,
 
-    ) {
+        ) {
         Button({
             GlobalScope.launch {
                 AtlasNavigation.navigateToPage(DroidStandardSecond::class)
@@ -124,7 +124,8 @@ fun GreetingView(vm: DroidStandard) {
 fun GreetingSecondView(vm: DroidStandardSecond) {
     Box(
         modifier = Modifier
-            .background(androidx.compose.ui.graphics.Color.Green).fillMaxSize(),
+            .background(androidx.compose.ui.graphics.Color.Green)
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Button({
@@ -153,7 +154,7 @@ fun GreetingThirdTabHolder(vm: TabParentViewModel) {
                     NavigationBarItem(
                         selected = currentTab == tab.viewModel,
                         onClick = {
-                            AtlasNavigation.navigateToPagePushAndReplace(DroidStandard::class)
+
                         },
                         icon = { Icon(tab.icon!!, contentDescription = null) },
                         label = { Text(tab.label) }

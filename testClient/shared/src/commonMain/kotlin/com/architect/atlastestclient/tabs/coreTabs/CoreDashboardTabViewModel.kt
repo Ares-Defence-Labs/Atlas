@@ -20,7 +20,9 @@ class CoreDashboardTabViewModel : ViewModel() {
 
     fun openDroidScreen(){
         AtlasDI.resolveService<AtlasNavigationService>()
-            .navigateToPagePushAndReplace(DroidStandard::class)
+            .popToRoot()
+
+
     }
 }
 

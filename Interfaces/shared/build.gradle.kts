@@ -109,7 +109,7 @@ android {
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-core",
-//        version = "0.9.0"
+//        version = "0.9.1"
 //    )
 //
 //    // Configure POM metadata for the published artifact

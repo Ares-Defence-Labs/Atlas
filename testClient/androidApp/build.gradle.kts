@@ -5,6 +5,7 @@ plugins {
 }
 
 
+
 android {
     sourceSets["main"].java.srcDirs(
         "${layout.buildDirectory}/generated/kotlin"
