@@ -6,6 +6,20 @@ plugins {
 
 
 
+project.afterEvaluate{
+    tasks.named("extractDeepLinksDebug").configure{
+        dependsOn(":shared:generateAtlasImagesGraph")
+    }
+
+    tasks.named("generateDebugResources").configure{
+        dependsOn(":shared:generateAtlasImagesGraph")
+    }
+
+    tasks.named("generateDebugResources").configure{
+        dependsOn(":shared:generateAtlasFontsGraph")
+    }
+}
+
 android {
     sourceSets["main"].java.srcDirs(
         "${layout.buildDirectory}/generated/kotlin"

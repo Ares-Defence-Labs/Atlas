@@ -13,11 +13,11 @@ actual open class ViewModel : androidx.lifecycle.ViewModel() {
         get() = VM
 
     actual val viewModelScopeWithoutCancel: CoroutineScope
-        get() = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        get() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        viewModelScope.launch { withContext(Dispatchers.Default) { onInitialize() } }
-        viewModelScopeWithoutCancel.launch { withContext(Dispatchers.Default) { onInitializeWithoutCancel() } }
+        viewModelScope.launch { withContext(Dispatchers.IO) { onInitialize() } }
+        viewModelScopeWithoutCancel.launch { withContext(Dispatchers.IO) { onInitializeWithoutCancel() } }
     }
 
     public actual override fun onCleared() {

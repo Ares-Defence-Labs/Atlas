@@ -19,6 +19,40 @@ plugins {
 
 
 
+project.afterEvaluate{
+    tasks.named("extractDeepLinksDebug").configure{
+        dependsOn(":shared:generateAtlasImagesGraph")
+        dependsOn(":shared:generateDependencyGraph")
+    }
+
+    tasks.named("generateDebugResources").configure{
+        dependsOn(":shared:generateAtlasImagesGraph")
+        dependsOn(":shared:generateDependencyGraph")
+    }
+
+    tasks.named("generateDebugResources").configure{
+        dependsOn(":shared:generateAtlasFontsGraph")
+        dependsOn(":shared:generateDependencyGraph")
+    }
+    tasks.named("mergeDebugShaders").configure{
+        dependsOn(":shared:generateAtlasFontsGraph")
+        dependsOn(":shared:generateDependencyGraph")
+    }
+
+    tasks.named("mergeExtDexDebug").configure{
+        dependsOn(":shared:generateAtlasFontsGraph")
+        dependsOn(":shared:generateDependencyGraph")
+    }
+
+    tasks.named("mergeDebugJniLibFolders").configure{
+        dependsOn(":shared:generateAtlasFontsGraph")
+        dependsOn(":shared:generateDependencyGraph")
+    }
+
+
+}
+
+
 project.afterEvaluate {
     val genGraph = project(":shared").tasks.named("generateDependencyGraph")
 // Make the Wear tasks depend on it (covers debug + others if present)
@@ -85,6 +119,7 @@ dependencies {
     implementation(projects.shared)
     implementation(libs.atlas.core.binding)
 
+    implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
