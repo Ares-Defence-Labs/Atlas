@@ -3,7 +3,6 @@ package com.architect.atlas.common.helpers
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import java.io.File
 
 object ProjectFinder {
     fun isDebugMode(project: Project) =
@@ -41,6 +40,42 @@ object ProjectFinder {
                 project.plugins.hasPlugin("com.android.library")
     }
 
+    fun isBuildingForAppleWatch(project: Project): Boolean {
+        val requestedTasks = project.gradle.startParameter.taskNames
+        val gradleLooksWatch = requestedTasks.any { it.contains("watchos", ignoreCase = true) } ||
+                (project.gradle.taskGraph.allTasks?.any { it.name.contains("watchos", ignoreCase = true) } ?: false)
+
+        val env = System.getenv()
+        val sdkName              = env["SDK_NAME"].orEmpty()
+        val effectivePlatform    = env["EFFECTIVE_PLATFORM_NAME"].orEmpty()
+        val platformName         = env["PLATFORM_NAME"].orEmpty()
+        val targetName           = env["TARGET_NAME"].orEmpty()
+        val productBundle        = env["WRAPPER_EXTENSION"].orEmpty()
+
+        val xcodeLooksWatch = listOf(sdkName, effectivePlatform, platformName, targetName)
+            .any { it.contains("watch", ignoreCase = true) }
+
+        return gradleLooksWatch || xcodeLooksWatch
+    }
+
+    fun isBuildingForIPhone(project: Project): Boolean {
+        val requestedTasks = project.gradle.startParameter.taskNames
+        val gradleLooksIos = requestedTasks.any { it.contains("ios", ignoreCase = true) && !it.contains("watch", true) } ||
+                (project.gradle.taskGraph.allTasks.any { it.name.contains("ios", ignoreCase = true) && !it.name.contains("watch", true) } ?: false)
+
+        val env = System.getenv()
+        val sdkName           = env["SDK_NAME"].orEmpty()
+        val effectivePlatform = env["EFFECTIVE_PLATFORM_NAME"].orEmpty()
+        val platformName      = env["PLATFORM_NAME"].orEmpty()
+        val targetName        = env["TARGET_NAME"].orEmpty()
+
+        val xcodeLooksIphone = listOf(sdkName, effectivePlatform, platformName).any {
+            it.contains("iphone", ignoreCase = true)
+        } && !targetName.contains("Watch", ignoreCase = true)
+
+        return gradleLooksIos || xcodeLooksIphone
+    }
+
     fun isBuildingForIos(project: Project): Boolean {
         val iosTargets = listOf(
             "iosArm64",
@@ -57,16 +92,6 @@ object ProjectFinder {
             }
         } || (System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
                 || System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("iphone") == true)
-    }
-
-    fun findIosClientApp(sharedProject: Project): File? {
-        val candidates = sharedProject.rootDir.walkTopDown()
-            .filter {
-                it.isDirectory && it.name.endsWith(".xcodeproj")
-            }
-            .toList()
-
-        return candidates.firstOrNull()?.parentFile
     }
 
     fun findAndroidModule(sharedProject: Project): Project? {

@@ -10,17 +10,17 @@ plugins {
     id("signing")
 }
 ////////
-//repositories {
-//    google()
-//    mavenCentral()
-//    gradlePluginPortal() // Local Testing Only
-//}
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
 
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.6")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.8")
     implementation("org.ow2.asm:asm:9.6")
     implementation("org.ow2.asm:asm-tree:9.6")
 }
@@ -46,13 +46,13 @@ gradlePlugin {
     }
 }
 ////
-////////////
+//////////
 //mavenPublishing {
 //    // Define coordinates for the published artifact
 //    coordinates(
 //        groupId = "io.github.thearchitect123",
 //        artifactId = "atlas-graph-generator",
-//        version = "1.1.7"
+//        version = "1.1.8"
 //    )
 //
 //    // Configure POM metadata for the published artifact

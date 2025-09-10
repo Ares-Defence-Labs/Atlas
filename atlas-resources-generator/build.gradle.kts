@@ -11,11 +11,11 @@ plugins {
 }
 
 //////////////////////
-//repositories {
-//    google()
-//    mavenCentral()
-//    gradlePluginPortal() // Local Testing Only
-//}
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal() // Local Testing Only
+}
 
 java {
     toolchain {
@@ -43,7 +43,7 @@ dependencies{
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
     implementation("org.apache.pdfbox:fontbox:2.0.30")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.6")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.8")
 
     implementation("org.apache.xmlgraphics:batik-transcoder:1.16")
     implementation("org.apache.xmlgraphics:batik-codec:1.16")

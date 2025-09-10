@@ -28,6 +28,12 @@ object TaskMngrHelpers {
             project.layout.buildDirectory.dir("generated/iosMain/resources").get().asFile
         )
 
+        val watchosMain = kmpExt.sourceSets.getByName("watchosMain")
+        watchosMain.kotlin.srcDirs(
+            project.layout.buildDirectory.dir("generated/watchosMain/kotlin").get().asFile,
+            project.layout.buildDirectory.dir("generated/watchosMain/resources").get().asFile
+        )
+
         val commonMain = kmpExt.sourceSets.getByName("commonMain")
         commonMain.kotlin.srcDirs(
             project.layout.buildDirectory.dir("generated/commonMain/kotlin").get().asFile,

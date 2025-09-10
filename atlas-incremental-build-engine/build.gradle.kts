@@ -40,7 +40,7 @@ gradlePlugin {
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.6")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.8")
 }
 
 //

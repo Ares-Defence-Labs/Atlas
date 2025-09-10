@@ -4,9 +4,6 @@ import com.architect.atlas_graph_generator.helpers.buildAllowLists
 import com.architect.atlas_graph_generator.helpers.collectClassesFromRoots
 import com.architect.atlas_graph_generator.helpers.filterBySimple
 import com.architect.atlas_graph_generator.helpers.filterClassToPackage
-import com.architect.atlas_graph_generator.helpers.filterProvides
-import com.architect.atlas_graph_generator.helpers.filterProvidesByModuleMembership
-import com.architect.atlas_graph_generator.helpers.filterProvidesReturnTypes
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -28,6 +25,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:OutputDirectory
     abstract val iOSOutputDir: DirectoryProperty
 
+    @get:Optional
+    @get:OutputDirectory
+    abstract val appleWatchOutputDir: DirectoryProperty
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: ConfigurableFileCollection
@@ -48,6 +49,10 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val iosSourceDirs: ConfigurableFileCollection
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val appleWatchSourceDirs: ConfigurableFileCollection
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -155,19 +160,26 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
         logger.lifecycle("🚀 Running generateDependencyGraph task...")
 
         val wearContainerDir = wearOSOutputDir.orNull?.asFile
-
-        logger.lifecycle("WEARABLE $wearContainerDir")
         val androidContainerDir = androidOutputDir.get().asFile
+
         val iOSContainerDir = iOSOutputDir.get().asFile
+        val appleWatchContainerDir = appleWatchOutputDir.orNull?.asFile
 
         androidContainerDir.mkdirs()
-        iOSContainerDir.mkdirs()
         wearContainerDir?.mkdirs()
 
-        val outputFile = File(androidContainerDir, "AtlasContainer.kt")
-        val iosOutputFile = File(iOSContainerDir, "AtlasContainer.kt")
-        val androidOutputFile = File(androidContainerDir, "ViewModelExtensions.kt")
+        // apple containers
+        iOSContainerDir.mkdirs()
+        appleWatchContainerDir?.mkdirs()
 
+        val outputFile = File(androidContainerDir, "AtlasContainer.kt")
+
+        // apple -- folders
+        val iosOutputFile = File(iOSContainerDir, "AtlasContainer.kt")
+        val appleWatchOutputFile =
+            if (appleWatchContainerDir != null) File(appleWatchContainerDir, "AtlasContainer.kt") else null
+
+        val androidOutputFile = File(androidContainerDir, "ViewModelExtensions.kt")
         val wearOutputFile =
             if (wearContainerDir != null) File(wearContainerDir, "AtlasContainer.kt") else null
         val wearVMOutputFile =
@@ -178,6 +190,11 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             if (iosOutputFile.exists()) {
                 logger.lifecycle("🗑 Deleting old ios AtlasContainer.kt to force regeneration")
                 iosOutputFile.delete()
+            }
+
+            if (appleWatchOutputFile?.exists() == true) {
+                logger.lifecycle("🗑 Deleting old ios AtlasContainer.kt to force regeneration -- AppleWatch")
+                appleWatchOutputFile.delete()
             }
         } else {
             if (outputFile.exists()) {
@@ -235,6 +252,7 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
             allSourceDirs.addAll(androidMainRootDir.files)
         } else {
             allSourceDirs.addAll(iosSourceDirs.files)
+            allSourceDirs.addAll(appleWatchSourceDirs.files)
         }
 
         allSourceDirs.addAll(dependencyCommonMainSources.files)
@@ -540,7 +558,25 @@ abstract class AtlasDIProcessorGraphTask : DefaultTask() {
                     providesReturnTypes
                 )
             )
+
             logger.lifecycle("✅ Generated AtlasContainer.kt at: ${iosOutputFile.absolutePath}")
+
+            // apple watch
+            if (appleWatchOutputFile != null && appleWatchContainerDir != null && appleWatchContainerDir.exists()) {
+                logger.lifecycle("Logging AppleWatch Module Root: ${appleWatchContainerDir.absolutePath}")
+                appleWatchOutputFile.writeText(
+                    generateAtlasContainer(
+                        classToPackage,
+                        singletons,
+                        factories,
+                        scopedInstances,
+                        viewModels,
+                        modules,
+                        provides,
+                        providesReturnTypes
+                    )
+                )
+            }
         }
     }
 

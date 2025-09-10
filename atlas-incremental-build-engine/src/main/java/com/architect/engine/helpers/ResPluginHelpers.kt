@@ -1,5 +1,8 @@
 package com.architect.engine.helpers
 
+import com.architect.atlas.common.helpers.AppleProjectFinder
+import com.architect.atlas.common.helpers.AppleProjectFinder.iosApps
+import com.architect.atlas.common.helpers.AppleProjectFinder.isWatchBuildNow
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.ProjectFinder.getSwiftImportModuleName
 import com.architect.engine.tasks.AtlasXCodeIncrementalBuildTask
@@ -28,6 +31,7 @@ internal object ResPluginHelpers {
                 project.fileTree("$coreModuleName/src/commonMain"),
                 project.fileTree("$coreModuleName/src/androidMain"),
                 project.fileTree("$coreModuleName/src/iosMain"),
+                project.fileTree("$coreModuleName/src/watchosMain"),
                 project.fileTree("${androidModule?.rootDir}/src/main"),
             )
 
@@ -38,6 +42,7 @@ internal object ResPluginHelpers {
     }
 
     fun getIncrementalBuilderTask(project: Project): TaskProvider<AtlasXCodeIncrementalBuildTask> {
+        val isRunningAppleWatch = project.isWatchBuildNow()
         val sharedModuleName = project.findProperty("atlas.coreModuleName")?.toString()
             ?: project.getSwiftImportModuleName()
 
@@ -49,47 +54,62 @@ internal object ResPluginHelpers {
                 ?: false
 
         val caching = ProjectFinder.isDebugMode(project) || forceCaching
-        val iosProject = ProjectFinder.findIosClientApp(project)
-        val debugTasksXCFramework = listOf(
-            "linkDebugFrameworkIosArm64",
-            "linkDebugFrameworkIosSimulatorArm64"
-        )
+        val iosProject =
+            AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger).iosApps()
+                .firstOrNull()
+        val debugTasksXCFramework =
+            if (isRunningAppleWatch)
+                listOf(
+                    "linkDebugFrameworkWatchosArm32",
+                    "linkDebugFrameworkWatchosArm64",
+                    "linkDebugFrameworkWatchosSimulatorArm64"
+                )
+            else
+                listOf(
+                    "linkDebugFrameworkIosArm64",
+                    "linkDebugFrameworkIosSimulatorArm64"
+                )
 
-        val releaseTasksXCFramework = listOf(
-            "linkReleaseFrameworkIosArm64",
-            "linkReleaseFrameworkIosSimulatorArm64"
-        )
+        val releaseTasksXCFramework =
+            if (isRunningAppleWatch) // generates the fat framework for apple watch
+                listOf(
+                    "linkReleaseFrameworkWatchosArm64",
+                    "linkReleaseFrameworkWatchosSimulatorArm64"
+                )
+            else listOf(
+                "linkReleaseFrameworkIosArm64",
+                "linkReleaseFrameworkIosSimulatorArm64"
+            )
 
+        // check if running on apple watch, then add the string keys
         val isSimulator =
             System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
         val buildType = if (forceCaching) "debug" else "release"
         val linkTaskName = if (isSimulator) {
-            "link${buildType.replaceFirstChar { it.uppercase() }}FrameworkIosSimulatorArm64"
+            if (isRunningAppleWatch)
+                "link${buildType.replaceFirstChar { it.uppercase() }}FrameworkWatchosSimulatorArm64"
+            else "link${buildType.replaceFirstChar { it.uppercase() }}FrameworkIosSimulatorArm64"
         } else {
-            "link${buildType.replaceFirstChar { it.uppercase() }}FrameworkIosArm64"
+            if (isRunningAppleWatch)
+                "link${buildType.replaceFirstChar { it.uppercase() }}FrameworkWatchosArm64"
+            else
+                "link${buildType.replaceFirstChar { it.uppercase() }}FrameworkIosArm64"
         }
 
         val taskNameDependency =
             if (forceCaching) debugTasksXCFramework.single { it == linkTaskName } else releaseTasksXCFramework.single { it == linkTaskName }
-
 
         val generateDependencyGraphTask = project.tasks.register(
             appleTasks.first(),
             AtlasXCodeIncrementalBuildTask::class.java
         ) {
             dependsOn(taskNameDependency)
-            commonMainSource.set(
-                project.layout.projectDirectory.dir("src/commonMain/kotlin")
-            )
-            iosMainSource.set(
-                project.layout.projectDirectory.dir("src/iosMain/kotlin")
-            )
-
             moduleName.set(sharedModuleName)
             cacheXCFramework.set(caching)
 
-            xcFrameworkOutputPath.set(iosProject?.resolve("XCFrameworks/${appleModuleName}.xcframework")?.absolutePath)
-            projectBuildDir.set(project.buildDir)
+            runningAppleWatch.set(isRunningAppleWatch)
+            xcFrameworkOutputPath.set(iosProject?.containerDir?.resolve("XCFrameworks/${appleModuleName}.xcframework")?.absolutePath)
+            projectBuildDir.set(project.layout.buildDirectory)
             projectRootDir.set(project.rootDir)
             hashFile.set(project.layout.buildDirectory.file("atlas/graphInputHash.txt"))
             xchashFile.set(project.layout.buildDirectory.file("atlas/xcgraphInputHash.txt"))

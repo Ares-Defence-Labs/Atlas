@@ -5,7 +5,11 @@ import com.architect.atlas.common.helpers.TaskMngrHelpers
 import com.architect.engine.helpers.ResPluginHelpers
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.logging.Logger
 import java.io.File
+
+import java.text.Normalizer
+import kotlin.math.abs
 
 class AtlasAppleBuildEngine : Plugin<Project> {
     override fun apply(project: Project) {

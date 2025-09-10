@@ -1,14 +1,12 @@
 package com.architect.atlasResGen.tasks.colors
 
 import org.gradle.api.DefaultTask
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -32,6 +30,9 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputAppleWatchDir: DirectoryProperty
 
     @get:Input
     abstract var isAndroidTarget: Boolean
@@ -101,7 +102,7 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
         File(androidOut, "PlatformColor.kt").writeText(androidPlatformColor)
 
         // --- 3. Generate actual object + class for iOS ---
-        val iosAtlasColors = buildString {
+        val appleAtlasColors = buildString {
             appendLine("package com.architect.atlas.resources.colors")
             appendLine()
             appendLine("class AtlasColors {")
@@ -139,11 +140,26 @@ abstract class AtlasColorsPluginTask : DefaultTask() {
             }
         """.trimIndent()
 
+        val swiftUIPlatformColor = """
+            package com.architect.atlas.resources.colors
+           
+            class PlatformColor(val raw: String) {
+                fun swiftUIColor(): String = raw
+            }
+        """.trimIndent()
+
         val iosOut = File(outputIosDir.get().asFile, "colors")
         iosOut.mkdirs()
-        File(iosOut, "AtlasColors.kt").writeText(iosAtlasColors)
+        File(iosOut, "AtlasColors.kt").writeText(appleAtlasColors)
         File(iosOut, "PlatformColor.kt").writeText(iosPlatformColor)
-
         logger.lifecycle("✅ AtlasColors + PlatformColor generated for commonMain, androidMain, and iosMain")
+
+        val watchDir = outputAppleWatchDir.orNull?.asFile
+        if(watchDir != null) {
+            val appleWatchOut = File(watchDir, "colors")
+            appleWatchOut.mkdirs()
+            File(appleWatchOut, "AtlasColors.kt").writeText(appleAtlasColors)
+            File(appleWatchOut, "PlatformColor.kt").writeText(swiftUIPlatformColor)
+        }
     }
 }

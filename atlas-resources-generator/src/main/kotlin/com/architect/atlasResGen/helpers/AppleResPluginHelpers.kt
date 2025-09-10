@@ -1,7 +1,9 @@
 package com.architect.atlasResGen.helpers
 
+import com.architect.atlas.common.helpers.AppleProjectFinder
+import com.architect.atlas.common.helpers.AppleProjectFinder.iosApps
+import com.architect.atlas.common.helpers.AppleProjectFinder.watchExtensions
 import com.architect.atlas.common.helpers.FileHelpers
-import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlasResGen.tasks.fonts.AppleAtlasFontPluginTask
 import com.architect.atlasResGen.tasks.platform.XcAssetPackagingTask
 import com.architect.atlasResGen.tasks.platform.XcFontAssetsPackagingTask
@@ -15,19 +17,27 @@ object AppleResPluginHelpers {
     private val applePackageXcodeGenTask = "applePackageXcodeGenTask"
 
     fun getAtlasXCAssetFilePackagingTask(project: Project): TaskProvider<XcAssetPackagingTask> {
-        val iosProject = ProjectFinder.findIosClientApp(project)
+        val appleProjects = AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger)
+        val iosProject = appleProjects.iosApps().firstOrNull()
+        val appleWatchProject = appleProjects.watchExtensions().firstOrNull()
         val forceConvertSVG =
             project.findProperty("atlas.forceSVGs")?.toString()?.toBoolean() ?: false
         val appName = File(iosProject?.name!!).name
+        val appleWatchName = File(appleWatchProject?.name!!).name
         return project.tasks.register(
             applePackageXcodeGenTask,
             XcAssetPackagingTask::class.java
         ) {
             forceRegenerate = FileHelpers.forceRecreateAllFiles(project)
             forceSVGs = forceConvertSVG
-            xcAssetDirectoryPath = "$iosProject/$appName/Assets.xcassets"
+            xcAssetDirectoryPath = "${iosProject.name}/$appName/Assets.xcassets"
+            xcAssetWatchDirectoryPath = "$appleWatchProject/$appleWatchName/Assets.xcassets"
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/images"))
             iosAssetsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
+
+            outputAppleWatchDir.set(project.layout.buildDirectory.dir("generated/watchosMain/resources/images"))
+            appleWatchAssetsDir.set(project.layout.buildDirectory.dir("generated/watchosMain/resources/AtlasAssets.xcassets"))
+
             projectRootDir.set(project.layout.projectDirectory)
         }.apply {
             val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
@@ -50,7 +60,10 @@ object AppleResPluginHelpers {
                 project.layout.buildDirectory.dir("generated/iosMain/resources/fonts/mergedFonts.plist")
                     .get().asFile
             forceRegenerate = FileHelpers.forceRecreateAllFiles(project)
+
             iOSResourcesFontsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/fonts/fontFiles"))
+            appleWatchResourcesFontsDir.set(project.layout.buildDirectory.dir("generated/watchosMain/resources/fonts/fontFiles"))
+
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/fonts"))
         }.apply {
@@ -66,13 +79,14 @@ object AppleResPluginHelpers {
     }
 
     fun getAppleFontsPackagingResourceTask(project: Project): TaskProvider<XcFontAssetsPackagingTask> {
-        val iosProject = ProjectFinder.findIosClientApp(project)
+        val appleProjects = AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger)
+        val iosProject = appleProjects.iosApps().firstOrNull()
         return project.tasks.register(
             appleFontsPackagingGenTask,
             XcFontAssetsPackagingTask::class.java
         ) {
             forceRegenerate = FileHelpers.forceRecreateAllFiles(project)
-            iOSProjectDirectory = iosProject?.absolutePath ?: ""
+            iOSProjectDirectory = iosProject?.targetDir?.absolutePath ?: ""
             fontDirectory =
                 "${project.layout.buildDirectory.asFile.get().path}/generated/iosMain/resources/fonts/fontFiles"
             injectPlistScriptFile.set(project.layout.buildDirectory.file("generated/iosMain/resources/fonts/scripts/updateInfoPlistFonts.sh"))

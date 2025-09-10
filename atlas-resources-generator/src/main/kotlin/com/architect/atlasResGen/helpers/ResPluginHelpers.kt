@@ -138,6 +138,7 @@ internal object ResPluginHelpers {
             AtlasColorsPluginTask::class.java
         ) {
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources"))
+            outputAppleWatchDir.set(project.layout.buildDirectory.dir("generated/watchosMain/resources"))
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))

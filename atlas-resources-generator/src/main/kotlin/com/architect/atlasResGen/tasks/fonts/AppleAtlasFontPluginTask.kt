@@ -23,6 +23,9 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
     abstract val iOSResourcesFontsDir: DirectoryProperty
 
     @get:OutputDirectory
+    abstract val appleWatchResourcesFontsDir: DirectoryProperty
+
+    @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
     @get:OutputFile
@@ -135,6 +138,25 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
 
     private fun copyFontsToiOSAssets(fontFiles: List<File>) {
         val targetDir = iOSResourcesFontsDir.asFile.get()
+        targetDir.mkdirs()
+
+        val filteredFonts =
+            fontFiles.filter { !File(targetDir, it.name).exists() || forceRegenerate }
+        if (filteredFonts.isEmpty()) {
+            logger.lifecycle("All font files already exist. Skipping assignment")
+            return
+        }
+
+        filteredFonts.forEach { sourceFile ->
+            val targetFile = File(targetDir, sourceFile.name)
+            sourceFile.copyTo(FileHelpers.getTrimmedFilePath(targetFile), overwrite = true)
+        }
+
+        logger.lifecycle("✅ Copied ${fontFiles.size} images to iOS assets: ${targetDir.absolutePath}")
+    }
+
+    private fun copyFontsToAppleWatchAssets(fontFiles: List<File>) {
+        val targetDir = appleWatchResourcesFontsDir.asFile.get()
         targetDir.mkdirs()
 
         val filteredFonts =

@@ -27,14 +27,6 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
 
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val commonMainSource: DirectoryProperty
-
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val iosMainSource: DirectoryProperty
-
     @get:Input
     abstract val cacheXCFramework: Property<Boolean>
 
@@ -44,6 +36,9 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
 
     @get:Input
     abstract val xcFrameworkOutputPath: Property<String>
+
+    @get:Input
+    abstract val runningAppleWatch: Property<Boolean>
 
     @get:OutputFile
     abstract val hashFile: RegularFileProperty
@@ -58,6 +53,7 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
 
     @TaskAction
     fun checkAndBuildXCFramework() {
+        val isAppleWatch = runningAppleWatch.get()
         val module = moduleName.get()
         logger.lifecycle("Detected Module Name: $module")
         logger.lifecycle("🔁 Preparing Incremental Plugin")
@@ -76,10 +72,15 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
 
         val isSimulator = System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
         val buildType = if (isDebug) "debug" else "release"
-        val arm64Framework =
+        val arm64Framework = if (isAppleWatch)
+            projectBuildDir.get().asFile.resolve("bin/watchosArm64/${buildType}Framework/$module.framework")
+        else
             projectBuildDir.get().asFile.resolve("bin/iosArm64/${buildType}Framework/$module.framework")
         val simFramework =
-            projectBuildDir.get().asFile.resolve("bin/iosSimulatorArm64/${buildType}Framework/$module.framework")
+            if (isAppleWatch)
+                projectBuildDir.get().asFile.resolve("bin/watchosSimulatorArm64/${buildType}Framework/$module.framework")
+            else
+                projectBuildDir.get().asFile.resolve("bin/iosSimulatorArm64/${buildType}Framework/$module.framework")
 
         val frameworksArgs = mutableListOf<String>().apply {
             if (isDebug) {

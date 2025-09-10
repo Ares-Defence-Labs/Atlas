@@ -39,6 +39,10 @@ class AtlasDIProcessor : Plugin<Project> {
                     project.layout.projectDirectory.dir("src/iosMain/kotlin")
                 )
 
+                appleWatchSourceDirs.from(
+                    project.layout.projectDirectory.dir("src/watchosMain/kotlin")
+                )
+
                 projectRootDir.from(
                     project.layout.projectDirectory.dir("src/commonMain/kotlin")
                 )
@@ -47,7 +51,10 @@ class AtlasDIProcessor : Plugin<Project> {
                     project.layout.projectDirectory.dir("src/androidMain/kotlin")
                 )
                 androidOutputDir.set(droidModule?.layout?.buildDirectory?.dir("generated/kotlin/container")!!)
+
                 iOSOutputDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/container"))
+                appleWatchOutputDir.set(project.layout.buildDirectory.dir("generated/watchosMain/kotlin/container"))
+
                 isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
                 androidBasePackageRef = ProjectFinder.getAndroidAppNamespace(droidModule)
             }

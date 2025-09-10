@@ -28,6 +28,9 @@ abstract class XcAssetPackagingTask : DefaultTask() {
     @get:OutputDirectory
     abstract val iosAssetsDir: DirectoryProperty
 
+    @get:OutputDirectory
+    abstract val appleWatchAssetsDir: DirectoryProperty
+
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val projectRootDir: DirectoryProperty
@@ -35,8 +38,15 @@ abstract class XcAssetPackagingTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
 
+    @get:OutputDirectory
+    abstract val outputAppleWatchDir: DirectoryProperty
+
     @get:Input
     abstract var xcAssetDirectoryPath: String
+
+    @get:Optional
+    @get:Input
+    abstract var xcAssetWatchDirectoryPath: String?
 
     @get:Input
     abstract var forceSVGs: Boolean
@@ -87,90 +97,21 @@ abstract class XcAssetPackagingTask : DefaultTask() {
 
         generateIosActualObject(snakeToPath) // package the image generator
 
-        val contentAssetFiles = imageFiles.filter {
-            val imageSetDir = File(xcAssetDirectoryPath, it.name)
-            val contentJson = File(imageSetDir, "Contents.json")
-
-            if(contentJson.exists()) !contentJson.readText().contains(it.name) || forceRegenerate else forceRegenerate
-        }
-        if (contentAssetFiles.isEmpty()) {
-            logger.lifecycle("All image files already exist. Skipping asset catalog assignment")
-            return
-        }
-        contentAssetFiles.forEach { imageFile ->
-            logger.lifecycle("IMAGE FILE : $imageFiles")
-            val isSvg = imageFile.extension.lowercase() == "svg"
-            val imageName = imageFile.nameWithoutExtension
-            val imageSetName = "${imageName}.imageset"
-            val imageSetDir = File(xcAssetDirectoryPath, imageSetName)
-            imageSetDir.mkdirs()
-
-            val outputImages = mutableListOf<Map<String, String>>()
-
-            if (isSvg && !forceSVGs) {
-                val safeSvg = sanitizeSvgFile(imageFile)
-                val scales = listOf(
-                    Triple("@1x", 1f, "$imageName.png"),
-                    Triple("@2x", 2f, "$imageName@2x.png"),
-                    Triple("@3x", 3f, "$imageName@3x.png")
-                )
-
-                for ((suffix, scale, filename) in scales) {
-                    val outputFile = File(imageSetDir, filename)
-                    convertSvgToPng(
-                        svgFile = safeSvg,
-                        outputFile = outputFile,
-                        scale
-                    )
-
-                    logger.lifecycle("RUNNING FILE NAME OUTPUT: $filename")
-
-                    outputImages.add(
-                        mapOf(
-                            "idiom" to "universal",
-                            "filename" to filename,
-                            "scale" to "${scale.toInt()}x"
-                        )
-                    )
-                }
-            } else {
-                val targetFile = File(imageSetDir, imageFile.name)
-                imageFile.copyTo(targetFile, overwrite = true)
-                outputImages.add(
-                    mapOf(
-                        "idiom" to "universal",
-                        "filename" to imageFile.name,
-                        "scale" to "1x"
-                    )
-                )
-            }
-
-            // Write Contents.json
-            val contentsJson = """
-{
-  "images" : [
-    ${
-                outputImages.joinToString(",\n    ") { img ->
-                    """{
-      "idiom" : "${img["idiom"]}",
-      "filename" : "${img["filename"]}",
-      "scale" : "${img["scale"]}"
-    }"""
-                }
-            }
-  ],
-  "info" : {
-    "version" : 1,
-    "author" : "Atlas"
-  }
-}
-""".trimIndent()
-
-            File(imageSetDir, "Contents.json").writeText(contentsJson)
-        }
-
+        // ios
+        processAppleConfigFiles(imageFiles, xcAssetDirectoryPath)
         logger.lifecycle("✅ XCAssets generated at: $xcAssetDirectoryPath")
 
+        processColorAssetsForApple(xcAssetDirectoryPath)
+
+        val watchPath = xcAssetWatchDirectoryPath ?: ""
+        if(watchPath.isNotBlank()) {
+            logger.lifecycle("✅ XCAssets generated at: $watchPath")
+            processAppleConfigFiles(imageFiles, watchPath)
+            processColorAssetsForApple(watchPath) // process color codes
+        }
+    }
+
+    private fun processColorAssetsForApple(assetXCPath: String){
         // generate color assets (writes to the asset catalog)
         val colorsXmlFile =
             File(projectRootDir.get().asFile, "src/commonMain/resources/colors/colors.xml")
@@ -189,8 +130,96 @@ abstract class XcAssetPackagingTask : DefaultTask() {
                 colors.add(key to value)
             }
 
-            generateColorAssets(colors)
+            generateColorAssets(colors, assetXCPath)
         }
+    }
+
+    private fun processAppleConfigFiles(imageFiles: List<File>, xcDirectoryPath: String){
+        val contentAssetFiles = imageFiles.filter {
+            val imageSetDir = File(xcDirectoryPath, it.name)
+            val contentJson = File(imageSetDir, "Contents.json")
+
+            if (contentJson.exists()) !contentJson.readText()
+                .contains(it.name) || forceRegenerate else forceRegenerate
+        }
+        if (contentAssetFiles.isEmpty()) {
+            logger.lifecycle("All image files already exist. Skipping asset catalog assignment")
+            return
+        }
+        contentAssetFiles.forEach { imageFile ->
+            assetXCPathComponent(imageFile)
+        }
+    }
+
+    private fun assetXCPathComponent(imageFile: File) {
+        val isSvg = imageFile.extension.lowercase() == "svg"
+        val imageName = imageFile.nameWithoutExtension
+        val imageSetName = "${imageName}.imageset"
+        val imageSetDir = File(xcAssetDirectoryPath, imageSetName)
+        imageSetDir.mkdirs()
+
+        val outputImages = mutableListOf<Map<String, String>>()
+
+        if (isSvg && !forceSVGs) {
+            val safeSvg = sanitizeSvgFile(imageFile)
+            val scales = listOf(
+                Triple("@1x", 1f, "$imageName.png"),
+                Triple("@2x", 2f, "$imageName@2x.png"),
+                Triple("@3x", 3f, "$imageName@3x.png")
+            )
+
+            for ((suffix, scale, filename) in scales) {
+                val outputFile = File(imageSetDir, filename)
+                convertSvgToPng(
+                    svgFile = safeSvg,
+                    outputFile = outputFile,
+                    scale
+                )
+
+                logger.lifecycle("RUNNING FILE NAME OUTPUT: $filename")
+
+                outputImages.add(
+                    mapOf(
+                        "idiom" to "universal",
+                        "filename" to filename,
+                        "scale" to "${scale.toInt()}x"
+                    )
+                )
+            }
+        } else {
+            val targetFile = File(imageSetDir, imageFile.name)
+            imageFile.copyTo(targetFile, overwrite = true)
+            outputImages.add(
+                mapOf(
+                    "idiom" to "universal",
+                    "filename" to imageFile.name,
+                    "scale" to "1x"
+                )
+            )
+        }
+
+        // Write Contents.json
+        val contentsJson = """
+{
+  "images" : [
+    ${
+            outputImages.joinToString(",\n    ") { img ->
+                """{
+      "idiom" : "${img["idiom"]}",
+      "filename" : "${img["filename"]}",
+      "scale" : "${img["scale"]}"
+    }"""
+            }
+        }
+  ],
+  "info" : {
+    "version" : 1,
+    "author" : "Atlas"
+  }
+}
+""".trimIndent()
+
+        File(imageSetDir, "Contents.json").writeText(contentsJson)
     }
 
     private fun sanitizeSvgFile(svgFile: File): File {
@@ -289,10 +318,15 @@ abstract class XcAssetPackagingTask : DefaultTask() {
     }
 
 
-    private fun generateColorAssets(colors: List<Pair<String, String>>) {
-        val assetDir = File(xcAssetDirectoryPath)
+    private fun generateColorAssets(colors: List<Pair<String, String>>, assetXCPath: String) {
+        val assetDir = File(assetXCPath)
 
-        val filteredColors = colors.filter { (name, hex) -> !File(assetDir, "$name.colorset").exists() || forceRegenerate }
+        val filteredColors = colors.filter { (name, hex) ->
+            !File(
+                assetDir,
+                "$name.colorset"
+            ).exists() || forceRegenerate
+        }
         if (filteredColors.isEmpty()) {
             logger.lifecycle("All Color Code files already exist. Skipping asset catalog assignment")
             return
@@ -328,7 +362,7 @@ abstract class XcAssetPackagingTask : DefaultTask() {
             File(colorSetDir, "Contents.json").writeText(colorJson)
         }
 
-        logger.lifecycle("🎨 iOS Color assets written to $xcAssetDirectoryPath")
+        logger.lifecycle("🎨 iOS Color assets written to $assetXCPath")
     }
 
     private fun hexComponent(hex: String, index: Int): String {

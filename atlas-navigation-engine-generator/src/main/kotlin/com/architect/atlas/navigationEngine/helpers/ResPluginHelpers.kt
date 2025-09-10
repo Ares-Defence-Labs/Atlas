@@ -1,5 +1,8 @@
 package com.architect.atlas.navigationEngine.helpers
 
+import com.architect.atlas.common.helpers.AppleProjectFinder
+import com.architect.atlas.common.helpers.AppleProjectFinder.iosApps
+import com.architect.atlas.common.helpers.AppleProjectFinder.watchExtensions
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.ProjectFinder.getSwiftImportModuleName
 import com.architect.atlas.navigationEngine.tasks.routingEngine.NavigationEngineGeneratorTask
@@ -15,13 +18,22 @@ fun File.isUnderAny(roots: List<File>): Boolean {
 internal object ResPluginHelpers {
 
     fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
-        val iosXcodeModule = ProjectFinder.findIosClientApp(project)!!
+        val appleClients = AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger)
+
+        val iosXcodeModule = appleClients.iosApps().first()
+        val appleWatchXcodeModule = appleClients.watchExtensions().firstOrNull()
         val androidApp = ProjectFinder.findAndroidClientApp(project)!!
         val wearApp = ProjectFinder.findWearApp(project)
         val coutputFiles =
             project.rootProject.allprojects.map { File(it.projectDir, "src") }.toMutableList()
         val iosoutputs = coutputFiles.toMutableList()
-        iosoutputs.add(iosXcodeModule)
+        iosoutputs.add(iosXcodeModule.targetDir)
+
+        // apple watch outputs
+        val appleWatchOutputs = coutputFiles.toMutableList()
+        if (appleWatchXcodeModule != null) {
+            appleWatchOutputs.add(appleWatchXcodeModule.targetDir)
+        }
 
         val moduleName = project.findProperty("atlas.coreModuleName")?.toString()
             ?: project.getSwiftImportModuleName()
@@ -32,6 +44,7 @@ internal object ResPluginHelpers {
         ) {
             projectCoreName = moduleName
             iOSOutputFiles = iosoutputs
+            appleWatchOutputFiles = appleWatchOutputs
             outputFiles = coutputFiles
             outputAndroidDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/navigation"))
             outputAndroidTabsDir.set(androidApp.layout.buildDirectory.dir("generated/kotlin/navigation/tabs"))
@@ -40,6 +53,7 @@ internal object ResPluginHelpers {
             )
             projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/navigation"))
+            outputAppleWatchDir.set(project.layout.buildDirectory.dir("generated/watchosMain/kotlin/navigation"))
             isIOSTarget = ProjectFinder.isBuildingForIos(project)
         }
 

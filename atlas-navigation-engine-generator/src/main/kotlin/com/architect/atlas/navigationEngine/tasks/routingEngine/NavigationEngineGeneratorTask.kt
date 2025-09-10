@@ -28,6 +28,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
 
+    @get:OutputDirectory
+    abstract val outputAppleWatchDir: DirectoryProperty
+
     @get:Input
     abstract var outputFiles: List<File>
 
@@ -41,6 +44,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
     @get:Input
     abstract var iOSOutputFiles: List<File>
+
+    @get:Input
+    abstract var appleWatchOutputFiles: List<File>
 
     @get:Input
     abstract var projectCoreName: String
@@ -68,14 +74,21 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         // ios components
         if (isIOSTarget) {
             logger.lifecycle("WRITING NAVIGATION TO IOS")
-            val iOSViewModelToScreen = scanViewModelSwiftAnnotations()
-            generateIOSNavigation(iOSViewModelToScreen.map {
+            generateIOSNavigation(scanViewModelSwiftAnnotations(iOSOutputFiles).map {
                 ScreenMetadata(
                     it.first,
                     it.second,
                     it.fourth
                 )
             })
+            generateWatchOSNavigation(scanViewModelSwiftAnnotations(appleWatchOutputFiles).map {
+                ScreenMetadata(
+                    it.first,
+                    it.second,
+                    it.fourth
+                )
+            })
+
             generateIOSSwiftBridge()
 
             // tab navigation
@@ -531,7 +544,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         }
         return null
     }
-
 
 
     private fun generateAndroidNavigation(
@@ -1544,12 +1556,12 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
         )
     }
 
-    private fun scanViewModelSwiftAnnotations(): List<Quad<String, String, String, Boolean>> {
+    private fun scanViewModelSwiftAnnotations(outputFiles: List<File>): List<Quad<String, String, String, Boolean>> {
         val results = mutableListOf<Quad<String, String, String, Boolean>>()
         val swiftRegex =
             """^\s*//\s*@?AtlasScreen\s*\(\s*viewModel\s*:\s*([A-Za-z0-9_]+)\.self\s*(?:,\s*initial\s*:\s*(true|false))?\s*\)""".toRegex()
 
-        iOSOutputFiles.forEach { subProject ->
+        outputFiles.forEach { subProject ->
             subProject.walkTopDown().forEach { file ->
                 if (!file.isFile || !file.extension.equals("swift", true)) return@forEach
 
@@ -1801,6 +1813,216 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
         File(iosOut, "NavigationEngine.swift").writeText(iosImpl)
     }
 
+    private fun generateWatchOSNavigation(screens: List<ScreenMetadata>) {
+        val initial = screens.firstOrNull { it.isInitial } ?: screens.firstOrNull()
+        val initialViewModel = initial?.viewModel ?: "/* MissingInitialVM */"
+        initial?.screen?.replace(":", "") ?: "/*MissingInitialScreen */"
+
+        val watchImpl = buildString {
+            appendLine("import SwiftUI")
+            appendLine("import $projectCoreName")
+            appendLine()
+            appendLine("// MARK: - Route token carried on the NavigationPath")
+            appendLine("struct RouteToken: Hashable, Identifiable {")
+            appendLine("    let id = UUID()")
+            appendLine("    let viewModelType: String")
+            appendLine("}")
+            appendLine()
+            appendLine("// MARK: - Lifecycle wrapper (SwiftUI equivalent of LifecycleAwareHostingController)")
+            appendLine("struct LifecycleAwareWatchView<Content: View>: View {")
+            appendLine("    let content: () -> Content")
+            appendLine("    let onAppear: () -> Void")
+            appendLine("    let onDisappear: () -> Void")
+            appendLine("    init(_ content: @escaping () -> Content, onAppear: @escaping () -> Void, onDisappear: @escaping () -> Void) {")
+            appendLine("        self.content = content")
+            appendLine("        self.onAppear = onAppear")
+            appendLine("        self.onDisappear = onDisappear")
+            appendLine("    }")
+            appendLine("    var body: some View {")
+            appendLine("        content()")
+            appendLine("            .onAppear { onAppear() }")
+            appendLine("            .onDisappear { onDisappear() }")
+            appendLine("    }")
+            appendLine("}")
+            appendLine()
+            appendLine("@MainActor")
+            appendLine("public final class WatchNavigationEngine: ObservableObject {")
+            appendLine("    public static let shared = WatchNavigationEngine()")
+            appendLine("    @Published public var path = NavigationPath()")
+            appendLine("    @Published public var presented: RouteToken? = nil // sheet modal")
+            appendLine("    var stack: [ViewModel] = []")
+            appendLine("    private var vmStore: [UUID: ViewModel] = [:]")
+            appendLine("    private init() {}")
+            appendLine()
+            appendLine("    // MARK: Public API (parity with iOS NavigationEngine)")
+            appendLine("    public func routeWithParams(viewModelType: String, params: Any? = nil, isModal: Bool = false) {")
+            appendLine("        let (token, vm) = buildVMAndToken(viewModelType: viewModelType, params: params)")
+            appendLine("        if isModal {")
+            appendLine("            presented = token")
+            appendLine("        } else {")
+            appendLine("            path.append(token)")
+            appendLine("        }")
+            appendLine("        stack.append(vm)")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func setNavigationStack(stack: [String], params: Any?) { /* Not used directly on watchOS */ }")
+            appendLine("    func getNavigationStack() -> [String] { return stack.map { String(describing: $0) } }")
+            appendLine()
+            appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        if let prev = stack.first as? Poppable, let p = params { prev.onPopParams(params: p) }")
+            appendLine("        if stack.count > 1 { stack.removeSubrange(1..<stack.count) }")
+            appendLine("        withAnimation(animate ? .default : nil) { path.removeLast(path.count) }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        if stack.count >= 2, let prev = stack[stack.count - 2] as? Poppable, let p = params { prev.onPopParams(params: p) }")
+            appendLine("        if !stack.isEmpty { stack.removeLast() }")
+            appendLine("        withAnimation(animate ? .default : nil) { if !path.isEmpty { path.removeLast() } }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
+            appendLine("        let pops = min(count, path.count)")
+            appendLine("        if stack.count > pops, let prev = stack[stack.count - pops - 1] as? Poppable, let p = params { prev.onPopParams(params: p) }")
+            appendLine("        if pops <= stack.count { stack.removeLast(pops) }")
+            appendLine("        withAnimation(animate ? .default : nil) {")
+            appendLine("            for _ in 0..<pops { if !path.isEmpty { path.removeLast() } }")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func popToPage(route: String, params: Any?) { /* Optional: implement lookup by VM type */ }")
+            appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        if presented != nil, let prev = stack.last as? Poppable, let p = params { prev.onPopParams(params: p) }")
+            appendLine("        withAnimation(animate ? .default : nil) { presented = nil }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    // MARK: - Internals")
+            appendLine("    private func buildVMAndToken(viewModelType: String, params: Any?) -> (RouteToken, ViewModel) {")
+            appendLine("        func resolve<T: ViewModel>(_ type: T.Type) -> T {")
+            appendLine("            let clazz = SwiftClassGenerator.companion.getClazz(type: type)")
+            appendLine("            return AtlasDI.companion.resolveServiceNullableByName(clazz: clazz) as! T")
+            appendLine("        }")
+            appendLine("        let vm: ViewModel = {")
+            appendLine("            switch viewModelType {")
+
+            for ((vm, _, _) in screens) {
+                val vmSimple = vm.substringAfterLast(".")
+                appendLine("            case \"$vmSimple\":")
+                appendLine("                let v = resolve($vmSimple.self)")
+                appendLine("                if let p = params { v.tryHandlePush(params: p) }")
+                appendLine("                return v")
+            }
+
+            appendLine("            default:")
+            appendLine("                let v = resolve(UnifiedErrorScreenViewModel.self)")
+            appendLine("                return v")
+            appendLine("            }")
+            appendLine("        }()")
+            appendLine("        let token = RouteToken(viewModelType: viewModelType)")
+            appendLine("        vmStore[token.id] = vm")
+            appendLine("        return (token, vm)")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func viewFor(token: RouteToken) -> AnyView {")
+            appendLine("        guard let vm = vmStore[token.id] else { return AnyView(Text(\"Missing VM\")) }")
+            appendLine("        switch token.viewModelType {")
+
+            for ((vm, screen, _) in screens) {
+                val vmSimple = vm.substringAfterLast(".")
+                val screenName = screen.replace(":", "")
+                appendLine("        case \"$vmSimple\":")
+                appendLine("            let typed = vm as! $vmSimple")
+                appendLine("            return AnyView(LifecycleAwareWatchView({ $screenName(vm: typed) }, onAppear: { typed.onAppearing() }, onDisappear: { typed.onDisappearing() }))")
+            }
+
+            appendLine("        default:")
+            appendLine("            let e = vm as! UnifiedErrorScreenViewModel")
+            appendLine("            return AnyView(LifecycleAwareWatchView({ UnifiedErrorScreen(vm: e) }, onAppear: { e.onAppearing() }, onDisappear: { e.onDisappearing() }))")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func onRouteDisappeared(_ token: RouteToken) {")
+            appendLine("        if let vm = vmStore[token.id] {")
+            appendLine("            Task { @MainActor in")
+            appendLine("                vm.onDestroy()")
+            appendLine("                vm.onCleared()")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        vmStore[token.id] = nil")
+            appendLine("    }")
+            appendLine()
+            appendLine("    // For root screen injection")
+            appendLine("    fileprivate func _unsafeStoreRootVM(_ vm: ViewModel, token: RouteToken) {")
+            appendLine("        self.path = NavigationPath()")
+            appendLine("        self.presented = nil")
+            appendLine("        self.vmStore[token.id] = vm")
+            appendLine("    }")
+            appendLine("}")
+            appendLine()
+            appendLine("// MARK: - Root container for the watchOS target")
+            appendLine("struct WatchNavRootView: View {")
+            appendLine("    @StateObject private var router = WatchNavigationEngine.shared")
+            appendLine("    @State private var rootToken: RouteToken? = nil")
+            appendLine("    var body: some View {")
+            appendLine("        NavigationStack(path: ${'$'}router.path) {")
+            appendLine("            Group {")
+            appendLine("                if let t = rootToken {")
+            appendLine("                    router.viewFor(token: t)")
+            appendLine("                } else {")
+            appendLine("                    ProgressView().task {")
+            appendLine("                        await buildRoot()")
+            appendLine("                    }")
+            appendLine("                }")
+            appendLine("            }")
+            appendLine("            .navigationDestination(for: RouteToken.self) { token in")
+            appendLine("                router.viewFor(token: token)")
+            appendLine("                    .onDisappear { router.onRouteDisappeared(token) }")
+            appendLine("            }")
+            appendLine("            .sheet(item: ${'$'}router.presented) { token in")
+            appendLine("                router.viewFor(token: token)")
+            appendLine("                    .onDisappear { router.onRouteDisappeared(token) }")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    @MainActor")
+            appendLine("    private func buildRoot() async {")
+            appendLine("        let clazz = SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)")
+            appendLine("        let vm = AtlasDI.companion.resolveServiceNullableByName(clazz: clazz) as! $initialViewModel")
+            appendLine("        let token = RouteToken(viewModelType: \"$initialViewModel\")")
+            appendLine("        WatchNavigationEngine.shared.stack = [vm]")
+            appendLine("        WatchNavigationEngine.shared._unsafeStoreRootVM(vm, token: token)")
+            appendLine("        rootToken = token")
+            appendLine("    }")
+            appendLine("}")
+            appendLine()
+            appendLine("@MainActor")
+            appendLine("class WatchAtlasNavigationService: NSObject {")
+            appendLine("    static let shared = WatchAtlasNavigationService()")
+            appendLine("    func navigateToPage(viewModelClass: KotlinKClass, params: Any?) {")
+            appendLine("        WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)")
+            appendLine("    }")
+            appendLine("    func navigateToPageModal(viewModelClass: KotlinKClass, params: Any?) {")
+            appendLine("        WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params, isModal: true)")
+            appendLine("    }")
+            appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        WatchNavigationEngine.shared.popToRoot(animate: animate, params: params)")
+            appendLine("    }")
+            appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        WatchNavigationEngine.shared.popPage(animate: animate, params: params)")
+            appendLine("    }")
+            appendLine("    func popPagesWithCount(_ count: Int, animate: Bool = true, params: Any? = nil) {")
+            appendLine("        WatchNavigationEngine.shared.popPagesWithCount(count: count, animate: animate, params: params)")
+            appendLine("    }")
+            appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
+            appendLine("        WatchNavigationEngine.shared.dismissModal(animate: animate, params: params)")
+            appendLine("    }")
+            appendLine("}")
+        }
+
+        val iosOut = outputAppleWatchDir.get().asFile
+        iosOut.mkdirs()
+        File(iosOut, "WatchNavigationEngine.swift").writeText(watchImpl)
+    }
 
     private fun generateIOSSwiftBridge() {
         val swiftBridge = buildString {

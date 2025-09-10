@@ -14,6 +14,7 @@ pluginManagement {
     includeBuild("../atlas-resources-generator")
     includeBuild("../atlas-navigation-engine-generator")
     includeBuild("../atlas-incremental-build-engine")
+    //includeBuild("../atlas-plugin-common")
 }
 
 dependencyResolutionManagement {

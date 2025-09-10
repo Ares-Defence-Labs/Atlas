@@ -25,7 +25,14 @@ kotlin {
     val iosArm64 = iosArm64()
     val iosSimulatorArm64 = iosSimulatorArm64()
 
-    listOf(iosArm64, iosSimulatorArm64).forEach {
+    listOf(iosArm64, iosSimulatorArm64,
+
+        watchosArm64(),
+        watchosArm32(),
+        watchosX64(),
+        watchosSimulatorArm64(),
+
+        ).forEach {
         it.binaries.framework {
             baseName = "shared"
             isStatic = true
