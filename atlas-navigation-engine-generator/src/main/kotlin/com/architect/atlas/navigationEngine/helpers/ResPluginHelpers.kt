@@ -2,6 +2,8 @@ package com.architect.atlas.navigationEngine.helpers
 
 import com.architect.atlas.common.helpers.AppleProjectFinder
 import com.architect.atlas.common.helpers.AppleProjectFinder.iosApps
+import com.architect.atlas.common.helpers.AppleProjectFinder.isIPhoneBuildNow
+import com.architect.atlas.common.helpers.AppleProjectFinder.isWatchBuildNow
 import com.architect.atlas.common.helpers.AppleProjectFinder.watchExtensions
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.ProjectFinder.getSwiftImportModuleName
@@ -20,6 +22,7 @@ internal object ResPluginHelpers {
     fun getNavEngineGenTask(project: Project): TaskProvider<NavigationEngineGeneratorTask> {
         val appleClients = AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger)
 
+        val cisRunningAppleWatch = project.isWatchBuildNow()
         val iosXcodeModule = appleClients.iosApps().first()
         val appleWatchXcodeModule = appleClients.watchExtensions().firstOrNull()
         val androidApp = ProjectFinder.findAndroidClientApp(project)!!
@@ -42,6 +45,7 @@ internal object ResPluginHelpers {
             "generateNavAtlasEngine",
             NavigationEngineGeneratorTask::class.java
         ) {
+            isRunningAppleWatch = cisRunningAppleWatch
             projectCoreName = moduleName
             iOSOutputFiles = iosoutputs
             appleWatchOutputFiles = appleWatchOutputs
@@ -54,7 +58,7 @@ internal object ResPluginHelpers {
             projectRootDir.set(project.layout.projectDirectory)
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/navigation"))
             outputAppleWatchDir.set(project.layout.buildDirectory.dir("generated/watchosMain/kotlin/navigation"))
-            isIOSTarget = ProjectFinder.isBuildingForIos(project)
+            isIOSTarget = project.isWatchBuildNow() || project.isIPhoneBuildNow()
         }
 
         val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {

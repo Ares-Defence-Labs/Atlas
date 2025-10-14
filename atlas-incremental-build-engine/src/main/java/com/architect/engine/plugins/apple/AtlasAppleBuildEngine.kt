@@ -1,5 +1,7 @@
 package com.architect.engine.plugins.apple
 
+import com.architect.atlas.common.helpers.AppleProjectFinder.isIPhoneBuildNow
+import com.architect.atlas.common.helpers.AppleProjectFinder.isWatchBuildNow
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.TaskMngrHelpers
 import com.architect.engine.helpers.ResPluginHelpers
@@ -26,7 +28,7 @@ class AtlasAppleBuildEngine : Plugin<Project> {
             val generateGlobalHashChecker =
                 ResPluginHelpers.getIncrementalVerifierForAllModulesTask(project)
 
-            val isiOS = ProjectFinder.isBuildingForIos(project)
+            val isiOS = project.isWatchBuildNow() || project.isIPhoneBuildNow()
             val moduleTasks = mutableListOf<String>()
 
             if (project.tasks.any { it.name == "generateDependencyGraph" }) {

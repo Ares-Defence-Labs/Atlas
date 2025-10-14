@@ -1,5 +1,7 @@
 package com.architect.atlasResGen.helpers
 
+import com.architect.atlas.common.helpers.AppleProjectFinder.isIPhoneBuildNow
+import com.architect.atlas.common.helpers.AppleProjectFinder.isWatchBuildNow
 import com.architect.atlas.common.helpers.FileHelpers
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlasResGen.tasks.colors.AtlasColorsPluginTask
@@ -142,7 +144,7 @@ internal object ResPluginHelpers {
             projectRootDir.set(project.layout.projectDirectory)
             outputDir.set(project.layout.buildDirectory.dir("generated/commonMain/resources"))
             androidOutputDir.set(project.layout.buildDirectory.dir("generated/androidMain/resources"))
-            isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
+            isAndroidTarget = !(project.isIPhoneBuildNow() || project.isWatchBuildNow())
         }.apply {
             val hashFileTree = project.fileTree(project.layout.buildDirectory.dir("atlas")) {
                 include("graphInputHash.txt")

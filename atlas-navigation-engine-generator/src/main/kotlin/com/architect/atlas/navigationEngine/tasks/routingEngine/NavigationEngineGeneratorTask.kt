@@ -51,6 +51,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var projectCoreName: String
 
+    @get:Input
+    abstract var isRunningAppleWatch: Boolean
+
     @get:Optional
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -73,27 +76,32 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     fun generateNavigatorClass() {
         // ios components
         if (isIOSTarget) {
-            logger.lifecycle("WRITING NAVIGATION TO IOS")
-            generateIOSNavigation(scanViewModelSwiftAnnotations(iOSOutputFiles).map {
-                ScreenMetadata(
-                    it.first,
-                    it.second,
-                    it.fourth
-                )
-            })
-            generateWatchOSNavigation(scanViewModelSwiftAnnotations(appleWatchOutputFiles).map {
-                ScreenMetadata(
-                    it.first,
-                    it.second,
-                    it.fourth
-                )
-            })
+            if(isRunningAppleWatch){
+                logger.lifecycle("WRITING NAVIGATION TO APPLE WATCH")
+                generateWatchOSNavigation(scanViewModelSwiftAnnotations(appleWatchOutputFiles).map {
+                    ScreenMetadata(
+                        it.first,
+                        it.second,
+                        it.fourth
+                    )
+                })
+            }
+            else {
+                logger.lifecycle("WRITING NAVIGATION TO IOS")
+                generateIOSNavigation(scanViewModelSwiftAnnotations(iOSOutputFiles).map {
+                    ScreenMetadata(
+                        it.first,
+                        it.second,
+                        it.fourth
+                    )
+                })
 
-            generateIOSSwiftBridge()
+                generateIOSSwiftBridge()
 
-            // tab navigation
-            scanIosTabAnnotationsFromSwiftFiles(iOSOutputFiles).forEach { (holder, tabs) ->
-                generateIosTabNavigationServiceFile(holder, tabs)
+                // tab navigation
+                scanIosTabAnnotationsFromSwiftFiles(iOSOutputFiles).forEach { (holder, tabs) ->
+                    generateIosTabNavigationServiceFile(holder, tabs)
+                }
             }
         } else {
             logger.lifecycle("WRITING NAVIGATION TO ANDROID")
@@ -1845,8 +1853,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("    }")
             appendLine("}")
             appendLine()
-            appendLine("@MainActor")
-            appendLine("public final class WatchNavigationEngine: ObservableObject {")
+            appendLine("final class WatchNavigationEngine: ObservableObject {")
             appendLine("    public static let shared = WatchNavigationEngine()")
             appendLine("    @Published public var path = NavigationPath()")
             appendLine("    @Published public var presented: RouteToken? = nil // sheet modal")
@@ -1865,31 +1872,167 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        stack.append(vm)")
             appendLine("    }")
             appendLine()
-            appendLine("    func setNavigationStack(stack: [String], params: Any?) { /* Not used directly on watchOS */ }")
-            appendLine("    func getNavigationStack() -> [String] { return stack.map { String(describing: $0) } }")
+            appendLine("    /// Replace entire stack with the provided chain of viewModel class names (first becomes root).")
+            appendLine("    @MainActor")
+            appendLine("    func setNavigationStack(stack: [String], params: Any?) {")
+            appendLine("        // Dismiss any modal and clear existing nav state")
+            appendLine("        presented = nil")
+            appendLine("        // Dispose existing VMs")
+            appendLine("        for (_, vm) in vmStore {")
+            appendLine("            Task { @MainActor in")
+            appendLine("                vm.onDestroy()")
+            appendLine("                vm.onCleared()")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        vmStore.removeAll()")
+            appendLine("        self.stack.removeAll()")
+            appendLine("        self.path = NavigationPath()")
+            appendLine()
+            appendLine("        guard let first = stack.first else { return }")
+            appendLine()
+            appendLine("        // Build root")
+            appendLine("        let (rootToken, rootVM) = buildVMAndToken(viewModelType: first, params: params)")
+            appendLine("        _unsafeStoreRootVM(rootVM, token: rootToken)")
+            appendLine("        self.stack = [rootVM]")
+            appendLine()
+            appendLine("        // Push the rest")
+            appendLine("        if stack.count > 1 {")
+            appendLine("            for name in stack.dropFirst() {")
+            appendLine("                let (t, vm) = buildVMAndToken(viewModelType: name, params: params)")
+            appendLine("                self.path.append(t)")
+            appendLine("                self.stack.append(vm)")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine()
+            appendLine("    /// Convenience: replace entire stack with single page.")
+            appendLine("    @MainActor")
+            appendLine("    func replaceStack(with viewModelType: String, params: Any?) {")
+            appendLine("        setNavigationStack(stack: [viewModelType], params: params)")
+            appendLine("    }")
+            appendLine()
+            appendLine("    /// Replace only the current screen with a new one. If at root, behaves like replaceStack.")
+            appendLine("    @MainActor")
+            appendLine("    func replaceCurrentScreen(with viewModelType: String, params: Any?) {")
+            appendLine("        // If no stack, act like a straight route")
+            appendLine("        guard !stack.isEmpty else {")
+            appendLine("            routeWithParams(viewModelType: viewModelType, params: params)")
+            appendLine("            return")
+            appendLine("        }")
+            appendLine()
+            appendLine("        // Dismiss modal if showing (replacement is for page content, not modal).")
+            appendLine("        if presented != nil {")
+            appendLine("            presented = nil")
+            appendLine("        }")
+            appendLine()
+            appendLine("        // If replacing root and there is no path (no pushed pages), this is a full stack replace.")
+            appendLine("        if path.isEmpty {")
+            appendLine("            replaceStack(with: viewModelType, params: params)")
+            appendLine("            return")
+            appendLine("        }")
+            appendLine()
+            appendLine("        let currentWas = stack.removeLast()")
+            appendLine("        Task { @MainActor in")
+            appendLine("            currentWas.onDestroy()")
+            appendLine("            currentWas.onCleared()")
+            appendLine("        }")
+            appendLine("        if !path.isEmpty { path.removeLast() }")
+            appendLine()
+            appendLine("        let (replacementToken, replacementVM) = buildVMAndToken(viewModelType: viewModelType, params: params)")
+            appendLine("        path.append(replacementToken)")
+            appendLine("        stack.append(replacementVM)")
+            appendLine("    }")
+            appendLine()
+            appendLine("    func getNavigationStack() -> [String] { return stack.map { String(describing: type(of: $0)) } }")
             appendLine()
             appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
             appendLine("        if let prev = stack.first as? Poppable, let p = params { prev.onPopParams(params: p) }")
-            appendLine("        if stack.count > 1 { stack.removeSubrange(1..<stack.count) }")
+            appendLine("        if stack.count > 1 {")
+            appendLine("            let removing = stack.dropFirst()")
+            appendLine("            for vm in removing {")
+            appendLine("                Task { @MainActor in")
+            appendLine("                    vm.onDestroy()")
+            appendLine("                    vm.onCleared()")
+            appendLine("                }")
+            appendLine("            }")
+            appendLine("            stack.removeSubrange(1..<stack.count)")
+            appendLine("        }")
             appendLine("        withAnimation(animate ? .default : nil) { path.removeLast(path.count) }")
             appendLine("    }")
             appendLine()
             appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
             appendLine("        if stack.count >= 2, let prev = stack[stack.count - 2] as? Poppable, let p = params { prev.onPopParams(params: p) }")
-            appendLine("        if !stack.isEmpty { stack.removeLast() }")
+            appendLine("        if let removed = stack.popLast() {")
+            appendLine("            Task { @MainActor in")
+            appendLine("                removed.onDestroy()")
+            appendLine("                removed.onCleared()")
+            appendLine("            }")
+            appendLine("        }")
             appendLine("        withAnimation(animate ? .default : nil) { if !path.isEmpty { path.removeLast() } }")
             appendLine("    }")
             appendLine()
             appendLine("    func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
             appendLine("        let pops = min(count, path.count)")
             appendLine("        if stack.count > pops, let prev = stack[stack.count - pops - 1] as? Poppable, let p = params { prev.onPopParams(params: p) }")
-            appendLine("        if pops <= stack.count { stack.removeLast(pops) }")
+            appendLine("        if pops > 0 {")
+            appendLine("            for _ in 0..<pops {")
+            appendLine("                if let removed = stack.popLast() {")
+            appendLine("                    Task { @MainActor in")
+            appendLine("                        removed.onDestroy()")
+            appendLine("                        removed.onCleared()")
+            appendLine("                    }")
+            appendLine("                }")
+            appendLine("            }")
+            appendLine("        }")
             appendLine("        withAnimation(animate ? .default : nil) {")
             appendLine("            for _ in 0..<pops { if !path.isEmpty { path.removeLast() } }")
             appendLine("        }")
             appendLine("    }")
             appendLine()
-            appendLine("    func popToPage(route: String, params: Any?) { /* Optional: implement lookup by VM type */ }")
+            appendLine("""
+                @MainActor
+                func popToPage(route: String, params: Any?) {
+                    if presented != nil {
+                        presented = nil
+                    }
+
+                    guard !stack.isEmpty else { return }
+
+                    let targetIndexOpt = stack.enumerated().first(where: { (_, vm) in
+                        String(describing: type(of: vm)) == route
+                    })?.offset
+
+                    guard let targetIndex = targetIndexOpt else {
+                        // route not found; no-op
+                        return
+                    }
+
+                    let pops = (stack.count - 1) - targetIndex
+                    guard pops >= 0 else { return }
+
+                    if let p = params, let target = stack[targetIndex] as? Poppable {
+                        target.onPopParams(params: p)
+                    }
+
+                    if pops > 0 {
+                        for vm in stack.suffix(pops) {
+                            Task { @MainActor in
+                                vm.onDestroy()
+                                vm.onCleared()
+                            }
+                        }
+                        stack.removeLast(pops)
+                    }
+
+                    if pops > 0 {
+                        withAnimation(.default) {
+                            for _ in 0..<pops {
+                                if !path.isEmpty { path.removeLast() }
+                            }
+                        }
+                    }
+                }
+            """.trimIndent())
             appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
             appendLine("        if presented != nil, let prev = stack.last as? Poppable, let p = params { prev.onPopParams(params: p) }")
             appendLine("        withAnimation(animate ? .default : nil) { presented = nil }")
@@ -1935,8 +2078,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             }
 
             appendLine("        default:")
-            appendLine("            let e = vm as! UnifiedErrorScreenViewModel")
-            appendLine("            return AnyView(LifecycleAwareWatchView({ UnifiedErrorScreen(vm: e) }, onAppear: { e.onAppearing() }, onDisappear: { e.onDisappearing() }))")
+            appendLine("            return AnyView(Text(\"\"))")
             appendLine("        }")
             appendLine("    }")
             appendLine()
@@ -1995,26 +2137,75 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("    }")
             appendLine("}")
             appendLine()
-            appendLine("@MainActor")
-            appendLine("class WatchAtlasNavigationService: NSObject {")
+            appendLine("class WatchAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {")
             appendLine("    static let shared = WatchAtlasNavigationService()")
+            appendLine("")
+            appendLine("    // MARK: - Stack APIs")
+            appendLine("    func setNavigationStack(stack: [ViewModel], params: Any?) {")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            let names = stack.map { String(describing: type(of: $0)) }")
+            appendLine("            WatchNavigationEngine.shared.setNavigationStack(stack: names, params: params)")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine("")
+            appendLine("    func getNavigationStack() -> [ViewModel] {")
+            appendLine("        return WatchNavigationEngine.shared.stack")
+            appendLine("    }")
+            appendLine("")
+            appendLine("    // MARK: - Routing")
             appendLine("    func navigateToPage(viewModelClass: KotlinKClass, params: Any?) {")
-            appendLine("        WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)")
+            appendLine("        }")
             appendLine("    }")
+            appendLine("")
+            appendLine("    func navigateToPagePushAndReplace(viewModelClass: KotlinKClass, params: Any?) {")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.replaceStack(with: viewModelClass.simpleName!, params: params)")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine("")
+            appendLine("    func navigateToPagePushAndReplaceCurrentScreen(viewModelClass: KotlinKClass, params: Any?) {")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.replaceCurrentScreen(with: viewModelClass.simpleName!, params: params)")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine("")
             appendLine("    func navigateToPageModal(viewModelClass: KotlinKClass, params: Any?) {")
-            appendLine("        WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params, isModal: true)")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params, isModal: true)")
+            appendLine("        }")
             appendLine("    }")
+            appendLine("")
+            appendLine("    // MARK: - Pops / Dismiss")
             appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
-            appendLine("        WatchNavigationEngine.shared.popToRoot(animate: animate, params: params)")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.popToRoot(animate: animate, params: params)")
+            appendLine("        }")
             appendLine("    }")
+            appendLine("")
             appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
-            appendLine("        WatchNavigationEngine.shared.popPage(animate: animate, params: params)")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.popPage(animate: animate, params: params)")
+            appendLine("        }")
             appendLine("    }")
-            appendLine("    func popPagesWithCount(_ count: Int, animate: Bool = true, params: Any? = nil) {")
-            appendLine("        WatchNavigationEngine.shared.popPagesWithCount(count: count, animate: animate, params: params)")
+            appendLine("")
+            appendLine("    func popPagesWithCount(countOfPages: Int32, animate: Bool, params: Any?) {")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.popPagesWithCount(count: Int(countOfPages), animate: animate, params: params)")
+            appendLine("        }")
             appendLine("    }")
+            appendLine("")
+            appendLine("    func popToPage(route: String, params: Any? = nil) {")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.popToPage(route: route, params: params)")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine("")
             appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
-            appendLine("        WatchNavigationEngine.shared.dismissModal(animate: animate, params: params)")
+            appendLine("        DispatchQueue.main.async {")
+            appendLine("            WatchNavigationEngine.shared.dismissModal(animate: animate, params: params)")
+            appendLine("        }")
             appendLine("    }")
             appendLine("}")
         }
@@ -2029,7 +2220,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("import Foundation")
             appendLine("import UIKit")
             appendLine("import $projectCoreName")
-            appendLine("import SwiftUICore")
             appendLine(
                 """
                 import SwiftUI

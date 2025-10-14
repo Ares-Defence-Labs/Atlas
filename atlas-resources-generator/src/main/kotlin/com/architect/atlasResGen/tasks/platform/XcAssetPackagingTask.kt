@@ -22,6 +22,8 @@ import java.io.FileOutputStream
 import javax.imageio.ImageIO
 import java.awt.image.BufferedImage
 import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.io.path.Path
+import kotlin.io.path.absolutePathString
 
 @CacheableTask
 abstract class XcAssetPackagingTask : DefaultTask() {
@@ -98,13 +100,13 @@ abstract class XcAssetPackagingTask : DefaultTask() {
         generateIosActualObject(snakeToPath) // package the image generator
 
         // ios
-        processAppleConfigFiles(imageFiles, xcAssetDirectoryPath)
-        logger.lifecycle("✅ XCAssets generated at: $xcAssetDirectoryPath")
+        val iosAssetPath = Path(xcAssetDirectoryPath, "Assets.xcassets").absolutePathString()
+        processAppleConfigFiles(imageFiles, iosAssetPath)
+        processColorAssetsForApple(iosAssetPath)
 
-        processColorAssetsForApple(xcAssetDirectoryPath)
-
-        val watchPath = xcAssetWatchDirectoryPath ?: ""
-        if(watchPath.isNotBlank()) {
+        val cwatchPath = xcAssetWatchDirectoryPath ?: ""
+        if(cwatchPath.isNotBlank()) {
+            val watchPath = Path(cwatchPath, "Assets.xcassets").absolutePathString()
             logger.lifecycle("✅ XCAssets generated at: $watchPath")
             processAppleConfigFiles(imageFiles, watchPath)
             processColorAssetsForApple(watchPath) // process color codes
@@ -147,15 +149,15 @@ abstract class XcAssetPackagingTask : DefaultTask() {
             return
         }
         contentAssetFiles.forEach { imageFile ->
-            assetXCPathComponent(imageFile)
+            assetXCPathComponent(imageFile, xcDirectoryPath)
         }
     }
 
-    private fun assetXCPathComponent(imageFile: File) {
+    private fun assetXCPathComponent(imageFile: File, assetDirectoryPath: String) {
         val isSvg = imageFile.extension.lowercase() == "svg"
         val imageName = imageFile.nameWithoutExtension
         val imageSetName = "${imageName}.imageset"
-        val imageSetDir = File(xcAssetDirectoryPath, imageSetName)
+        val imageSetDir = File(assetDirectoryPath, imageSetName)
         imageSetDir.mkdirs()
 
         val outputImages = mutableListOf<Map<String, String>>()

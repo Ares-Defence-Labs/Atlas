@@ -55,33 +55,33 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
 
     @TaskAction
     fun generateFontClass() {
-        logger.info("Running font files for iOS")
-        val fontsDir = File(projectRootDir.get().asFile, "src/commonMain/resources/fonts")
-        if (!fontsDir.exists()) {
-            logger.warn("\u2757\ufe0f No Fonts folder found at: ${fontsDir.absolutePath}")
-            return
-        }
-
-        val fontFiles = fontsDir.walk()
-            .filter {
-                it.isFile && it.extension.lowercase() in listOf("ttf", "otf")
-            }
-            .toList()
-
-        logger.info("Font files detected $fontFiles")
-        val snakeToPath = fontFiles.associate { file ->
-            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
-                    FileHelpers.getTrimmedFilePath(
-                        file
-                    ).name
-        }
-
-        prepareInternalFontInfoPlist(snakeToPath.values.toList()) // write the merged manifest info.plist
-        generateiOSActualFontObject(fontFiles.associate { file ->
-            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
-                    file
-        })
-        copyFontsToiOSAssets(fontFiles)
+//        logger.info("Running font files for iOS")
+//        val fontsDir = File(projectRootDir.get().asFile, "src/commonMain/resources/fonts")
+//        if (!fontsDir.exists()) {
+//            logger.warn("\u2757\ufe0f No Fonts folder found at: ${fontsDir.absolutePath}")
+//            return
+//        }
+//
+//        val fontFiles = fontsDir.walk()
+//            .filter {
+//                it.isFile && it.extension.lowercase() in listOf("ttf", "otf")
+//            }
+//            .toList()
+//
+//        logger.info("Font files detected $fontFiles")
+//        val snakeToPath = fontFiles.associate { file ->
+//            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
+//                    FileHelpers.getTrimmedFilePath(
+//                        file
+//                    ).name
+//        }
+//
+//        prepareInternalFontInfoPlist(snakeToPath.values.toList()) // write the merged manifest info.plist
+//        generateiOSActualFontObject(fontFiles.associate { file ->
+//            FileHelpers.getTrimmedFilePath(file).nameWithoutExtension to
+//                    file
+//        })
+//        copyFontsToiOSAssets(fontFiles)
     }
 
     private fun prepareInternalFontInfoPlist(fontFiles: List<String>) {
@@ -121,7 +121,6 @@ abstract class AppleAtlasFontPluginTask : DefaultTask() {
             val fontName = file.name
             val postName = ResGenFileHelpers.extractPostScriptName(file)
 
-            logger.lifecycle("FONT NAME : $postName")
             builder.appendLine("    fun $name(size: Double): UIFont =")
             builder.appendLine("        UIFont.fontWithName(fontName = \"$postName\", size = size) ?:")
             builder.appendLine("            error(\"❌ Font not found: $fontName\")")

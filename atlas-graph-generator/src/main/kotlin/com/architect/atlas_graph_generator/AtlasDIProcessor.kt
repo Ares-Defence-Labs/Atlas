@@ -1,5 +1,7 @@
 package com.architect.atlasGraphGenerator
 
+import com.architect.atlas.common.helpers.AppleProjectFinder.isIPhoneBuildNow
+import com.architect.atlas.common.helpers.AppleProjectFinder.isWatchBuildNow
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.TaskMngrHelpers
 import org.gradle.api.Plugin
@@ -55,7 +57,7 @@ class AtlasDIProcessor : Plugin<Project> {
                 iOSOutputDir.set(project.layout.buildDirectory.dir("generated/iosMain/kotlin/container"))
                 appleWatchOutputDir.set(project.layout.buildDirectory.dir("generated/watchosMain/kotlin/container"))
 
-                isAndroidTarget = !ProjectFinder.isBuildingForIos(project)
+                isAndroidTarget = !(project.isIPhoneBuildNow() || project.isWatchBuildNow())
                 androidBasePackageRef = ProjectFinder.getAndroidAppNamespace(droidModule)
             }
 

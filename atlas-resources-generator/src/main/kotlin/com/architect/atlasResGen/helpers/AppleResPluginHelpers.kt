@@ -9,7 +9,6 @@ import com.architect.atlasResGen.tasks.platform.XcAssetPackagingTask
 import com.architect.atlasResGen.tasks.platform.XcFontAssetsPackagingTask
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
-import java.io.File
 
 object AppleResPluginHelpers {
     private val appleFontsGenTask = "appleFontsGenTask"
@@ -22,16 +21,14 @@ object AppleResPluginHelpers {
         val appleWatchProject = appleProjects.watchExtensions().firstOrNull()
         val forceConvertSVG =
             project.findProperty("atlas.forceSVGs")?.toString()?.toBoolean() ?: false
-        val appName = File(iosProject?.name!!).name
-        val appleWatchName = File(appleWatchProject?.name!!).name
         return project.tasks.register(
             applePackageXcodeGenTask,
             XcAssetPackagingTask::class.java
         ) {
             forceRegenerate = FileHelpers.forceRecreateAllFiles(project)
             forceSVGs = forceConvertSVG
-            xcAssetDirectoryPath = "${iosProject.name}/$appName/Assets.xcassets"
-            xcAssetWatchDirectoryPath = "$appleWatchProject/$appleWatchName/Assets.xcassets"
+            xcAssetDirectoryPath = iosProject?.targetDir?.absolutePath ?: ""
+            xcAssetWatchDirectoryPath = appleWatchProject?.targetDir?.absolutePath
             outputIosDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/images"))
             iosAssetsDir.set(project.layout.buildDirectory.dir("generated/iosMain/resources/AtlasAssets.xcassets"))
 

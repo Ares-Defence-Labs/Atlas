@@ -8,11 +8,14 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecOperations
+import org.gradle.process.internal.ExecException
+import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
 
@@ -36,6 +39,10 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
 
     @get:Input
     abstract val xcFrameworkOutputPath: Property<String>
+
+    @get:Optional
+    @get:Input
+    abstract val runningAppleWatchLegacy: Property<Boolean>
 
     @get:Input
     abstract val runningAppleWatch: Property<Boolean>
@@ -72,9 +79,11 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
 
         val isSimulator = System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
         val buildType = if (isDebug) "debug" else "release"
-        val arm64Framework = if (isAppleWatch)
-            projectBuildDir.get().asFile.resolve("bin/watchosArm64/${buildType}Framework/$module.framework")
-        else
+        val isLegacy = runningAppleWatchLegacy.getOrElse(false)
+        val arm64Framework = if (isAppleWatch) {
+            if (isLegacy) projectBuildDir.get().asFile.resolve("bin/watchosArm64/${buildType}Framework/$module.framework") else
+                projectBuildDir.get().asFile.resolve("bin/watchosDeviceArm64/${buildType}Framework/$module.framework")
+        } else
             projectBuildDir.get().asFile.resolve("bin/iosArm64/${buildType}Framework/$module.framework")
         val simFramework =
             if (isAppleWatch)
@@ -100,20 +109,40 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
         xcOutDir.parentFile.mkdirs()
 
         logger.lifecycle("🔧 Building XCFramework...")
-        val result = execOps.exec {
-            commandLine(
-                "xcodebuild",
-                "-create-xcframework",
-                *frameworksArgs.toTypedArray(),
-                "-output", xcOutDir.absolutePath
-            )
-            isIgnoreExitValue = true
-            standardOutput = System.out
-            errorOutput = System.err
-        }
 
-        if (result.exitValue != 0) {
-            throw GradleException("❌ xcodebuild failed with exit code ${result.exitValue}")
+        val stdout = ByteArrayOutputStream()
+        val stderr = ByteArrayOutputStream()
+        try {
+            execOps.exec {
+                // DO NOT ignore exit value — let Gradle throw ExecException we can wrap
+                isIgnoreExitValue = false
+                commandLine(
+                    "xcodebuild",
+                    "-create-xcframework",
+                    *frameworksArgs.toTypedArray(),
+                    "-output", xcOutDir.absolutePath
+                )
+                standardOutput = stdout
+                errorOutput = stderr
+            }
+        } catch (e: Exception) {
+            val out = stdout.toString(Charsets.UTF_8.name())
+            val err = stderr.toString(Charsets.UTF_8.name())
+
+            val msg = buildString {
+                appendLine("❌ xcodebuild -create-xcframework failed")
+                appendLine("Command: xcodebuild -create-xcframework ${frameworksArgs.joinToString(" ")} -output ${xcOutDir.absolutePath}")
+                appendLine("--- stderr ---")
+                appendLine(err.ifBlank { "<empty>" })
+                appendLine("--- stdout ---")
+                appendLine(out.ifBlank { "<empty>" })
+            }
+
+            logger.error("MessageError - ${e.message}")
+            logger.error("Exception - ${e.stackTraceToString()}")
+
+            // Attach the original ExecException so Gradle shows a proper Java stack trace
+            throw GradleException(msg, e)
         }
 
         val xcodeFrameworksDir = projectRootDir.get().asFile.resolve("$module/Frameworks")

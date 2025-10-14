@@ -23,12 +23,6 @@ kotlin {
         publishLibraryVariants("release")
     }
 
-    // watchOS (Apple)
-    watchosArm64()
-    watchosArm32()
-    watchosX64()
-    watchosSimulatorArm64()
-
     // java target -- Compose UI (Mac, Linux, Desktop)
     jvm()
 
@@ -51,7 +45,14 @@ kotlin {
         iosX64(),
         iosArm64(),
         iosSimulatorArm64(),
-        macosArm64()
+        macosArm64(),
+
+        // watch os support
+        watchosArm32(),
+        watchosX64(),
+        watchosArm64(),
+        watchosSimulatorArm64(),
+        watchosDeviceArm64(),
     ).forEach {
         it.binaries.framework {
             baseName = "atlasFlowsShared"
@@ -77,6 +78,13 @@ kotlin {
             }
         }
 
+        // watch os target
+        val watchosMain by getting
+        val watchosX64Main by getting
+        val watchosArm32Main by getting
+        val watchosArm64Main by getting
+        val watchosSimulatorArm64Main by getting
+        val watchosDeviceArm64Main by getting
 
         val macosArm64Main by getting
         val macosMain by getting
@@ -105,7 +113,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.3.3"
+        version = "0.3.8"
     )
 
     // Configure POM metadata for the published artifact

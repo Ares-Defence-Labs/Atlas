@@ -1,5 +1,7 @@
 package com.architect.atlasResGen.plugins
 
+import com.architect.atlas.common.helpers.AppleProjectFinder.isIPhoneBuildNow
+import com.architect.atlas.common.helpers.AppleProjectFinder.isWatchBuildNow
 import com.architect.atlas.common.helpers.ProjectFinder
 import com.architect.atlas.common.helpers.TaskMngrHelpers
 import com.architect.atlasResGen.helpers.AppleResPluginHelpers
@@ -54,7 +56,7 @@ class AtlasResourceGenPlugin : Plugin<Project> {
                 mustRunAfter(generateStringsResources)
             }
 
-            val isiOSTarget = ProjectFinder.isBuildingForIos(project)
+            val isiOSTarget = project.isWatchBuildNow() || project.isIPhoneBuildNow()
             if (isiOSTarget) {
                 // apple tasks
                 val generateAtlasXCAssetFileResources =
