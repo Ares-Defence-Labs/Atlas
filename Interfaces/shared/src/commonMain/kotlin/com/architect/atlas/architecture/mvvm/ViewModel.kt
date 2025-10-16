@@ -19,3 +19,4 @@ expect open class ViewModel() {
     open fun onBackground()
     open fun onForeground()
 }
+

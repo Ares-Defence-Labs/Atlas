@@ -281,6 +281,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     private fun generateTabNavigationServices(tabsByHolder: Map<String, List<TabEntry>>) {
         tabsByHolder.forEach { (holder, tabs) ->
             val sortedTabs = tabs.sortedBy { it.position }
+            val distinctTabs = sortedTabs.distinctBy { it.viewModel to it.screen }
 
             val outputFile = File(outputAndroidTabsDir.get().asFile, "${holder}TabsNavigation.kt")
 
@@ -288,7 +289,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("package com.architect.atlas.navigation")
                 appendLine()
 
-                val viewModelImports = sortedTabs.mapNotNull { findViewModelImport(it.viewModel) }
+                val viewModelImports = distinctTabs.mapNotNull { findViewModelImport(it.viewModel) }
                 viewModelImports.distinct().forEach { appendLine("import $it") }
 
                 appendLine("import com.architect.atlas.architecture.navigation.AtlasTabNavigationService")
@@ -299,57 +300,55 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("import androidx.navigation.NavHostController")
                 appendLine("import androidx.compose.runtime.compositionLocalOf")
                 appendLine("import java.lang.ref.WeakReference")
-
-                appendLine(
-                    """
-                val TabLocalAtlasNavController = compositionLocalOf<NavHostController> {
-                    error("NavController not provided")
-                }
-            """.trimIndent()
-                )
-
-                appendLine(
-                    """
-                    
-                    object AtlasTabNavHolder {
-                        private var navControllerRef: WeakReference<NavHostController>? = null
-
-                        fun bind(navController: NavHostController) {
-                            navControllerRef = WeakReference(navController)
-                        }
-
-                        fun get(): NavHostController? = navControllerRef?.get()
-                    }
-                """.trimIndent()
-                )
                 appendLine()
+
+                appendLine("val TabLocalAtlasNavController = compositionLocalOf<NavHostController> {")
+                appendLine("    error(\"NavController not provided\")")
+                appendLine("}")
+                appendLine()
+                appendLine("object AtlasTabNavHolder {")
+                appendLine("    private var navControllerRef: WeakReference<NavHostController>? = null")
+                appendLine("    fun bind(navController: NavHostController) { navControllerRef = WeakReference(navController) }")
+                appendLine("    fun get(): NavHostController? = navControllerRef?.get()")
+                appendLine("}")
+                appendLine()
+
                 appendLine("object ${holder}TabsNavigation : AtlasTabNavigationService {")
                 appendLine("    private var currentTab: KClass<out ViewModel>? = null")
                 appendLine("    private val tabs: Map<KClass<out ViewModel>, String> = listOf(")
-                sortedTabs.forEach {
+                distinctTabs.forEach {
                     appendLine("        ${it.viewModel}::class to \"${it.screen}\",")
                 }
                 appendLine("    ).toMap()")
                 appendLine()
                 appendLine("    override fun <T : ViewModel> navigateToTabIndex(viewModelClass: KClass<T>, params: Any?) {")
-                appendLine("     android.os.Handler(android.os.Looper.getMainLooper()).post {")
-                appendLine("        val route = tabs[viewModelClass] ?: error(\"Tab not found for \$viewModelClass\")")
-                appendLine("        currentTab = viewModelClass")
-                appendLine("        val encoded = params?.let {")
-                appendLine("            when (it) {")
-                appendLine("                is String, is Number, is Boolean -> it.toString()")
-                appendLine("                else -> Json.encodeToString(it)")
+                appendLine("        android.os.Handler(android.os.Looper.getMainLooper()).post {")
+                appendLine("            val nav = AtlasTabNavHolder.get() ?: return@post")
+                appendLine("            val baseRoute = tabs[viewModelClass] ?: error(\"Tab not found for \$viewModelClass\")")
+                appendLine("            currentTab = viewModelClass")
+                appendLine()
+                appendLine("            // Pass params via SavedStateHandle (keeps route stable)")
+                appendLine("            val encoded: String? = params?.let { p ->")
+                appendLine("                when (p) {")
+                appendLine("                    is String, is Number, is Boolean -> p.toString()")
+                appendLine("                    else -> Json.encodeToString(p)")
+                appendLine("                }")
                 appendLine("            }")
-                appendLine("        } ?: \"\"")
-                appendLine("        AtlasTabNavHolder.get()?.navigate(\"\$route?pushParam=\$encoded\") { launchSingleTop = true }")
+                appendLine("            nav.currentBackStackEntry?.savedStateHandle?.set(\"tabPushParam\", encoded)")
+                appendLine()
+                appendLine("            // Navigate to BASE route only (no query) to avoid new entries/VMs")
+                appendLine("            if (nav.currentDestination?.route != baseRoute) {")
+                appendLine("                nav.navigate(baseRoute) { launchSingleTop = true }")
+                appendLine("            }")
                 appendLine("        }")
                 appendLine("    }")
+                appendLine()
                 appendLine("    fun getCurrentTabViewModel(): KClass<out ViewModel>? = currentTab")
                 appendLine("}")
             }
 
             outputFile.writeText(code)
-            generateTabNavGraph(holder, sortedTabs)
+            generateTabNavGraph(holder, distinctTabs)
         }
     }
 
@@ -358,62 +357,98 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         androidOut.mkdirs()
 
         val sortedTabs = tabs.sortedBy { it.position }
+        val distinctTabs = sortedTabs.distinctBy { it.screen }
+
         val file = File(outputAndroidTabsDir.get().asFile, "${holder}NavGraph.kt")
 
         val code = buildString {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
 
-            val screenImports = sortedTabs.mapNotNull { findFunctionImport(it.screen) }
-            val viewModelImports = sortedTabs.mapNotNull { findViewModelImport(it.viewModel) }
+            val screenImports = distinctTabs.mapNotNull { findFunctionImport(it.screen) }
+            val viewModelImports = distinctTabs.mapNotNull { findViewModelImport(it.viewModel) }
             (screenImports + viewModelImports).distinct().forEach { appendLine("import $it") }
 
             appendLine("import androidx.navigation.compose.composable")
-            appendLine("import androidx.compose.runtime.Composable")
-            appendLine("import androidx.navigation.NavHostController")
-            appendLine("import androidx.lifecycle.viewmodel.compose.viewModel")
-            appendLine("import com.architect.atlas.architecture.navigation.Poppable")
-            appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
-            appendLine("import kotlinx.serialization.json.Json")
-            appendLine("import androidx.navigation.NavBackStackEntry")
-            appendLine("import androidx.lifecycle.Lifecycle")
-            appendLine("import androidx.lifecycle.LifecycleEventObserver")
-            appendLine("import androidx.lifecycle.LifecycleOwner")
-            appendLine("import androidx.compose.runtime.getValue")
-            appendLine("import android.graphics.drawable.Drawable")
-            appendLine("import androidx.compose.runtime.DisposableEffect")
-            appendLine("import androidx.compose.runtime.rememberUpdatedState")
-            appendLine("import androidx.lifecycle.compose.LocalLifecycleOwner")
+            appendLine("import androidx.navigation.navigation")
+            appendLine("import androidx.compose.runtime.*")
             appendLine("import androidx.navigation.compose.rememberNavController")
-            appendLine("import com.architect.atlas.navigation.${holder}TabsNavigation")
-            appendLine("import androidx.compose.ui.graphics.vector.ImageVector")
+            appendLine("import androidx.navigation.compose.currentBackStackEntryAsState")
+            appendLine("import com.google.accompanist.navigation.animation.AnimatedNavHost")
             appendLine("import androidx.compose.animation.*")
             appendLine("import androidx.compose.animation.core.tween")
-            appendLine("import com.google.accompanist.navigation.animation.AnimatedNavHost")
-            appendLine("import kotlin.reflect.KClass")
+            appendLine("import kotlinx.serialization.json.Json")
+            appendLine("import androidx.compose.runtime.CompositionLocalProvider")
             appendLine("import androidx.compose.runtime.mutableStateOf")
             appendLine("import androidx.compose.runtime.remember")
             appendLine("import androidx.compose.runtime.setValue")
             appendLine("import androidx.compose.runtime.SideEffect")
-            appendLine("import androidx.compose.runtime.CompositionLocalProvider")
-            appendLine(
-                """
-                import com.architect.atlas.navigation.TabLocalAtlasNavController
-                import com.architect.atlas.navigation.AtlasTabNavHolder
-                import androidx.navigation.compose.currentBackStackEntryAsState
-                import androidx.compose.runtime.LaunchedEffect
-            """.trimIndent()
-            )
+            appendLine("import com.architect.atlas.architecture.mvvm.ViewModel")
+            appendLine("import kotlin.reflect.KClass")
+            appendLine("import android.graphics.drawable.Drawable")
+            appendLine("import androidx.compose.ui.graphics.vector.ImageVector")
+            appendLine("import com.architect.atlas.navigation.${holder}TabsNavigation")
+            appendLine("import com.architect.atlas.navigation.TabLocalAtlasNavController")
+            appendLine("import com.architect.atlas.navigation.AtlasTabNavHolder")
             appendLine()
 
-            appendLine("    fun tabIndex(route: String?): Int {")
-            appendLine("        return when (route?.substringBefore(\"?\")) {")
-            sortedTabs.forEach { tab ->
-                appendLine("            \"${tab.screen}\" -> ${tab.position}")
-            }
-            appendLine("            else -> -1")
+            appendLine("fun tabIndex(route: String?): Int = when (route) {")
+            distinctTabs.forEach { tab -> appendLine("    \"${tab.screen}\" -> ${tab.position}") }
+            appendLine("    else -> -1")
+            appendLine("}")
+            appendLine()
+
+            // HandleLifecycle with isTabContent flag: tabs don't dispose, pages do.
+            appendLine("@Composable")
+            appendLine("inline fun <reified VM : com.architect.atlas.architecture.mvvm.ViewModel> HandleLifecycle(")
+            appendLine("    viewModel: VM,")
+            appendLine("    isTabContent: Boolean = false,")
+            appendLine("    crossinline content: @Composable () -> Unit")
+            appendLine(") {")
+            appendLine("    val lifecycleOwner: androidx.lifecycle.LifecycleOwner =")
+            appendLine("        androidx.lifecycle.compose.LocalLifecycleOwner.current")
+            appendLine("    val currentViewModel by rememberUpdatedState(viewModel)")
+            appendLine()
+            appendLine("    DisposableEffect(lifecycleOwner) {")
+            appendLine("        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->")
+            appendLine("            when (event) {")
+            appendLine("                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> currentViewModel.onAppearing()")
+            appendLine("                androidx.lifecycle.Lifecycle.Event.ON_PAUSE  -> currentViewModel.onDisappearing()")
+            appendLine("                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> {")
+            appendLine("                    if (!isTabContent) {")
+            appendLine("                        currentViewModel.onDestroy()")
+            appendLine("                        currentViewModel.onCleared()")
+            appendLine("                    }")
+            appendLine("                }")
+            appendLine("                else -> Unit")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        lifecycleOwner.lifecycle.addObserver(observer)")
+            appendLine("        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }")
+            appendLine("    }")
+            appendLine("    content()")
+            appendLine("}")
+            appendLine()
+
+            // Consume param from SavedStateHandle once (not from route arg)
+            appendLine("@Composable")
+            appendLine("private fun ConsumeTabParamOnce(entry: androidx.navigation.NavBackStackEntry, onParam: (Any) -> Unit) {")
+            appendLine("    val handle = entry.savedStateHandle")
+            appendLine("    val raw: String? = handle.get(\"tabPushParam\")")
+            appendLine("    LaunchedEffect(raw) {")
+            appendLine("        if (raw != null && raw != \"null\") {")
+            appendLine("            val p: Any = when {")
+            appendLine("                raw.toIntOrNull() != null -> raw.toInt()")
+            appendLine("                raw.toDoubleOrNull() != null -> raw.toDouble()")
+            appendLine("                raw.equals(\"true\", true) || raw.equals(\"false\", true) -> raw.toBoolean()")
+            appendLine("                else -> runCatching { Json.decodeFromString<Any>(raw) }.getOrElse { raw }")
+            appendLine("            }")
+            appendLine("            onParam(p)")
+            appendLine("            handle.remove<String>(\"tabPushParam\")")
             appendLine("        }")
             appendLine("    }")
+            appendLine("}")
+            appendLine()
 
             appendLine("data class AtlasTabItem(")
             appendLine("    val label: String,")
@@ -422,121 +457,84 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    val iconDrawable: Drawable? = null")
             appendLine(")")
             appendLine()
-            appendLine("@OptIn(ExperimentalAnimationApi::class)")
 
+            appendLine("@OptIn(ExperimentalAnimationApi::class)")
             appendLine("@Composable")
             appendLine("fun ${holder}NavGraph(onTabPositionChanged: (Int) -> Unit) {")
-            appendLine(
-                """
-    val navControl = rememberNavController()
-    AtlasTabNavHolder.bind(navControl)
-    CompositionLocalProvider(TabLocalAtlasNavController provides navControl) {
-    """.trimIndent()
-            )
+            appendLine("    val navControl = rememberNavController()")
+            appendLine("    AtlasTabNavHolder.bind(navControl)")
+            appendLine("    CompositionLocalProvider(TabLocalAtlasNavController provides navControl) {")
+            appendLine("        val navBackStackEntry by navControl.currentBackStackEntryAsState()")
+            appendLine("        val currentRoute = navBackStackEntry?.destination?.route")
+            appendLine()
+            appendLine("        var previousTabIndex by remember { mutableStateOf(0) }")
+            appendLine("        val newTabIndex = tabIndex(currentRoute)")
+            appendLine("        val isForward = newTabIndex >= previousTabIndex")
+            appendLine("        SideEffect { previousTabIndex = newTabIndex }")
+            appendLine("        var lastCallbackTabIndex by remember { mutableStateOf(-1) }")
+            appendLine("        LaunchedEffect(newTabIndex) {")
+            appendLine("            if (newTabIndex != -1 && newTabIndex != lastCallbackTabIndex) {")
+            appendLine("                lastCallbackTabIndex = newTabIndex")
+            appendLine("                onTabPositionChanged(newTabIndex)")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine()
+            appendLine("        val holderRoute = \"${holder}Root\"")
+            appendLine("        AnimatedNavHost(")
+            appendLine("            navController = navControl,")
+            appendLine("            startDestination = holderRoute,")
+            appendLine("            enterTransition = {")
+            appendLine("                val from = tabIndex(initialState.destination.route)")
+            appendLine("                val to = tabIndex(targetState.destination.route)")
+            appendLine("                if (to > from) slideInHorizontally { it } + fadeIn(tween(300))")
+            appendLine("                else            slideInHorizontally { -it } + fadeIn(tween(300))")
+            appendLine("            },")
+            appendLine("            exitTransition = {")
+            appendLine("                val from = tabIndex(initialState.destination.route)")
+            appendLine("                val to = tabIndex(targetState.destination.route)")
+            appendLine("                if (to > from) slideOutHorizontally { -it } + fadeOut(tween(300))")
+            appendLine("                else            slideOutHorizontally {  it } + fadeOut(tween(300))")
+            appendLine("            },")
+            appendLine("            popEnterTransition = { fadeIn(tween(300)) },")
+            appendLine("            popExitTransition = { fadeOut(tween(300)) }")
+            appendLine("        ) {")
+            appendLine("            // Holder-level nested graph keeps a stable ViewModelStoreOwner for tabs")
+            appendLine("            navigation(startDestination = \"${distinctTabs.first().screen}\", route = holderRoute) {")
+            distinctTabs.forEach { tab ->
+                appendLine("                // Register each tab with a STABLE route (no query param).")
+                appendLine("                composable(\"${tab.screen}\") { entry ->")
+                appendLine("                    // Scope the tab VM to the HOLDER graph so it persists across tab switches.")
 
-            appendLine(
-                """
-    val navBackStackEntry by navControl.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route?.substringBefore("?")
-    
-    """.trimIndent()
-            )
+                appendLine("""
+                     val nav = TabLocalAtlasNavController.current
+                val holderOwner = remember(entry) {
+                    nav.getBackStackEntry(holderRoute)
+                }
+                    
+                """.trimIndent())
 
-// Animation direction logic
-            appendLine("    var previousTabIndex by remember { mutableStateOf(0) }")
-            appendLine("    val newTabIndex = tabIndex(currentRoute)")
-            appendLine("    val isForward = newTabIndex >= previousTabIndex")
-            appendLine("    SideEffect { previousTabIndex = newTabIndex }")
-
-// Change callback tracking
-            appendLine("    var lastCallbackTabIndex by remember { mutableStateOf(-1) }")
-            appendLine(
-                """
-    LaunchedEffect(newTabIndex) {
-        if (newTabIndex != -1 && newTabIndex != lastCallbackTabIndex) {
-            lastCallbackTabIndex = newTabIndex
-            onTabPositionChanged(newTabIndex)
-        }
-    }
-    """.trimIndent()
-            )
-
-// tabIndex() function
-            appendLine("    fun tabIndex(route: String?): Int {")
-            appendLine("        return when (route?.substringBefore(\"?\")) {")
-            sortedTabs.forEach { tab ->
-                appendLine("            \"${tab.screen}\" -> ${tab.position}")
+                appendLine("                    val vm = androidx.lifecycle.viewmodel.compose.viewModel(")
+                appendLine("                        modelClass = ${tab.viewModel}::class.java,")
+                appendLine("                        viewModelStoreOwner = holderOwner")
+                appendLine("                    )")
+                appendLine("                    // Read param from SavedStateHandle once (not from the route).")
+                appendLine("                    ConsumeTabParamOnce(entry) { p ->")
+                appendLine("                        @Suppress(\"UNCHECKED_CAST\")")
+                appendLine("                        (vm as? com.architect.atlas.architecture.navigation.Pushable<Any>)?.onPushParams(p)")
+                appendLine("                    }")
+                appendLine("                    // Tabs do NOT dispose the VM on destination destroy.")
+                appendLine("                    HandleLifecycle(vm, isTabContent = true) { ${tab.screen}(vm) }")
+                appendLine("                }")
             }
-            appendLine("            else -> -1")
+            appendLine("            }")
             appendLine("        }")
             appendLine("    }")
-            appendLine()
-            appendLine("    AnimatedNavHost(")
-            appendLine("        navController = navControl,")
-            appendLine("        startDestination = \"${sortedTabs.first().screen}\",")
-            appendLine("        enterTransition = {")
-            appendLine("            val from = tabIndex(initialState.destination.route)")
-            appendLine("            val to = tabIndex(targetState.destination.route)")
-            appendLine("            if (to > from)")
-            appendLine("                slideInHorizontally { it } + fadeIn(tween(300))")
-            appendLine("            else")
-            appendLine("                slideInHorizontally { -it } + fadeIn(tween(300))")
-            appendLine("        },")
-            appendLine("        exitTransition = {")
-            appendLine("            val from = tabIndex(initialState.destination.route)")
-            appendLine("            val to = tabIndex(targetState.destination.route)")
-            appendLine("            if (to > from)")
-            appendLine("                slideOutHorizontally { -it } + fadeOut(tween(300))")
-            appendLine("            else")
-            appendLine("                slideOutHorizontally { it } + fadeOut(tween(300))")
-            appendLine("        },")
-            appendLine("        popEnterTransition = {")
-            appendLine("            val from = tabIndex(initialState.destination.route)")
-            appendLine("            val to = tabIndex(targetState.destination.route)")
-            appendLine("            if (to > from)")
-            appendLine("                slideInHorizontally { it } + fadeIn(tween(300))")
-            appendLine("            else")
-            appendLine("                slideInHorizontally { -it } + fadeIn(tween(300))")
-            appendLine("        },")
-            appendLine("        popExitTransition = {")
-            appendLine("            val from = tabIndex(initialState.destination.route)")
-            appendLine("            val to = tabIndex(targetState.destination.route)")
-            appendLine("            if (to > from)")
-            appendLine("                slideOutHorizontally { -it } + fadeOut(tween(300))")
-            appendLine("            else")
-            appendLine("                slideOutHorizontally { it } + fadeOut(tween(300))")
-            appendLine("        }")
-            appendLine("    ) {")
-
-            for (tab in sortedTabs) {
-                appendLine("        composable(\"${tab.screen}?pushParam={pushParam}\") { backStackEntry ->")
-                appendLine("            val vm = viewModel(modelClass = ${tab.viewModel}::class.java, viewModelStoreOwner = backStackEntry)")
-                appendLine("            val rawParam = backStackEntry.arguments?.getString(\"pushParam\")")
-                appendLine("            rawParam?.let {")
-                appendLine("                val param: Any = when {")
-                appendLine("                    rawParam == \"null\" -> return@let")
-                appendLine("                    rawParam.toIntOrNull() != null -> rawParam.toInt()")
-                appendLine("                    rawParam.toDoubleOrNull() != null -> rawParam.toDouble()")
-                appendLine("                    rawParam.equals(\"true\", true) || rawParam.equals(\"false\", true) -> rawParam.toBoolean()")
-                appendLine("                    else -> try { Json.decodeFromString(rawParam) } catch (_: Exception) { rawParam }")
-                appendLine("                }")
-                appendLine("                @Suppress(\"UNCHECKED_CAST\")")
-                appendLine("                (vm as? com.architect.atlas.architecture.navigation.Pushable<Any>)?.onPushParams(param)")
-                appendLine("            }")
-                appendLine("            HandleLifecycle(vm) {")
-                appendLine("                ${tab.screen}(vm)")
-                appendLine("            }")
-                appendLine("        }")
-            }
-
-
-            appendLine("}")
-            appendLine("}")
             appendLine("}")
         }
 
         file.writeText(code)
     }
+
 
     private fun findFunctionImport(screenName: String): String? {
         outputFiles.forEach { root ->

@@ -4,7 +4,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewModelScope as VM
 
 @Suppress("EmptyDefaultConstructor")
@@ -16,8 +15,8 @@ actual open class ViewModel : androidx.lifecycle.ViewModel() {
         get() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        viewModelScope.launch { withContext(Dispatchers.IO) { onInitialize() } }
-        viewModelScopeWithoutCancel.launch { withContext(Dispatchers.IO) { onInitializeWithoutCancel() } }
+        viewModelScope.launch { onInitialize() }
+        viewModelScopeWithoutCancel.launch { onInitializeWithoutCancel() }
     }
 
     public actual override fun onCleared() {

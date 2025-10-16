@@ -109,6 +109,7 @@ kotlin {
         val iosSimulatorArm64Main by getting
         val iosMain by getting {
             dependencies {
+                implementation("co.touchlab.crashkios:crashlytics:0.9.0")
             }
         }
     }
@@ -131,7 +132,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-core",
-        version = "0.9.9"
+        version = "1.0.4"
     )
 
     // Configure POM metadata for the published artifact
