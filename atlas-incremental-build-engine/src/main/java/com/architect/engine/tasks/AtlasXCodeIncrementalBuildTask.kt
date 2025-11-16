@@ -70,55 +70,103 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
 
         val prevHashFile = hashFile.asFile.get()
         val currentXcHash = xchashFile.asFile.orNull
-        if (currentXcHash?.exists() == true) {
-            if (currentXcHash.readText() == prevHashFile.readText()) {
-                logger.lifecycle("🔁 XC Framework Exists. Skipping Generation (Hash has not changed)")
-                return
-            }
+        if (currentXcHash?.exists() == true && currentXcHash.readText() == prevHashFile.readText()) {
+            logger.lifecycle("🔁 XCFramework unchanged (hash match). Skipping.")
+            return
         }
 
         val isSimulator = System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator") == true
         val buildType = if (isDebug) "debug" else "release"
-        val isLegacy = runningAppleWatchLegacy.getOrElse(false)
-        val arm64Framework = if (isAppleWatch) {
-            if (isLegacy) projectBuildDir.get().asFile.resolve("bin/watchosArm64/${buildType}Framework/$module.framework") else
-                projectBuildDir.get().asFile.resolve("bin/watchosDeviceArm64/${buildType}Framework/$module.framework")
-        } else
+        val legacyRequested = runningAppleWatchLegacy.getOrElse(false)
+
+        // Resolve outputs
+        val deviceModernFramework = if (isAppleWatch)
+            projectBuildDir.get().asFile.resolve("bin/watchosDeviceArm64/${buildType}Framework/$module.framework")
+        else
             projectBuildDir.get().asFile.resolve("bin/iosArm64/${buildType}Framework/$module.framework")
-        val simFramework =
-            if (isAppleWatch)
-                projectBuildDir.get().asFile.resolve("bin/watchosSimulatorArm64/${buildType}Framework/$module.framework")
-            else
-                projectBuildDir.get().asFile.resolve("bin/iosSimulatorArm64/${buildType}Framework/$module.framework")
 
-        val frameworksArgs = mutableListOf<String>().apply {
-            if (isDebug) {
-                add("-framework")
-                add(if (isSimulator) simFramework.absolutePath else arm64Framework.absolutePath)
-            } else {
-                add("-framework")
-                add(arm64Framework.absolutePath)
+        val deviceLegacyFramework: File? = if (isAppleWatch && legacyRequested)
+            projectBuildDir.get().asFile.resolve("bin/watchosArm64/${buildType}Framework/$module.framework")
+        else null
+
+        val simFramework = if (isAppleWatch)
+            projectBuildDir.get().asFile.resolve("bin/watchosSimulatorArm64/${buildType}Framework/$module.framework")
+        else
+            projectBuildDir.get().asFile.resolve("bin/iosSimulatorArm64/${buildType}Framework/$module.framework")
+
+        fun frameworkBinary(frameworkDir: File) = File(frameworkDir, module)
+
+        // Decide which framework(s) to pass to -create-xcframework
+        val frameworksArgs = mutableListOf<String>()
+
+        if (isSimulator) {
+            // Simulator run: only simulator slice is required
+            if (!simFramework.exists()) {
+                throw GradleException("Simulator run requested, but simulator framework not found at: ${simFramework.absolutePath}")
             }
+            logger.lifecycle("🧪 Simulator build detected → using simulator framework only.")
+            frameworksArgs += listOf("-framework", simFramework.absolutePath)
+        } else {
+            // Device run: prefer merged (modern+legacy) if requested & available, else modern only
+            if (!deviceModernFramework.exists()) {
+                throw GradleException("Device build requested, but modern device framework not found at: ${deviceModernFramework.absolutePath}")
+            }
+
+            val deviceFrameworkForXC = if (isAppleWatch && legacyRequested) {
+                if (deviceLegacyFramework == null || !deviceLegacyFramework.exists()) {
+                    logger.warn("⚠️ Legacy requested but legacy device framework missing; falling back to modern only.")
+                    deviceModernFramework
+                } else {
+                    // Merge arm64 (modern) + arm64_32 (legacy) → fat device framework
+                    val tempMergeDir = File(project.layout.buildDirectory.get().asFile, "atlas/tmp-fat-device/$module.framework")
+                    if (tempMergeDir.exists()) tempMergeDir.deleteRecursively()
+                    tempMergeDir.parentFile.mkdirs()
+
+                    deviceModernFramework.copyRecursively(tempMergeDir, overwrite = true)
+
+                    val modernBin = frameworkBinary(deviceModernFramework)
+                    val legacyBin = frameworkBinary(deviceLegacyFramework)
+                    val mergedBin = frameworkBinary(tempMergeDir)
+
+                    val lipoOut = ByteArrayOutputStream()
+                    val lipoErr = ByteArrayOutputStream()
+                    execOps.exec {
+                        isIgnoreExitValue = false
+                        commandLine(
+                            "xcrun", "lipo",
+                            "-create",
+                            "-output", mergedBin.absolutePath,
+                            modernBin.absolutePath,
+                            legacyBin.absolutePath
+                        )
+                        standardOutput = lipoOut
+                        errorOutput = lipoErr
+                    }
+                    execOps.exec { commandLine("xcrun", "lipo", "-info", mergedBin.absolutePath) }
+
+                    logger.lifecycle("📦 Created fat device framework (arm64 + arm64_32) for watchOS.")
+                    tempMergeDir
+                }
+            } else {
+                deviceModernFramework
+            }
+
+            frameworksArgs += listOf("-framework", deviceFrameworkForXC.absolutePath)
         }
 
-        if (xcOutDir.exists() && xcOutDir.isFile) {
-            logger.warn("⚠️ Deleting invalid .xcframework file at ${xcOutDir.absolutePath}")
-            xcOutDir.delete()
-        }
+        // Prepare output dir
+        if (xcOutDir.exists() && xcOutDir.isFile) xcOutDir.delete()
         if (xcOutDir.exists()) xcOutDir.deleteRecursively()
         xcOutDir.parentFile.mkdirs()
 
-        logger.lifecycle("🔧 Building XCFramework...")
-
+        logger.lifecycle("🔧 Building XCFramework…")
         val stdout = ByteArrayOutputStream()
         val stderr = ByteArrayOutputStream()
         try {
             execOps.exec {
-                // DO NOT ignore exit value — let Gradle throw ExecException we can wrap
                 isIgnoreExitValue = false
                 commandLine(
-                    "xcodebuild",
-                    "-create-xcframework",
+                    "xcodebuild", "-create-xcframework",
                     *frameworksArgs.toTypedArray(),
                     "-output", xcOutDir.absolutePath
                 )
@@ -128,33 +176,24 @@ abstract class AtlasXCodeIncrementalBuildTask @Inject constructor(
         } catch (e: Exception) {
             val out = stdout.toString(Charsets.UTF_8.name())
             val err = stderr.toString(Charsets.UTF_8.name())
-
             val msg = buildString {
                 appendLine("❌ xcodebuild -create-xcframework failed")
                 appendLine("Command: xcodebuild -create-xcframework ${frameworksArgs.joinToString(" ")} -output ${xcOutDir.absolutePath}")
-                appendLine("--- stderr ---")
-                appendLine(err.ifBlank { "<empty>" })
-                appendLine("--- stdout ---")
-                appendLine(out.ifBlank { "<empty>" })
+                appendLine("--- stderr ---"); appendLine(err.ifBlank { "<empty>" })
+                appendLine("--- stdout ---"); appendLine(out.ifBlank { "<empty>" })
             }
-
             logger.error("MessageError - ${e.message}")
             logger.error("Exception - ${e.stackTraceToString()}")
-
-            // Attach the original ExecException so Gradle shows a proper Java stack trace
             throw GradleException(msg, e)
         }
 
+        // Install into Xcode project’s Frameworks/
         val xcodeFrameworksDir = projectRootDir.get().asFile.resolve("$module/Frameworks")
         val targetFramework = xcodeFrameworksDir.resolve("$module.xcframework")
-
-        if (targetFramework.exists()) {
-            targetFramework.deleteRecursively()
-        }
-
+        if (targetFramework.exists()) targetFramework.deleteRecursively()
         xcOutDir.copyRecursively(targetFramework, overwrite = true)
-        xchashFile.asFile.get().writeText(hashFile.asFile.get().readText())
 
+        xchashFile.asFile.get().writeText(hashFile.asFile.get().readText())
         logger.lifecycle("✅ Updating Build Hash")
         logger.lifecycle("✅ XCFramework copied to: ${targetFramework.absolutePath}")
     }

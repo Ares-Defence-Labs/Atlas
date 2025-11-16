@@ -14,7 +14,7 @@ actual open class ViewModel : androidx.lifecycle.ViewModel() {
     actual val viewModelScopeWithoutCancel: CoroutineScope
         get() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    init {
+    actual fun bootstrapVmFromNavEngine(){
         viewModelScope.launch { onInitialize() }
         viewModelScopeWithoutCancel.launch { onInitializeWithoutCancel() }
     }

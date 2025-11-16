@@ -60,15 +60,21 @@ internal object ResPluginHelpers {
         val appleModuleName = project.findProperty("atlas.iOSModuleName")?.toString()
             ?: project.getSwiftImportModuleName()
 
-        val forceCaching = project.findProperty("atlas.forceCaching")?.toString()?.toBooleanStrictOrNull() ?: false
+        val forceCaching =
+            project.findProperty("atlas.forceCaching")?.toString()?.toBooleanStrictOrNull() ?: false
         val caching = ProjectFinder.isDebugMode(project) || forceCaching
 
-        val iosProject = AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger).iosApps().firstOrNull()
+        val iosProject =
+            AppleProjectFinder.findAllXcodeTargets(project.rootDir, project.logger).iosApps()
+                .firstOrNull()
 
         // Prefer deriving from requested tasks; fall back to forceCaching/debug-mode
         val buildType = resolveBuildTypeFromRequestedTasks(project)
 
-        val isSimulator = System.getenv("EFFECTIVE_PLATFORM_NAME")?.contains("simulator", ignoreCase = true) == true
+        val isSimulator = System.getenv("EFFECTIVE_PLATFORM_NAME")
+            ?.contains("simulator", ignoreCase = true) == true
+        val isLegacyModuleName =
+            project.findProperty("atlas.legacyWatch")?.toString()?.toBooleanStrictOrNull() ?: false
 
         // Accept both historic and new target name variants
         val candidates = buildList {
@@ -76,8 +82,10 @@ internal object ResPluginHelpers {
                 if (isSimulator) {
                     add("link${buildType}FrameworkWatchosSimulatorArm64")
                 } else {
-                    add("link${buildType}FrameworkWatchosDeviceArm64") // older naming
-                    add("link${buildType}FrameworkWatchosArm64")       // newer naming
+                    add("link${buildType}FrameworkWatchosDeviceArm64")
+                    if (isLegacyModuleName) {
+                        add("link${buildType}FrameworkWatchosArm64")
+                    }
                 }
             } else {
                 if (isSimulator) {
@@ -88,19 +96,20 @@ internal object ResPluginHelpers {
             }
         }
 
-        val taskNameDependency = candidates.firstOrNull { project.tasks.findByName(it) != null }
-            ?: error("None of the expected Kotlin/Native link tasks exist: $candidates")
+        val xcFrameworkName =
+            if (isRunningAppleWatch) "${sharedModuleName}_apple_watch"
+            else sharedModuleName
 
         val generateDependencyGraphTask = project.tasks.register(
             appleTasks.first(), AtlasXCodeIncrementalBuildTask::class.java
         ) {
-            dependsOn(taskNameDependency)
+            setDependsOn(candidates)
             moduleName.set(sharedModuleName)
-            runningAppleWatchLegacy.set(taskNameDependency.endsWith("FrameworkWatchosArm64"))
+            runningAppleWatchLegacy.set(isLegacyModuleName)
             cacheXCFramework.set(caching)
             runningAppleWatch.set(isRunningAppleWatch)
             xcFrameworkOutputPath.set(
-                iosProject?.containerDir?.resolve("XCFrameworks/${sharedModuleName}.xcframework")?.absolutePath
+                iosProject?.containerDir?.resolve("XCFrameworks/${xcFrameworkName}.xcframework")?.absolutePath
             )
             projectBuildDir.set(project.layout.buildDirectory)
             projectRootDir.set(project.rootDir)

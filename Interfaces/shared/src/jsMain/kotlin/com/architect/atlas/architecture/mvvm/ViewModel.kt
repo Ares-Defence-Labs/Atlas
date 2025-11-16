@@ -11,14 +11,9 @@ actual open class ViewModel actual constructor() {
     actual val viewModelScope: CoroutineScope = CoroutineScope(Dispatchers.Default)
     actual val viewModelScopeWithoutCancel: CoroutineScope = CoroutineScope(Dispatchers.Default)
 
-    init {
-        viewModelScope.launch {
-            onInitialize()
-        }
-
-        viewModelScopeWithoutCancel.launch {
-            onInitializeWithoutCancel()
-        }
+    actual fun bootstrapVmFromNavEngine(){
+        viewModelScope.launch { onInitialize() }
+        viewModelScopeWithoutCancel.launch { onInitializeWithoutCancel() }
     }
 
     actual open fun onCleared() {

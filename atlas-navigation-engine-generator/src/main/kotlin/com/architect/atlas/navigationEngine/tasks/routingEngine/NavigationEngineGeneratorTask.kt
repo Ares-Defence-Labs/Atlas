@@ -49,7 +49,14 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     abstract var appleWatchOutputFiles: List<File>
 
     @get:Input
+    abstract var androidBasePackageRef: String
+
+    @get:Input
     abstract var projectCoreName: String
+
+    @get:Input
+    abstract var isAndroidCompose: Boolean
+
 
     @get:Input
     abstract var isRunningAppleWatch: Boolean
@@ -76,7 +83,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     fun generateNavigatorClass() {
         // ios components
         if (isIOSTarget) {
-            if(isRunningAppleWatch){
+            if (isRunningAppleWatch) {
                 logger.lifecycle("WRITING NAVIGATION TO APPLE WATCH")
                 generateWatchOSNavigation(scanViewModelSwiftAnnotations(appleWatchOutputFiles).map {
                     ScreenMetadata(
@@ -85,8 +92,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                         it.fourth
                     )
                 })
-            }
-            else {
+            } else {
                 logger.lifecycle("WRITING NAVIGATION TO IOS")
                 generateIOSNavigation(scanViewModelSwiftAnnotations(iOSOutputFiles).map {
                     ScreenMetadata(
@@ -106,20 +112,50 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         } else {
             logger.lifecycle("WRITING NAVIGATION TO ANDROID")
             val ants = scanViewModelAnnotations()
+            logger.lifecycle("AtlasNav: ants size         = ${ants.size}")
+
             val droidSourceFiles = androidSourceFiles.files.toList()
             val droidAnts = if (droidSourceFiles.isNotEmpty()) {
-                ants.filter { (_, _, filePath, _) -> File(filePath).isUnderAny(droidSourceFiles) }
+                val filtered = ants.filter { (_, _, filePath, _) ->
+                    File(filePath).isUnderAny(droidSourceFiles)
+                }
+                logger.lifecycle(
+                    "AtlasNav: droidSource roots = ${
+                        droidSourceFiles.joinToString { it.path }
+                    }")
+                logger.lifecycle("AtlasNav: droidAnts size    = ${filtered.size}")
+
+                if (filtered.isEmpty() && ants.isNotEmpty()) {
+                    logger.warn(
+                        "⚠️ AtlasNav: androidSourceFiles filter removed all screens. " +
+                                "Falling back to unfiltered annotations for nav."
+                    )
+                    ants
+                } else {
+                    filtered
+                }
             } else {
-                logger.warn("⚠️ No wearSourceRoots provided; Wear build will include ALL screens. Set 'wearSourceRoots' for correct filtering.")
-                emptyList()
+                logger.warn(
+                    "⚠️ AtlasNav: No androidSourceFiles provided; using all annotations for nav. " +
+                            "Configure 'androidSourceFiles' for more precise filtering."
+                )
+                ants
             }
 
-            val wearViewModelToScreen = droidAnts.map { it.first to it.second }
+            val wearViewModelToScreen = droidAnts.map { it.first to it.second }.distinct()
 
-            // requires filtering by android type
-            generateAndroidNavigation(wearViewModelToScreen)
-            generateAndroidNavGraph(droidAnts)
-            generateTabNavigationServices(scanTabAnnotations())
+            logger.lifecycle(
+                "AtlasNav: classical screens = " +
+                        wearViewModelToScreen.joinToString { "${it.first} -> ${it.second}" }
+            )
+
+            if (isAndroidCompose) {
+                generateAndroidNavigation(wearViewModelToScreen)
+                generateAndroidNavGraph(droidAnts)
+                generateTabNavigationServices(scanTabAnnotations())
+            } else {
+                generateAndroidClassicalNavigation(wearViewModelToScreen)
+            }
 
             val wearOSOut = wearOSDir.orNull?.asFile
             if (wearOSOut != null) {
@@ -132,63 +168,75 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                     emptyList()
                 }
 
-                val wearViewModelToScreen = wearAnts.map { it.first to it.second }
-
-                generateAndroidNavigation(wearViewModelToScreen, true)
+                generateAndroidNavigation(wearAnts.map { it.first to it.second }, true)
                 generateAndroidNavGraph(wearAnts, true)
             }
         }
     }
 
+    @Suppress("MemberVisibilityCanBePrivate")
     private fun scanViewModelAnnotations(): List<Quad<String, String, String, Boolean>> {
         val results = mutableListOf<Quad<String, String, String, Boolean>>()
 
-        outputFiles.forEach { subProject ->
-            subProject.walkTopDown().forEach { file ->
-                if (!file.isFile || !(file.extension.equals(
-                        "kt",
-                        true
-                    ) || file.extension.equals("swift", true))
-                ) return@forEach
+        // 1) Build the set of root directories to scan
+        val roots = linkedSetOf<File>()
 
-                val lines = file.readLines()
-                var viewModelName: String? = null
-                var screenName: String? = null
-                var isInitial = false
+        // Existing roots (whatever you had wired into outputFiles)
+        outputFiles.forEach { roots += it }
 
-                for ((index, line) in lines.withIndex()) {
-                    if (line.contains("@AtlasScreen")) {
-                        val kotlinRegex =
-                            """@AtlasScreen\s*\(\s*([\w.<>]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
-                        val swiftRegex =
-                            """@AtlasScreen\s*\(\s*([\w.<>]+)\.self(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
-                        val match = kotlinRegex.find(line) ?: swiftRegex.find(line)
-                        viewModelName = match?.groupValues?.get(1)
-                        isInitial =
-                            match?.groupValues?.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+        // Android source roots (androidApp/src/main/kotlin etc.)
+        androidSourceFiles.files.forEach { roots += it }
 
-                        val nextLines = lines.drop(index).take(3)
-                        val funcRegex = """fun\s+(\w+)""".toRegex()
-                        val funcMatch = nextLines.firstNotNullOfOrNull { funcRegex.find(it) }
-                        screenName = funcMatch?.groupValues?.get(1)
-
-                        if (viewModelName != null && screenName != null) {
-                            results.add(
-                                Quad(
-                                    viewModelName,
-                                    screenName,
-                                    file.absolutePath,
-                                    isInitial
-                                )
-                            )
-                        }
-                    }
-                }
-            }
+        if (roots.isEmpty()) {
+            logger.warn("AtlasNav: scanViewModelAnnotations – no roots configured, returning empty list")
+            return emptyList()
         }
 
+        // Regex to match @AtlasScreen(SomeVm::class, initial = true/false)
+        val atlasRegex =
+            """@AtlasScreen\(\s*([A-Za-z0-9_.]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?\s*\)"""
+                .toRegex()
+
+        // Regex to get the screen class name from 'class FirstTestFragment : Fragment(...)'
+        val classRegex = """class\s+([A-Za-z0-9_]+)""".toRegex()
+
+        for (root in roots) {
+            if (!root.exists()) continue
+
+            root.walkTopDown()
+                .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }
+                .forEach { file ->
+                    val text = file.readText()
+
+                    // Find the first 'class X' in the file as the screen name
+                    val classMatch = classRegex.find(text) ?: return@forEach
+                    val screenName = classMatch.groupValues[1]
+
+                    // Find all @AtlasScreen(...) annotations in this file
+                    atlasRegex.findAll(text).forEach { match ->
+                        val vmFqnOrSimple =
+                            match.groupValues[1] // could be DroidStandard or com.foo.DroidStandard
+                        val vmSimpleName = vmFqnOrSimple.substringAfterLast('.')
+
+                        val initialFlag = match.groupValues.getOrNull(2)?.let {
+                            it.equals("true", ignoreCase = true)
+                        } ?: false
+
+                        results += Quad(
+                            vmSimpleName,          // first  -> ViewModel simple name, e.g. "DroidStandard"
+                            screenName,            // second -> Screen class name, e.g. "FirstTestFragment"
+                            file.absolutePath,     // third  -> file path
+                            initialFlag            // fourth -> initial = true / false
+                        )
+                    }
+                }
+        }
+
+        logger.lifecycle("AtlasNav: scanViewModelAnnotations found ${results.size} screens")
         return results
     }
+
+    // classical android navigation
 
     private fun scanIosTabAnnotationsFromSwiftFiles(sourceDirs: List<File>): Map<String, List<TabEntrySwift>> {
         val tabEntries = mutableListOf<TabEntrySwift>()
@@ -277,7 +325,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         return tabGroups
     }
 
-
     private fun generateTabNavigationServices(tabsByHolder: Map<String, List<TabEntry>>) {
         tabsByHolder.forEach { (holder, tabs) ->
             val sortedTabs = tabs.sortedBy { it.position }
@@ -298,6 +345,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("import kotlinx.serialization.encodeToString")
                 appendLine("import kotlinx.serialization.json.Json")
                 appendLine("import androidx.navigation.NavHostController")
+                appendLine("import androidx.navigation.NavController")
                 appendLine("import androidx.compose.runtime.compositionLocalOf")
                 appendLine("import java.lang.ref.WeakReference")
                 appendLine()
@@ -315,6 +363,7 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
                 appendLine("object ${holder}TabsNavigation : AtlasTabNavigationService {")
                 appendLine("    private var currentTab: KClass<out ViewModel>? = null")
+                appendLine("    private val holderRoute = \"${holder}Root\"")
                 appendLine("    private val tabs: Map<KClass<out ViewModel>, String> = listOf(")
                 distinctTabs.forEach {
                     appendLine("        ${it.viewModel}::class to \"${it.screen}\",")
@@ -327,18 +376,40 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                 appendLine("            val baseRoute = tabs[viewModelClass] ?: error(\"Tab not found for \$viewModelClass\")")
                 appendLine("            currentTab = viewModelClass")
                 appendLine()
-                appendLine("            // Pass params via SavedStateHandle (keeps route stable)")
                 appendLine("            val encoded: String? = params?.let { p ->")
                 appendLine("                when (p) {")
                 appendLine("                    is String, is Number, is Boolean -> p.toString()")
                 appendLine("                    else -> Json.encodeToString(p)")
                 appendLine("                }")
                 appendLine("            }")
-                appendLine("            nav.currentBackStackEntry?.savedStateHandle?.set(\"tabPushParam\", encoded)")
                 appendLine()
-                appendLine("            // Navigate to BASE route only (no query) to avoid new entries/VMs")
+                appendLine("            fun setParamOnTargetIfPossible() {")
+                appendLine("                if (encoded == null) return")
+                appendLine("                val entry = runCatching { nav.getBackStackEntry(baseRoute) }.getOrNull() ?: return")
+                appendLine("                entry.savedStateHandle.set(\"tabPushParam\", encoded)")
+                appendLine("            }")
+                appendLine()
+                appendLine("            val targetExists = runCatching { nav.getBackStackEntry(baseRoute) }.isSuccess")
+                appendLine("            if (targetExists) {")
+                appendLine("                setParamOnTargetIfPossible()")
+                appendLine("            } else {")
+                appendLine("                val listener = object : NavController.OnDestinationChangedListener {")
+                appendLine("                    override fun onDestinationChanged(controller: NavController, destination: androidx.navigation.NavDestination, arguments: android.os.Bundle?) {")
+                appendLine("                        if (destination.route == baseRoute) {")
+                appendLine("                            setParamOnTargetIfPossible()")
+                appendLine("                            controller.removeOnDestinationChangedListener(this)")
+                appendLine("                        }")
+                appendLine("                    }")
+                appendLine("                }")
+                appendLine("                nav.addOnDestinationChangedListener(listener)")
+                appendLine("            }")
+                appendLine()
                 appendLine("            if (nav.currentDestination?.route != baseRoute) {")
-                appendLine("                nav.navigate(baseRoute) { launchSingleTop = true }")
+                appendLine("                nav.navigate(baseRoute) {")
+                appendLine("                    popUpTo(holderRoute) { saveState = true }")
+                appendLine("                    launchSingleTop = true")
+                appendLine("                    restoreState = true")
+                appendLine("                }")
                 appendLine("            }")
                 appendLine("        }")
                 appendLine("    }")
@@ -390,6 +461,10 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("import com.architect.atlas.navigation.${holder}TabsNavigation")
             appendLine("import com.architect.atlas.navigation.TabLocalAtlasNavController")
             appendLine("import com.architect.atlas.navigation.AtlasTabNavHolder")
+            appendLine("import androidx.lifecycle.Lifecycle")
+            appendLine("import androidx.lifecycle.LifecycleEventObserver")
+            appendLine("import kotlinx.coroutines.suspendCancellableCoroutine")
+            appendLine("import kotlin.coroutines.resume")
             appendLine()
 
             appendLine("fun tabIndex(route: String?): Int = when (route) {")
@@ -398,7 +473,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("}")
             appendLine()
 
-            // HandleLifecycle with isTabContent flag: tabs don't dispose, pages do.
             appendLine("@Composable")
             appendLine("inline fun <reified VM : com.architect.atlas.architecture.mvvm.ViewModel> HandleLifecycle(")
             appendLine("    viewModel: VM,")
@@ -410,11 +484,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    val currentViewModel by rememberUpdatedState(viewModel)")
             appendLine()
             appendLine("    DisposableEffect(lifecycleOwner) {")
-            appendLine("        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->")
+            appendLine("        val observer = LifecycleEventObserver { _, event ->")
             appendLine("            when (event) {")
-            appendLine("                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> currentViewModel.onAppearing()")
-            appendLine("                androidx.lifecycle.Lifecycle.Event.ON_PAUSE  -> currentViewModel.onDisappearing()")
-            appendLine("                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> {")
+            appendLine("                Lifecycle.Event.ON_RESUME -> currentViewModel.onAppearing()")
+            appendLine("                Lifecycle.Event.ON_PAUSE  -> currentViewModel.onDisappearing()")
+            appendLine("                Lifecycle.Event.ON_DESTROY -> {")
             appendLine("                    if (!isTabContent) {")
             appendLine("                        currentViewModel.onDestroy()")
             appendLine("                        currentViewModel.onCleared()")
@@ -430,7 +504,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("}")
             appendLine()
 
-            // Consume param from SavedStateHandle once (not from route arg)
             appendLine("@Composable")
             appendLine("private fun ConsumeTabParamOnce(entry: androidx.navigation.NavBackStackEntry, onParam: (Any) -> Unit) {")
             appendLine("    val handle = entry.savedStateHandle")
@@ -445,6 +518,38 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("            }")
             appendLine("            onParam(p)")
             appendLine("            handle.remove<String>(\"tabPushParam\")")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine("}")
+            appendLine()
+
+            appendLine("@Composable")
+            appendLine("private fun <VM : ViewModel> RunVmBootstrapExactlyAtCreatedOnce(")
+            appendLine("    entry: androidx.navigation.NavBackStackEntry,")
+            appendLine("    vm: VM")
+            appendLine(") {")
+            appendLine("    val handle = entry.savedStateHandle")
+            appendLine("    val lifecycle = entry.lifecycle")
+            appendLine("    val key = \"didBootstrap#\" + vm::class.qualifiedName")
+            appendLine()
+            appendLine("    LaunchedEffect(vm) {")
+            appendLine("        if (handle.get<Boolean>(key) == true) return@LaunchedEffect")
+            appendLine("        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED)) {")
+            appendLine("            suspendCancellableCoroutine<Unit> { cont ->")
+            appendLine("                var obs: LifecycleEventObserver? = null")
+            appendLine("                obs = LifecycleEventObserver { _, event ->")
+            appendLine("                    if (event == Lifecycle.Event.ON_CREATE) {")
+            appendLine("                        obs?.let { lifecycle.removeObserver(it) }")
+            appendLine("                        if (cont.isActive) cont.resume(Unit)")
+            appendLine("                    }")
+            appendLine("                }")
+            appendLine("                lifecycle.addObserver(obs)")
+            appendLine("                cont.invokeOnCancellation { obs?.let { lifecycle.removeObserver(it) } }")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("        if (handle.get<Boolean>(key) != true) {")
+            appendLine("            vm.bootstrapVmFromNavEngine()")
+            appendLine("            handle[key] = true")
             appendLine("        }")
             appendLine("    }")
             appendLine("}")
@@ -466,7 +571,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("    CompositionLocalProvider(TabLocalAtlasNavController provides navControl) {")
             appendLine("        val navBackStackEntry by navControl.currentBackStackEntryAsState()")
             appendLine("        val currentRoute = navBackStackEntry?.destination?.route")
-            appendLine()
             appendLine("        var previousTabIndex by remember { mutableStateOf(0) }")
             appendLine("        val newTabIndex = tabIndex(currentRoute)")
             appendLine("        val isForward = newTabIndex >= previousTabIndex")
@@ -478,7 +582,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("                onTabPositionChanged(newTabIndex)")
             appendLine("            }")
             appendLine("        }")
-            appendLine()
             appendLine("        val holderRoute = \"${holder}Root\"")
             appendLine("        AnimatedNavHost(")
             appendLine("            navController = navControl,")
@@ -498,31 +601,20 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("            popEnterTransition = { fadeIn(tween(300)) },")
             appendLine("            popExitTransition = { fadeOut(tween(300)) }")
             appendLine("        ) {")
-            appendLine("            // Holder-level nested graph keeps a stable ViewModelStoreOwner for tabs")
             appendLine("            navigation(startDestination = \"${distinctTabs.first().screen}\", route = holderRoute) {")
             distinctTabs.forEach { tab ->
-                appendLine("                // Register each tab with a STABLE route (no query param).")
                 appendLine("                composable(\"${tab.screen}\") { entry ->")
-                appendLine("                    // Scope the tab VM to the HOLDER graph so it persists across tab switches.")
-
-                appendLine("""
-                     val nav = TabLocalAtlasNavController.current
-                val holderOwner = remember(entry) {
-                    nav.getBackStackEntry(holderRoute)
-                }
-                    
-                """.trimIndent())
-
+                appendLine("                    val nav = TabLocalAtlasNavController.current")
+                appendLine("                    val holderOwner = remember(entry) { nav.getBackStackEntry(holderRoute) }")
                 appendLine("                    val vm = androidx.lifecycle.viewmodel.compose.viewModel(")
                 appendLine("                        modelClass = ${tab.viewModel}::class.java,")
                 appendLine("                        viewModelStoreOwner = holderOwner")
                 appendLine("                    )")
-                appendLine("                    // Read param from SavedStateHandle once (not from the route).")
                 appendLine("                    ConsumeTabParamOnce(entry) { p ->")
                 appendLine("                        @Suppress(\"UNCHECKED_CAST\")")
                 appendLine("                        (vm as? com.architect.atlas.architecture.navigation.Pushable<Any>)?.onPushParams(p)")
                 appendLine("                    }")
-                appendLine("                    // Tabs do NOT dispose the VM on destination destroy.")
+                appendLine("                    RunVmBootstrapExactlyAtCreatedOnce(entry, vm)")
                 appendLine("                    HandleLifecycle(vm, isTabContent = true) { ${tab.screen}(vm) }")
                 appendLine("                }")
             }
@@ -534,7 +626,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
 
         file.writeText(code)
     }
-
 
     private fun findFunctionImport(screenName: String): String? {
         outputFiles.forEach { root ->
@@ -551,6 +642,338 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         return null
     }
 
+    private fun generateAndroidClassicalNavigation(
+        screens: List<Pair<String, String>>,
+    ) {
+        val viewModelImports =
+            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
+
+        val screenImports =
+            screens.mapNotNull { (_, screenClass) -> findScreenImport(screenClass) }.distinct()
+
+        val androidImpl = buildString {
+            appendLine("package com.architect.atlas.navigation")
+            appendLine()
+
+            viewModelImports.forEach { appendLine("import $it") }
+            screenImports.forEach { appendLine("import $it") }
+
+            appendLine(
+                """
+import $androidBasePackageRef.R                    
+import android.os.Bundle
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.FragmentManager
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStoreOwner
+import com.architect.atlas.architecture.mvvm.ViewModel
+import com.architect.atlas.architecture.navigation.AtlasNavigationService
+import com.architect.atlas.architecture.navigation.Poppable
+import com.architect.atlas.architecture.navigation.Pushable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlin.reflect.KClass
+
+/**
+ * Classical (Fragment-based) navigation implementation for Atlas.
+ *
+ * This is generated from @AtlasScreen annotations on platform classes
+ * (e.g. Fragments) and only cares about the annotation – it does NOT
+ * require the class to extend Fragment at codegen time.
+ *
+ * At runtime, if a non-Fragment is mapped, an error will be thrown when
+ * trying to navigate to that screen.
+ */
+object AtlasFragmentNavigation : AtlasNavigationService {
+
+    private const val PUSH_KEY = "atlas_push_param"
+
+    private var hostActivity: FragmentActivity? = null
+    private var containerId: Int = android.R.id.content
+
+    // ViewModel -> Screen class (Fragment or any annotated type)
+    private val viewModelToScreenMap: Map<KClass<out ViewModel>, KClass<*>> = mapOf(
+            """.trimIndent()
+            )
+
+            // e.g. DroidStandard::class to FirstTestFragment::class
+            for ((viewModel, screenClass) in screens) {
+                appendLine("        $viewModel::class to $screenClass::class,")
+            }
+
+            appendLine(
+                """
+    )
+
+    /**
+     * Bind the classical navigation engine to a host activity and container.
+     *
+     * Example:
+     *  class TestActivity : FragmentActivity() {
+     *      override fun onCreate(savedInstanceState: Bundle?) {
+     *          super.onCreate(savedInstanceState)
+     *          setContentView(R.layout.activity_test_client)
+     *          AtlasFragmentNavigation.bind(this, R.id.nav_host_container)
+     *      }
+     *  }
+     */
+    fun bind(activity: FragmentActivity, containerId: Int = android.R.id.content) {
+        hostActivity = activity
+        this.containerId = containerId
+    }
+
+    private fun requireHost(): Pair<FragmentActivity, FragmentManager> {
+        val act = hostActivity
+            ?: error("AtlasFragmentNavigation not bound. Call AtlasFragmentNavigation.bind(activity, containerId) first.")
+        return act to act.supportFragmentManager
+    }
+
+    // region AtlasNavigationService API
+
+    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {
+        navigateInternal(viewModelClass, params, clearBackStack = false, replaceCurrent = false)
+    }
+
+    override fun <T : ViewModel> navigateToPagePushAndReplace(viewModelClass: KClass<T>, params: Any?) {
+        navigateInternal(viewModelClass, params, clearBackStack = true, replaceCurrent = false)
+    }
+
+    override fun <T : ViewModel> navigateToPagePushAndReplaceCurrentScreen(
+        viewModelClass: KClass<T>,
+        params: Any?
+    ) {
+        navigateInternal(viewModelClass, params, clearBackStack = false, replaceCurrent = true)
+    }
+
+    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {
+        // For now treat modals like a normal push.
+        navigateToPage(viewModelClass, params)
+    }
+
+    override fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any?) {
+        // Not implemented for classical Fragments right now.
+        // You could add replay / reconstruction here if needed.
+    }
+
+    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()
+
+    override fun popToRoot(animate: Boolean, params: Any?) {
+        val (_, fm) = requireHost()
+        deliverPopParamsToPrevious(params)
+        fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+    }
+
+    override fun popPage(animate: Boolean, params: Any?) {
+        val (_, fm) = requireHost()
+        deliverPopParamsToPrevious(params)
+        fm.popBackStack()
+    }
+
+    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {
+        val (_, fm) = requireHost()
+        if (countOfPages <= 0) return
+
+        deliverPopParamsToPrevious(params)
+
+        repeat(countOfPages) {
+            if (fm.backStackEntryCount == 0) return
+            fm.popBackStack()
+        }
+    }
+
+    override fun popToPage(route: String, params: Any?) {
+        val (_, fm) = requireHost()
+        deliverPopParamsToPrevious(params)
+        fm.popBackStack(route, 0)
+    }
+
+    override fun dismissModal(animate: Boolean, params: Any?) {
+        popPage(animate, params)
+    }
+
+    // endregion
+
+    // region Internal navigation helpers
+
+    private fun <T : ViewModel> navigateInternal(
+        viewModelClass: KClass<T>,
+        params: Any?,
+        clearBackStack: Boolean,
+        replaceCurrent: Boolean
+    ) {
+        val (activity, fm) = requireHost()
+
+        val screenKClass = viewModelToScreenMap[viewModelClass]
+            ?: error("No screen registered for ${'$'}viewModelClass via @AtlasScreen")
+
+        // Only enforce Fragment at runtime – generator is annotation-based.
+        val fragment = try {
+            @Suppress("UNCHECKED_CAST")
+            (screenKClass.java.newInstance() as Fragment)
+        } catch (e: Throwable) {
+            error("Screen class ${'$'}screenKClass must extend androidx.fragment.app.Fragment for classical navigation")
+        }
+
+        val fragmentTag = screenKClass.qualifiedName
+
+        val args = (fragment.arguments ?: Bundle())
+        encodeParam(params)?.let { encoded ->
+            args.putString(PUSH_KEY, encoded)
+        }
+        fragment.arguments = args
+
+        if (clearBackStack) {
+            fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        } else if (replaceCurrent && fm.backStackEntryCount > 0) {
+            fm.popBackStack()
+        }
+
+        val tx = fm.beginTransaction()
+            .setCustomAnimations(
+                R.anim.slide_in_left,    // enter
+                R.anim.slide_out_right,  // exit
+                R.anim.slide_in_left,    // popEnter
+                R.anim.slide_out_right   // popExit
+            )
+            .setReorderingAllowed(true)
+            .replace(containerId, fragment, fragmentTag)
+
+        tx.addToBackStack(fragmentTag)
+        tx.commit()
+
+        activity.runOnUiThread {
+            fm.executePendingTransactions()
+            bootstrapFragment(screenKClass)
+        }
+    }
+
+    /**
+     * Resolve VM for the given screen class and:
+     *  - deliver push params (Pushable)
+     *  - call bootstrapVmFromNavEngine()
+     */
+    private fun bootstrapFragment(screenKClass: KClass<*>) {
+        val (_, fm) = requireHost()
+        val fragmentTag = screenKClass.qualifiedName
+        val fragment = fm.findFragmentByTag(fragmentTag) ?: return
+
+        val vmKlass = viewModelToScreenMap.entries
+            .firstOrNull { it.value == screenKClass }?.key ?: return
+
+        val vm = resolveViewModel(vmKlass, owner = fragment)
+
+        val payloadRaw = fragment.arguments?.getString(PUSH_KEY)
+        if (payloadRaw != null && vm is Pushable<*>) {
+            decodeParam(payloadRaw)?.let { decoded ->
+                @Suppress("UNCHECKED_CAST")
+                (vm as Pushable<Any>).onPushParams(decoded)
+            }
+        }
+
+        vm.bootstrapVmFromNavEngine()
+    }
+
+    /**
+     * When popping, find the new top Fragment, resolve its VM,
+     * and call Poppable.onPopParams(...)
+     */
+    private fun deliverPopParamsToPrevious(params: Any?) {
+        val (_, fm) = requireHost()
+        if (params == null) return
+        if (fm.fragments.isEmpty()) return
+
+        val prev = fm.fragments.lastOrNull { it.isAdded } ?: return
+
+        val vmKlass = viewModelToScreenMap.entries
+            .firstOrNull { it.value == prev::class }?.key ?: return
+
+        val encoded = encodeParam(params) ?: return
+        val decoded = decodeParam(encoded) ?: return
+
+        val vm = resolveViewModel(vmKlass, owner = prev)
+        if (vm is Poppable<*>) {
+            @Suppress("UNCHECKED_CAST")
+            (vm as Poppable<Any>).onPopParams(decoded)
+        }
+    }
+
+    private fun resolveViewModel(
+        vmClass: KClass<out ViewModel>,
+        owner: ViewModelStoreOwner
+    ): ViewModel {
+        @Suppress("UNCHECKED_CAST")
+        val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
+        val vm = ViewModelProvider(owner)[androidVmClass]
+        @Suppress("UNCHECKED_CAST")
+        return vm as ViewModel
+    }
+
+    private fun encodeParam(param: Any?): String? =
+        param?.let {
+            when (it) {
+                is String, is Number, is Boolean -> it.toString()
+                else -> Json.encodeToString(it)
+            }
+        }
+
+    private fun decodeParam(encoded: String): Any? =
+        encoded.toIntOrNull()
+            ?: encoded.toDoubleOrNull()
+            ?: if (encoded.equals("true", true) || encoded.equals("false", true)) {
+                encoded.toBoolean()
+            } else {
+                runCatching { Json.decodeFromString<Any>(encoded) }.getOrNull() ?: encoded
+            }
+
+    // endregion
+}
+            """.trimIndent()
+            )
+        }
+
+        val androidOut = outputAndroidDir.get().asFile
+        androidOut.mkdirs()
+        File(androidOut, "AtlasFragmentNavigation.kt").writeText(androidImpl)
+    }
+
+    private fun findScreenImport(screenClassName: String): String? {
+        outputFiles.forEach { root ->
+            root.walkTopDown().forEach { file ->
+                if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
+                val lines = file.readLines()
+
+                val declarationRegex = """(class|object)\s+$screenClassName\b""".toRegex()
+                if (lines.any { declarationRegex.containsMatchIn(it) }) {
+                    val packageLine = lines.firstOrNull { it.trim().startsWith("package ") }
+                        ?.removePrefix("package ")
+                        ?.trim()
+                    return packageLine?.let { "$it.$screenClassName" }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun findFragmentImport(fragmentName: String): String? {
+        outputFiles.forEach { root ->
+            root.walkTopDown().forEach { file ->
+                if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
+                val lines = file.readLines()
+
+                // Look for a Fragment declaration with this name
+                val declarationRegex = """(class|object)\s+$fragmentName\b""".toRegex()
+                if (lines.any { declarationRegex.containsMatchIn(it) }) {
+                    val packageLine = lines.firstOrNull { it.trim().startsWith("package ") }
+                        ?.removePrefix("package ")
+                        ?.trim()
+                    return packageLine?.let { "$it.$fragmentName" }
+                }
+            }
+        }
+        return null
+    }
 
     private fun generateAndroidNavigation(
         screens: List<Pair<String, String>>,
@@ -563,12 +986,11 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
             appendLine("package com.architect.atlas.navigation")
             appendLine()
             viewModelImports.forEach { appendLine("import $it") }
-
             appendLine(
                 """
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -578,11 +1000,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.whenStateAtLeast
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptionsBuilder
 import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.architecture.navigation.AtlasNavigationService
 import com.architect.atlas.architecture.navigation.Poppable
+import com.architect.atlas.architecture.navigation.Pushable
 import com.architect.atlas.container.dsl.AtlasDI
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -596,86 +1020,64 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlin.reflect.KClass
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine("""class ObservableStack<T> : MutableList<T> by mutableListOf()""")
-            appendLine()
-            appendLine("object AtlasNavigation : AtlasNavigationService {")
-            appendLine(
-                """
-    // --- State & mirrors ---
+
+object AtlasNavigation : AtlasNavigationService {
+    private const val PUSH_KEY = "atlas_push_param"
     private var navController: NavHostController? = null
     private var hostActivity: ComponentActivity? = null
-
-    // Live mirrors for the current NavController instance
-    private val routeStack = mutableListOf<String>() // canonical routes: "Base?pushParam={pushParam}"
-    private val navigationStack = ObservableStack<KClass<out ViewModel>>() // optional VM mirror
-
-    // Shadow of the last known stack captured at teardown (Activity/graph destroy)
+    private val routeStack = mutableListOf<String>()
+    private val navigationStack = ArrayDeque<KClass<out ViewModel>>()
     private var lastTeardownRoutes: List<String>? = null
-
-    // VM -> base route (without args placeholder)
     private val viewModelToRouteMap: Map<KClass<out ViewModel>, String> = mapOf(
             """.trimIndent()
             )
             for ((viewModel, screenName) in screens) {
                 appendLine("        $viewModel::class to \"$screenName\",")
             }
-            appendLine("    )")
-            appendLine()
             appendLine(
                 """
+    )
     private fun canonicalRoute(base: String): String = "${'$'}base?pushParam={pushParam}"
-    private val routeToViewModelMap: Map<String, KClass<out ViewModel>> =
-        viewModelToRouteMap.map { (vm, base) -> canonicalRoute(base) to vm }.toMap()
-
-    // single-flight for nav ops
+    private fun canonicalKey(route: String): String = canonicalRoute(route.substringBefore('?'))
+    private val routeToViewModelMap: Map<String, KClass<out ViewModel>> = buildMap {
+        for ((vm, base) in viewModelToRouteMap) {
+            put(canonicalRoute(base), vm)
+            put(base, vm)
+        }
+    }
     private val navScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private val navMutex = Mutex()
-
     @Volatile private var replacingRoot = false
     @Volatile private var replacingCurrent = false
-
-    // lifecycle observers (bookkeeping only; NO resets inside per-entry)
     private val entryObservers = mutableMapOf<String, DefaultLifecycleObserver>()
     private var graphObserver: DefaultLifecycleObserver? = null
     private var hostActivityCallbacks: Application.ActivityLifecycleCallbacks? = null
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // --- Readiness gating for early navigation ops ---
     @Volatile private var ready = CompletableDeferred<Unit>()
     private val pendingOps = ArrayDeque<(NavHostController) -> Unit>()
+    private val pendingGlobalPush = mutableMapOf<String, String>()
 
     private suspend fun flushPendingOps(nav: NavHostController) {
         while (true) {
             val op = synchronized(pendingOps) { if (pendingOps.isEmpty()) null else pendingOps.removeFirst() } ?: break
             val entry = nav.currentBackStackEntry
                 ?: runCatching { nav.getBackStackEntry(nav.graph.id) }.getOrNull()
-
             if (entry != null) {
                 entry.lifecycle.whenStateAtLeast(Lifecycle.State.RESUMED) {
                     navMutex.withLock { op(nav) }
                 }
             } else {
-                // No entry yet; requeue and bail (will retry on next destination change)
                 synchronized(pendingOps) { pendingOps.addFirst(op) }
                 break
             }
         }
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // --- Helpers ---
+
     private fun detachEntryObserver(nav: NavHostController?, routePattern: String) {
         val obs = entryObservers.remove(routePattern) ?: return
-        runCatching { nav?.getBackStackEntry(routePattern)?.lifecycle?.removeObserver(obs) }
+        val base = routePattern.substringBefore('?')
+        val entry = runCatching { nav?.getBackStackEntry(routePattern) }.getOrNull()
+            ?: runCatching { nav?.getBackStackEntry(base) }.getOrNull()
+        entry?.lifecycle?.removeObserver(obs)
     }
 
     private fun detachAllEntryObservers(nav: NavHostController?) {
@@ -684,39 +1086,29 @@ import kotlin.reflect.KClass
     }
 
     private fun replaceRootMirror(newRoutePattern: String, newVm: KClass<out ViewModel>) {
-        // Logical replace-all: treat dropped screens as popped -> reset
-        routeStack.forEach { r -> routeToViewModelMap[r]?.let(AtlasDI::resetViewModel) }
+        routeStack.forEach { r -> routeToViewModelMap[canonicalKey(r)]?.let(AtlasDI::resetViewModel) }
         routeStack.clear()
         routeStack += newRoutePattern
         navigationStack.clear()
-        navigationStack += newVm
+        navigationStack.addLast(newVm)
     }
 
     private fun replaceTopMirror(newRoutePattern: String, newVm: KClass<out ViewModel>) {
-        // Logical replace-top: treat old top as popped -> reset
-        routeStack.lastOrNull()?.let { old -> routeToViewModelMap[old]?.let(AtlasDI::resetViewModel) }
-        if (routeStack.isNotEmpty()) routeStack.removeLast()
+        routeStack.lastOrNull()?.let { old -> routeToViewModelMap[canonicalKey(old)]?.let(AtlasDI::resetViewModel) }
+        if (routeStack.isNotEmpty()) routeStack.removeAt(routeStack.lastIndex)
         routeStack += newRoutePattern
-        if (navigationStack.isNotEmpty()) navigationStack.removeAt(navigationStack.lastIndex)
-        navigationStack += newVm
+        if (navigationStack.isNotEmpty()) navigationStack.removeLast()
+        navigationStack.addLast(newVm)
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // --- BIND / REBIND (public APIs only) ---
+
     fun bindToNavController(controller: NavHostController) = bindToNavController(controller, null)
 
     fun bindToNavController(controller: NavHostController, activity: ComponentActivity?) {
         if (navController === controller) return
-
-        // Cleanup previous controller bindings
         teardownActivityCallbacks()
         val oldNav = navController
         navController = controller
         hostActivity = activity
-
         if (oldNav != null) {
             runCatching {
                 val graphOwner = oldNav.getBackStackEntry(oldNav.graph.id)
@@ -729,40 +1121,25 @@ import kotlin.reflect.KClass
             routeStack.clear()
             navigationStack.clear()
         }
-
-        // Reset readiness for this binding (and release any stale waiters)
         if (!ready.isCompleted) ready.complete(Unit)
         ready = CompletableDeferred()
-
-        // Attach lifecycle guards before mirrors
         attachNavLifecycleGuards(controller)
         attachActivityDestroyGuard(activity)
-
-        // Re-sync mirrors from scratch; listener will update thereafter
         routeStack.clear()
         navigationStack.clear()
-
-        // If a destination is already attached, mark ready immediately
-        controller.currentBackStackEntry?.let {
-            if (!ready.isCompleted) ready.complete(Unit)
-        }
-
+        controller.currentBackStackEntry?.let { if (!ready.isCompleted) ready.complete(Unit) }
         controller.addOnDestinationChangedListener { _, destination, _ ->
             val newRoute = destination.route ?: return@addOnDestinationChangedListener
-
-            // First observed destination after bind -> mark ready & flush queue
             if (!ready.isCompleted) {
                 ready.complete(Unit)
                 navScope.launch { flushPendingOps(controller) }
             }
-
-            // --- RECOVERY: treat first change after teardown as a POP if newRoute existed before ---
             if (!routeStack.contains(newRoute) && lastTeardownRoutes?.contains(newRoute) == true) {
                 val snapshot = lastTeardownRoutes!!
                 var i = snapshot.lastIndex
                 while (i >= 0 && snapshot[i] != newRoute) {
                     val removedRoute = snapshot[i]
-                    routeToViewModelMap[removedRoute]?.let { AtlasDI.resetViewModel(it) }
+                    routeToViewModelMap[canonicalKey(removedRoute)]?.let { AtlasDI.resetViewModel(it) }
                     i--
                 }
                 routeStack.clear()
@@ -770,9 +1147,9 @@ import kotlin.reflect.KClass
                 for (j in 0..i) {
                     val r = snapshot[j]
                     routeStack.add(r)
-                    routeToViewModelMap[r]?.let { vm ->
-                        navigationStack.add(vm)
-                        attachEntryObserver(controller, r, vm)
+                    routeToViewModelMap[canonicalKey(r)]?.let { vm ->
+                        navigationStack.addLast(vm)
+                        attachEntryObserver(controller, canonicalKey(r), vm)
                     }
                 }
                 lastTeardownRoutes = null
@@ -780,90 +1157,74 @@ import kotlin.reflect.KClass
                 replacingCurrent = false
                 return@addOnDestinationChangedListener
             }
-
             if (lastTeardownRoutes != null && routeStack.isEmpty() && !lastTeardownRoutes!!.contains(newRoute)) {
                 lastTeardownRoutes = null
             }
-
-            // --- Normal flow (no recovery needed) ---
             if (routeStack.isEmpty()) {
                 routeStack.add(newRoute)
-                routeToViewModelMap[newRoute]?.let { vm ->
-                    navigationStack.add(vm)
-                    attachEntryObserver(controller, newRoute, vm)
+                routeToViewModelMap[canonicalKey(newRoute)]?.let { vm ->
+                    navigationStack.addLast(vm)
+                    attachEntryObserver(controller, canonicalKey(newRoute), vm)
                 }
                 return@addOnDestinationChangedListener
             }
-
             if (routeStack.lastOrNull() == newRoute) {
                 replacingRoot = false
                 replacingCurrent = false
                 return@addOnDestinationChangedListener
             }
-
             val top = routeStack.last()
             if (newRoute == top) return@addOnDestinationChangedListener
-
             if (routeStack.contains(newRoute)) {
-                // --- POP: remove everything above newRoute; RESET each removed VM ---
                 while (routeStack.isNotEmpty() && routeStack.last() != newRoute) {
-                    val removedRoute = routeStack.removeLast()
-                    routeToViewModelMap[removedRoute]?.let { vm ->
-                        if (navigationStack.isNotEmpty() && navigationStack.last() == vm) {
-                            navigationStack.removeAt(navigationStack.lastIndex)
+                    val removedRoute = routeStack.removeAt(routeStack.lastIndex)
+                    routeToViewModelMap[canonicalKey(removedRoute)]?.let { vm ->
+                        if (navigationStack.isNotEmpty() && navigationStack.lastOrNull() == vm) {
+                            navigationStack.removeLast()
                         } else {
                             navigationStack.remove(vm)
                         }
-                        detachEntryObserver(controller, removedRoute)
-                        AtlasDI.resetViewModel(vm) // <-- reset on pop
+                        detachEntryObserver(controller, canonicalKey(removedRoute))
+                        AtlasDI.resetViewModel(vm)
                     }
                 }
             } else {
-                // --- FORWARD ---
                 routeStack.add(newRoute)
-                routeToViewModelMap[newRoute]?.let { vm ->
-                    navigationStack.add(vm)
-                    attachEntryObserver(controller, newRoute, vm)
+                routeToViewModelMap[canonicalKey(newRoute)]?.let { vm ->
+                    navigationStack.addLast(vm)
+                    attachEntryObserver(controller, canonicalKey(newRoute), vm)
                 }
             }
         }
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // --- NAV CONTROLLER LIFECYCLE GUARDS (no resets here) ---
+
     private fun attachNavLifecycleGuards(controller: NavHostController) {
         val graphOwner = controller.getBackStackEntry(controller.graph.id)
         graphObserver?.let { graphOwner.lifecycle.removeObserver(it) }
         graphObserver = object : DefaultLifecycleObserver {
             override fun onDestroy(owner: LifecycleOwner) {
-                // Snapshot stack then clear mirrors/observers
                 if (routeStack.isNotEmpty()) {
                     lastTeardownRoutes = routeStack.toList()
                 }
                 detachAllEntryObservers(controller)
                 routeStack.clear()
                 navigationStack.clear()
-                // Prepare latch for next bind
                 if (!ready.isCompleted) ready.complete(Unit)
                 ready = CompletableDeferred()
             }
         }.also { graphOwner.lifecycle.addObserver(it) }
-
-        // Best-effort: observe any pre-existing entries (public API probe)
-        for (route in routeToViewModelMap.keys) {
-            val vm = routeToViewModelMap[route] ?: continue
-            val entry = runCatching { controller.getBackStackEntry(route) }.getOrNull()
-            if (entry != null) attachEntryObserver(controller, route, vm)
+        for ((route, vm) in routeToViewModelMap) {
+            attachEntryObserver(controller, canonicalKey(route), vm)
         }
-
         controller.currentBackStackEntry?.destination?.route?.let { r ->
-            routeToViewModelMap[r]?.let { attachEntryObserver(controller, r, it) }
+            routeToViewModelMap[canonicalKey(r)]?.let { vm ->
+                attachEntryObserver(controller, canonicalKey(r), vm)
+            }
         }
         controller.previousBackStackEntry?.destination?.route?.let { r ->
-            routeToViewModelMap[r]?.let { attachEntryObserver(controller, r, it) }
+            routeToViewModelMap[canonicalKey(r)]?.let { vm ->
+                attachEntryObserver(controller, canonicalKey(r), vm)
+            }
         }
     }
 
@@ -873,18 +1234,55 @@ import kotlin.reflect.KClass
         vmKlass: KClass<out ViewModel>
     ) {
         if (entryObservers.containsKey(routePattern)) return
-        val entry = runCatching { nav.getBackStackEntry(routePattern) }.getOrNull() ?: return
+        val base = routePattern.substringBefore('?')
+        val entry =
+            runCatching { nav.getBackStackEntry(routePattern) }.getOrNull()
+                ?: runCatching { nav.getBackStackEntry(base) }.getOrNull()
+                ?: nav.currentBackStackEntry?.takeIf { it.destination.route?.substringBefore('?') == base }
+                ?: nav.previousBackStackEntry?.takeIf { it.destination.route?.substringBefore('?') == base }
+                ?: return
         val observer = object : DefaultLifecycleObserver {
+            override fun onCreate(owner: LifecycleOwner) {
+                bootstrapOnceAtCreated(entry, vmKlass)
+            }
             override fun onDestroy(owner: LifecycleOwner) {
-                // Do NOT reset here; teardown will snapshot & next POP will handle resets.
                 detachEntryObserver(nav, routePattern)
             }
+        }
+        if (entry.lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED)) {
+            bootstrapOnceAtCreated(entry, vmKlass)
         }
         entry.lifecycle.addObserver(observer)
         entryObservers[routePattern] = observer
     }
 
-    // --- Activity-level guard (no resets; just snapshot + clear mirrors) ---
+    private fun bootstrapOnceAtCreated(
+        entry: NavBackStackEntry,
+        vmKlass: KClass<out ViewModel>
+    ) {
+        val handle = entry.savedStateHandle
+        val didKey = "didBootstrap#" + vmKlass.qualifiedName
+        val alreadyBooted = handle.get<Boolean>(didKey) == true
+        val vm = resolveViewModel(vmKlass, entry)
+        val fromGlobal = synchronized(pendingGlobalPush) { pendingGlobalPush.remove(vmKlass.qualifiedName) }
+        val prevEntry = navController?.previousBackStackEntry
+        val fromPrev = prevEntry?.savedStateHandle?.get<String>(PUSH_KEY)
+        val fromArgs = entry.arguments?.getString("pushParam")
+        val fromHandle = handle.get<String>("pushParam")
+        val payload = fromGlobal ?: fromPrev ?: fromArgs ?: fromHandle
+        if (payload != null && vm is Pushable<*>) {
+            val decoded = decodeParam(payload) ?: payload
+            @Suppress("UNCHECKED_CAST")
+            (vm as Pushable<Any>).onPushParams(decoded)
+        }
+        if (fromPrev != null) prevEntry?.savedStateHandle?.set(PUSH_KEY, null)
+        if (fromHandle != null) handle.remove<String>("pushParam")
+        if (!alreadyBooted) {
+            vm.bootstrapVmFromNavEngine()
+            handle[didKey] = true
+        }
+    }
+
     private fun attachActivityDestroyGuard(activity: ComponentActivity?) {
         val app = activity?.application ?: return
         val callbacks = object : Application.ActivityLifecycleCallbacks {
@@ -896,7 +1294,6 @@ import kotlin.reflect.KClass
                 detachAllEntryObservers(navController)
                 routeStack.clear()
                 navigationStack.clear()
-                // Prepare latch for next bind
                 if (!ready.isCompleted) ready.complete(Unit)
                 ready = CompletableDeferred()
             }
@@ -916,33 +1313,21 @@ import kotlin.reflect.KClass
         hostActivity?.application?.unregisterActivityLifecycleCallbacks(callbacks)
         hostActivityCallbacks = null
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // -------- Safe nav helpers --------
+
     private fun safeNavOp(op: (NavHostController) -> Unit) {
         val nav = navController
         if (nav == null) {
-            // Not bound yet — enqueue
-            synchronized(pendingOps) { pendingOps.add(op) }
+            synchronized(pendingOps) { pendingOps.addLast(op) }
             return
         }
-
         navScope.launch {
-            // Wait until first destination is attached (or immediate if already)
             ready.await()
-
             val entry = nav.currentBackStackEntry
                 ?: runCatching { nav.getBackStackEntry(nav.graph.id) }.getOrNull()
-
             if (entry == null) {
-                // Still no entry: enqueue and exit; it will run on next destination change
-                synchronized(pendingOps) { pendingOps.add(op) }
+                synchronized(pendingOps) { pendingOps.addLast(op) }
                 return@launch
             }
-
             entry.lifecycle.whenStateAtLeast(Lifecycle.State.RESUMED) {
                 withContext(Dispatchers.Main.immediate) {
                     navMutex.withLock { op(nav) }
@@ -957,12 +1342,7 @@ import kotlin.reflect.KClass
     ) {
         safeNavOp { nav -> nav.navigate(route, builder) }
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // ---- API: pushes ----
+
     override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {
         navigateWithRoute(viewModelClass, params)
     }
@@ -982,41 +1362,48 @@ import kotlin.reflect.KClass
     override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()
 
     private fun <T : ViewModel> navigateWithRoute(
-        viewModelClass: KClass<T>, params: Any?, popAll: Boolean = false, popCurrent: Boolean = false
+        viewModelClass: KClass<T>,
+        params: Any?,
+        popAll: Boolean = false,
+        popCurrent: Boolean = false
     ) {
         val routeBase = viewModelToRouteMap[viewModelClass] ?: error("No screen registered for ${'$'}viewModelClass")
         val canonicalPattern = canonicalRoute(routeBase)
-        val fullRoute = "${'$'}routeBase?pushParam=${'$'}{encodeParam(params)}"
-
-        when {
-            popAll -> { replacingRoot = true;  replaceRootMirror(canonicalPattern, viewModelClass) }
-            popCurrent -> { replacingCurrent = true; replaceTopMirror(canonicalPattern, viewModelClass) }
-            else -> { /* forward push: listener will append */ }
-        }
-
-        safeNavigate(fullRoute) {
-            if (popAll) {
-                popUpTo(0)
-            } else if (popCurrent) {
-                val curr = navController?.currentDestination?.route
-                if (curr != null) popUpTo(curr) { inclusive = true }
+        val encodedParam: String? = params?.let { p ->
+            when (p) {
+                is String, is Number, is Boolean -> p.toString()
+                else -> Json.encodeToString(p)
             }
-            launchSingleTop = true
-            restoreState = false
+        }
+        when {
+            popAll -> { replacingRoot = true; replaceRootMirror(canonicalPattern, viewModelClass) }
+            popCurrent -> { replacingCurrent = true; replaceTopMirror(canonicalPattern, viewModelClass) }
+        }
+        safeNavOp { nav ->
+            if (encodedParam != null) {
+                synchronized(pendingGlobalPush) {
+                    pendingGlobalPush[viewModelClass.qualifiedName ?: viewModelClass.toString()] = encodedParam
+                }
+                nav.currentBackStackEntry?.savedStateHandle?.set(PUSH_KEY, encodedParam)
+            }
+            nav.navigate(routeBase) {
+                when {
+                    popAll -> popUpTo(0)
+                    popCurrent -> nav.currentDestination?.route?.let { popUpTo(it) { inclusive = true } }
+                }
+                launchSingleTop = true
+                restoreState = false
+            }
+            attachEntryObserver(nav, canonicalPattern, viewModelClass)
         }
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // ---- POPS ----
+
     override fun popToRoot(animate: Boolean, params: Any?) {
         deliverPopParamsToPrevious(params)
         safeNavOp { nav ->
-            val targetRoute = routeStack.firstOrNull() ?: return@safeNavOp
-            if (nav.currentBackStackEntry?.destination?.route == targetRoute) return@safeNavOp
-            nav.popBackStack(route = targetRoute, inclusive = false)
+            while (nav.previousBackStackEntry != null) {
+                nav.popBackStack()
+            }
         }
     }
 
@@ -1031,7 +1418,7 @@ import kotlin.reflect.KClass
             val target = routeStack.getOrNull(targetIdx)
             if (target != null) {
                 deliverPopParamsToPrevious(params)
-                nav.popBackStack(route = target, inclusive = false)
+                nav.popBackStack(route = canonicalKey(target), inclusive = false)
             } else {
                 repeat(countOfPages) {
                     deliverPopParamsToPrevious(params)
@@ -1048,18 +1435,12 @@ import kotlin.reflect.KClass
     }
 
     override fun dismissModal(animate: Boolean, params: Any?) = popPage(animate, params)
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // ---- Pop params delivery (uses previous entry owner) ----
+
     private fun deliverPopParamsToPrevious(params: Any?) {
         val nav = navController ?: return
         val prevEntry = nav.previousBackStackEntry ?: return
         val prevRoute = prevEntry.destination.route ?: return
-        val prevVmClass = routeToViewModelMap[prevRoute] ?: return
-
+        val prevVmClass = routeToViewModelMap[canonicalKey(prevRoute)] ?: return
         val encoded = encodeParam(params) ?: return
         decodeParam(encoded)?.let { decoded ->
             val vm = resolveViewModel(prevVmClass, owner = prevEntry)
@@ -1069,12 +1450,7 @@ import kotlin.reflect.KClass
             }
         }
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // ---- VM resolution ----
+
     private fun resolveViewModel(
         vmClass: KClass<out com.architect.atlas.architecture.mvvm.ViewModel>,
         owner: ViewModelStoreOwner? = null
@@ -1083,19 +1459,13 @@ import kotlin.reflect.KClass
         val vmOwner: ViewModelStoreOwner =
             owner ?: nav.currentBackStackEntry
             ?: error("No current back stack entry available for ViewModel resolution")
-
         @Suppress("UNCHECKED_CAST")
         val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
         val vm = ViewModelProvider(vmOwner)[androidVmClass]
         @Suppress("UNCHECKED_CAST")
         return vm as com.architect.atlas.architecture.mvvm.ViewModel
     }
-            """.trimIndent()
-            )
-            appendLine()
-            appendLine(
-                """
-    // ---- Encoding helpers ----
+
     private fun encodeParam(param: Any?): String? =
         param?.let { if (it is String || it is Number || it is Boolean) it.toString() else Json.encodeToString(it) }
 
@@ -1173,11 +1543,9 @@ import kotlin.reflect.KClass
 
             appendLine(
                 """
-import com.architect.atlas.navigation.AtlasNavigation
 import com.architect.atlas.architecture.navigation.Pushable
 import com.architect.atlas.architecture.mvvm.ViewModel
-import com.architect.atlas.container.AtlasContainer
-
+import com.architect.atlas.navigation.AtlasNavigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -1186,13 +1554,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -1202,12 +1571,7 @@ import androidx.navigation.navArgument
 import kotlinx.serialization.json.Json
 import androidx.compose.runtime.compositionLocalOf
 import java.lang.ref.WeakReference
-            """.trimIndent()
-            )
-            appendLine()
 
-            appendLine(
-                """
 val LocalAtlasNavController = compositionLocalOf<NavHostController> {
     error("NavController not provided")
 }
@@ -1217,18 +1581,15 @@ object AtlasNavHolder {
     fun bind(navController: NavHostController) { navControllerRef = WeakReference(navController) }
     fun get(): NavHostController? = navControllerRef?.get()
 }
-                    
+
 @Composable
 fun AtlasNavGraph() {
     val navController = rememberNavController()
     AtlasNavHolder.bind(navController)
-
-    // Bind immediately on enter; unbind on dispose.
     DisposableEffect(Unit) {
         AtlasNavigation.bindToNavController(navController)
-        onDispose { AtlasNavigation.bindToNavController(controller = navController, activity = null) /* no-op but keeps symmetry */ }
+        onDispose { AtlasNavigation.bindToNavController(controller = navController, activity = null) }
     }
-
     CompositionLocalProvider(LocalAtlasNavController provides navController) {
         NavHost(navController = navController, startDestination = "$start") {
 ${
@@ -1239,9 +1600,8 @@ ${
         }
     }
 }
-""".trimIndent()
+            """.trimIndent()
             )
-
             appendLine(
                 """
 @OptIn(ExperimentalAnimationApi::class)
@@ -1261,25 +1621,15 @@ inline fun <reified VM : ViewModel> NavGraphBuilder.screen(
             slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(250))
         },
     ) { backStackEntry ->
-        // Wear-safe: DO NOT cast context to ComponentActivity.
-        // Scope VM to this backStackEntry so each destination has its own instance.
-        val vm = remember(backStackEntry) { AtlasContainer.resolveViewModel(VM::class) }!!
-
-        backStackEntry.arguments?.getString("pushParam")?.let { raw ->
-            decodeParam(raw)?.let { param ->
-                if (vm is Pushable<*>) {
-                    @Suppress("UNCHECKED_CAST")
-                    (vm as Pushable<Any>).onPushParams(param)
-                }
-            }
-        }
-
+        val vm: VM = viewModel(
+            modelClass = VM::class.java,
+            viewModelStoreOwner = backStackEntry
+        )
         HandleLifecycle<VM>(vm) { content(vm) }
     }
 }
-""".trimIndent()
+            """.trimIndent()
             )
-
             appendLine(
                 """
 fun decodeParam(raw: String): Any? = when {
@@ -1289,9 +1639,8 @@ fun decodeParam(raw: String): Any? = when {
     raw.equals("true", true) || raw.equals("false", true) -> raw.toBoolean()
     else -> runCatching { Json.decodeFromString<Any>(raw) }.getOrNull() ?: raw
 }
-""".trimIndent()
+            """.trimIndent()
             )
-
             appendLine(
                 """
 @Composable
@@ -1301,7 +1650,6 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
 ) {
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val currentViewModel by rememberUpdatedState(viewModel)
-
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -1317,10 +1665,9 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
     content()
 }
-""".trimIndent()
+            """.trimIndent()
             )
         }
 
@@ -1329,12 +1676,9 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
             file.parentFile.mkdirs()
             file.writeText(navGraph)
         } else {
-            val wearOSOut = wearOSDir.orNull?.asFile
-            if (wearOSOut != null) {
-                val wearFile = File(wearOSDir.get().asFile, "AtlasNavGraph.kt")
-                wearFile.parentFile.mkdirs()
-                wearFile.writeText(navGraph)
-            }
+            val wearFile = File(wearOSDir.get().asFile, "AtlasNavGraph.kt")
+            wearFile.parentFile.mkdirs()
+            wearFile.writeText(navGraph)
         }
     }
 
@@ -1387,6 +1731,7 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
     @MainActor
     struct LifecycleTabAwareHostingView<Content: View, VM: ViewModel>: View {
         @StateObject private var viewModel: VM
+        @State private var didBootstrap = false
         let content: (VM) -> Content
 
         init(viewModel: VM, @ViewBuilder content: @escaping (VM) -> Content) {
@@ -1396,7 +1741,13 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
 
         var body: some View {
             content(viewModel)
-                .onAppear { viewModel.onAppearing() }
+                .onAppear {
+                    if !didBootstrap {
+                        didBootstrap = true
+                        viewModel.bootstrapVmFromNavEngine()
+                    }
+                    viewModel.onAppearing()
+                }
                 .onDisappear { viewModel.onDisappearing() }
         }
     }
@@ -1410,7 +1761,7 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
     }
 
     @MainActor
-     @ViewBuilder
+    @ViewBuilder
     func buildTabScreen<T: ViewModel, Content: View>(
         _ type: T.Type,
         tag: Int,
@@ -1453,48 +1804,48 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
     }
 
     @MainActor
-@ViewBuilder
-func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabItemView>(
-    fabTabIndex: Int,
-    selectedTabIndex: Binding<Int>,
-    viewModelType: T.Type,
-    itemView: ItemView,
-    @ViewBuilder fabContainer: @escaping (T) -> Content
-) -> some View {
-    let vm = AtlasDI.companion.resolveServiceNullableByName(
-        clazz: SwiftClassGenerator.companion.getClazz(type: viewModelType)
-    ) as! T
+    @ViewBuilder
+    func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabItemView>(
+        fabTabIndex: Int,
+        selectedTabIndex: Binding<Int>,
+        viewModelType: T.Type,
+        itemView: ItemView,
+        @ViewBuilder fabContainer: @escaping (T) -> Content
+    ) -> some View {
+        let vm = AtlasDI.companion.resolveServiceNullableByName(
+            clazz: SwiftClassGenerator.companion.getClazz(type: viewModelType)
+        ) as! T
 
-    GeometryReader { geometry in
-        VStack {
-            Spacer()
-            HStack {
+        GeometryReader { geometry in
+            VStack {
                 Spacer()
-                
-                Button(action: {
-                    selectedTabIndex.wrappedValue = fabTabIndex
-                }) {
-                    ZStack {
-                        fabContainer(vm)
-                            .frame(width: 84, height: 84)
-                            .clipShape(Circle())
-                            .shadow(radius: 4)
-                        
-                        if selectedTabIndex.wrappedValue == fabTabIndex {
-                            itemView.selectedTabItem()
-                        } else {
-                            itemView.deselectedTabItem()
+                HStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        selectedTabIndex.wrappedValue = fabTabIndex
+                    }) {
+                        ZStack {
+                            fabContainer(vm)
+                                .frame(width: 84, height: 84)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
+                            
+                            if selectedTabIndex.wrappedValue == fabTabIndex {
+                                itemView.selectedTabItem()
+                            } else {
+                                itemView.deselectedTabItem()
+                            }
                         }
                     }
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 48)
+                    
+                    Spacer()
                 }
-                .padding(.bottom, geometry.safeAreaInsets.bottom + 48) // lift above tab bar
-                
-                Spacer()
             }
+            .edgesIgnoringSafeArea(.bottom)
         }
-        .edgesIgnoringSafeArea(.bottom)
     }
-}
 
     @MainActor
     class $className: NSObject, ObservableObject, @preconcurrency AtlasTabNavigationService {
@@ -1516,16 +1867,9 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
 
         @MainActor
         func navigateToTabIndex(viewModelClass: KotlinKClass, params: Any? = nil) {
-            guard let viewModelName = viewModelClass.simpleName else {
-                print("Invalid ViewModel class passed")
-                return
-            }
-
+            guard let viewModelName = viewModelClass.simpleName else { return }
             if let index = tabIndices[viewModelName] {
-                print("Navigating to tab index \\(index) for \\(viewModelName)")
                 selectedTabIndex = index
-            } else {
-                print("Tab index for \\(viewModelName) not found")
             }
         }
 
@@ -1675,7 +2019,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        }")
             appendLine("    }")
 
-            appendLine("   func setNavigationStack(stack: [String], params: Any?) { /* Not used directly */ }")
+            appendLine("   func setNavigationStack(stack: [String], params: Any?) { }")
             appendLine("   func getNavigationStack() -> [String] { return stack.map { String(describing: $0) } }")
 
             appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
@@ -1713,7 +2057,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        nav.popToViewController(target, animated: animate)")
             appendLine("    }")
 
-            appendLine("     func popToPage(route: String, params: Any?) { /* Not implemented */ }")
+            appendLine("     func popToPage(route: String, params: Any?) { }")
             appendLine("     func dismissModal(animate: Bool = true, params: Any? = nil) {")
             appendLine("        UIApplication.globalRootNav?.presentedViewController?.dismiss(animated: animate)")
             appendLine("    }")
@@ -1736,7 +2080,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("    }")
             appendLine("    }")
 
-            // Determine the initial screen
             val initial = screens.firstOrNull { it.isInitial }
             val initialViewModel = initial?.viewModel ?: "/* MissingInitialVM */"
             val initialScreen = initial?.screen?.replace(":", "") ?: "/*MissingInitialScreen */"
@@ -1752,7 +2095,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                     let root = $initialScreen(
                         vm: resolved
                     )
-                    
                     let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved, viewModelName: vmName)
                     let navController = UINavigationController(rootViewController: hostingController)
                     UIApplication.globalRootNav = navController
@@ -1769,6 +2111,7 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             class LifecycleAwareHostingController<Content: View>: UIHostingController<Content>, @preconcurrency LifecycleAwareHosting {
                let viewModel: ViewModel
                let viewModelName: String
+               private var didBootstrap = false
                init(rootView: Content, viewModel: ViewModel, viewModelName: String) {
                    self.viewModel = viewModel
                    self.viewModelName = viewModelName
@@ -1779,9 +2122,17 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                    fatalError("init(coder:) has not been implemented")
                }
                
-               override func viewWillAppear(_ animated: Bool) {
-                   super.viewWillAppear(animated)
-                   viewModel.onAppearing()
+               override func viewDidLoad() {
+                   super.viewDidLoad()
+                   if !didBootstrap {
+                       didBootstrap = true
+                       viewModel.bootstrapVmFromNavEngine()
+                   }
+               }
+               
+               override func viewDidAppear(_ animated: Bool) {
+                    super.viewDidAppear(animated)
+                    viewModel.onAppearing()
                }
                
                override func viewWillDisappear(_ animated: Bool) {
@@ -1793,7 +2144,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                        Task { @MainActor in
                            self.viewModel.onDestroy()
                            self.viewModel.onCleared()
-                           
                            AtlasDI.companion.resetViewModelByName(clazz: viewModelName)
                        }
                    }
@@ -1828,13 +2178,11 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("import SwiftUI")
             appendLine("import $projectCoreName")
             appendLine()
-            appendLine("// MARK: - Route token carried on the NavigationPath")
             appendLine("struct RouteToken: Hashable, Identifiable {")
             appendLine("    let id = UUID()")
             appendLine("    let viewModelType: String")
             appendLine("}")
             appendLine()
-            appendLine("// MARK: - Lifecycle wrapper (SwiftUI equivalent of LifecycleAwareHostingController)")
             appendLine("struct LifecycleAwareWatchView<Content: View>: View {")
             appendLine("    let content: () -> Content")
             appendLine("    let onAppear: () -> Void")
@@ -1854,12 +2202,12 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("final class WatchNavigationEngine: ObservableObject {")
             appendLine("    public static let shared = WatchNavigationEngine()")
             appendLine("    @Published public var path = NavigationPath()")
-            appendLine("    @Published public var presented: RouteToken? = nil // sheet modal")
+            appendLine("    @Published public var presented: RouteToken? = nil")
             appendLine("    var stack: [ViewModel] = []")
             appendLine("    private var vmStore: [UUID: ViewModel] = [:]")
+            appendLine("    private var bootstrapped: Set<UUID> = []")
             appendLine("    private init() {}")
             appendLine()
-            appendLine("    // MARK: Public API (parity with iOS NavigationEngine)")
             appendLine("    public func routeWithParams(viewModelType: String, params: Any? = nil, isModal: Bool = false) {")
             appendLine("        let (token, vm) = buildVMAndToken(viewModelType: viewModelType, params: params)")
             appendLine("        if isModal {")
@@ -1870,12 +2218,9 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        stack.append(vm)")
             appendLine("    }")
             appendLine()
-            appendLine("    /// Replace entire stack with the provided chain of viewModel class names (first becomes root).")
             appendLine("    @MainActor")
             appendLine("    func setNavigationStack(stack: [String], params: Any?) {")
-            appendLine("        // Dismiss any modal and clear existing nav state")
             appendLine("        presented = nil")
-            appendLine("        // Dispose existing VMs")
             appendLine("        for (_, vm) in vmStore {")
             appendLine("            Task { @MainActor in")
             appendLine("                vm.onDestroy()")
@@ -1883,17 +2228,15 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("            }")
             appendLine("        }")
             appendLine("        vmStore.removeAll()")
+            appendLine("        bootstrapped.removeAll()")
             appendLine("        self.stack.removeAll()")
             appendLine("        self.path = NavigationPath()")
-            appendLine()
             appendLine("        guard let first = stack.first else { return }")
-            appendLine()
-            appendLine("        // Build root")
             appendLine("        let (rootToken, rootVM) = buildVMAndToken(viewModelType: first, params: params)")
             appendLine("        _unsafeStoreRootVM(rootVM, token: rootToken)")
             appendLine("        self.stack = [rootVM]")
-            appendLine()
-            appendLine("        // Push the rest")
+            appendLine("        rootVM.bootstrapVmFromNavEngine()")
+            appendLine("        bootstrapped.insert(rootToken.id)")
             appendLine("        if stack.count > 1 {")
             appendLine("            for name in stack.dropFirst() {")
             appendLine("                let (t, vm) = buildVMAndToken(viewModelType: name, params: params)")
@@ -1903,39 +2246,33 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        }")
             appendLine("    }")
             appendLine()
-            appendLine("    /// Convenience: replace entire stack with single page.")
             appendLine("    @MainActor")
             appendLine("    func replaceStack(with viewModelType: String, params: Any?) {")
             appendLine("        setNavigationStack(stack: [viewModelType], params: params)")
             appendLine("    }")
             appendLine()
-            appendLine("    /// Replace only the current screen with a new one. If at root, behaves like replaceStack.")
             appendLine("    @MainActor")
             appendLine("    func replaceCurrentScreen(with viewModelType: String, params: Any?) {")
-            appendLine("        // If no stack, act like a straight route")
             appendLine("        guard !stack.isEmpty else {")
             appendLine("            routeWithParams(viewModelType: viewModelType, params: params)")
             appendLine("            return")
             appendLine("        }")
-            appendLine()
-            appendLine("        // Dismiss modal if showing (replacement is for page content, not modal).")
             appendLine("        if presented != nil {")
             appendLine("            presented = nil")
             appendLine("        }")
-            appendLine()
-            appendLine("        // If replacing root and there is no path (no pushed pages), this is a full stack replace.")
             appendLine("        if path.isEmpty {")
             appendLine("            replaceStack(with: viewModelType, params: params)")
             appendLine("            return")
             appendLine("        }")
-            appendLine()
             appendLine("        let currentWas = stack.removeLast()")
             appendLine("        Task { @MainActor in")
             appendLine("            currentWas.onDestroy()")
             appendLine("            currentWas.onCleared()")
             appendLine("        }")
-            appendLine("        if !path.isEmpty { path.removeLast() }")
-            appendLine()
+            appendLine("        if !path.isEmpty {")
+            appendLine("            if let last = path.last as? RouteToken { bootstrapped.remove(last.id) }")
+            appendLine("            path.removeLast()")
+            appendLine("        }")
             appendLine("        let (replacementToken, replacementVM) = buildVMAndToken(viewModelType: viewModelType, params: params)")
             appendLine("        path.append(replacementToken)")
             appendLine("        stack.append(replacementVM)")
@@ -1955,7 +2292,12 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("            }")
             appendLine("            stack.removeSubrange(1..<stack.count)")
             appendLine("        }")
-            appendLine("        withAnimation(animate ? .default : nil) { path.removeLast(path.count) }")
+            appendLine("        withAnimation(animate ? .default : nil) {")
+            appendLine("            if !path.isEmpty {")
+            appendLine("                if let last = path.last as? RouteToken { bootstrapped.remove(last.id) }")
+            appendLine("                path.removeLast(path.count)")
+            appendLine("            }")
+            appendLine("        }")
             appendLine("    }")
             appendLine()
             appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
@@ -1966,7 +2308,12 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("                removed.onCleared()")
             appendLine("            }")
             appendLine("        }")
-            appendLine("        withAnimation(animate ? .default : nil) { if !path.isEmpty { path.removeLast() } }")
+            appendLine("        withAnimation(animate ? .default : nil) {")
+            appendLine("            if !path.isEmpty {")
+            appendLine("                if let last = path.last as? RouteToken { bootstrapped.remove(last.id) }")
+            appendLine("                path.removeLast()")
+            appendLine("            }")
+            appendLine("        }")
             appendLine("    }")
             appendLine()
             appendLine("    func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
@@ -1983,60 +2330,56 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("            }")
             appendLine("        }")
             appendLine("        withAnimation(animate ? .default : nil) {")
-            appendLine("            for _ in 0..<pops { if !path.isEmpty { path.removeLast() } }")
+            appendLine("            for _ in 0..<pops {")
+            appendLine("                if !path.isEmpty {")
+            appendLine("                    if let last = path.last as? RouteToken { bootstrapped.remove(last.id) }")
+            appendLine("                    path.removeLast()")
+            appendLine("                }")
+            appendLine("            }")
             appendLine("        }")
             appendLine("    }")
             appendLine()
-            appendLine("""
-                @MainActor
-                func popToPage(route: String, params: Any?) {
-                    if presented != nil {
-                        presented = nil
-                    }
-
-                    guard !stack.isEmpty else { return }
-
-                    let targetIndexOpt = stack.enumerated().first(where: { (_, vm) in
-                        String(describing: type(of: vm)) == route
-                    })?.offset
-
-                    guard let targetIndex = targetIndexOpt else {
-                        // route not found; no-op
-                        return
-                    }
-
-                    let pops = (stack.count - 1) - targetIndex
-                    guard pops >= 0 else { return }
-
-                    if let p = params, let target = stack[targetIndex] as? Poppable {
-                        target.onPopParams(params: p)
-                    }
-
-                    if pops > 0 {
-                        for vm in stack.suffix(pops) {
-                            Task { @MainActor in
-                                vm.onDestroy()
-                                vm.onCleared()
-                            }
-                        }
-                        stack.removeLast(pops)
-                    }
-
-                    if pops > 0 {
-                        withAnimation(.default) {
-                            for _ in 0..<pops {
-                                if !path.isEmpty { path.removeLast() }
-                            }
-                        }
-                    }
-                }
-            """.trimIndent())
+            appendLine("    @MainActor")
+            appendLine("    func popToPage(route: String, params: Any?) {")
+            appendLine("        if presented != nil {")
+            appendLine("            presented = nil")
+            appendLine("        }")
+            appendLine("        guard !stack.isEmpty else { return }")
+            appendLine("        let targetIndexOpt = stack.enumerated().first(where: { (_, vm) in")
+            appendLine("            String(describing: type(of: vm)) == route")
+            appendLine("        })?.offset")
+            appendLine("        guard let targetIndex = targetIndexOpt else { return }")
+            appendLine("        val popsCount = (stack.count - 1) - targetIndex")
+            appendLine("        if popsCount < 0 { return }")
+            appendLine("        if let p = params, let target = stack[targetIndex] as? Poppable {")
+            appendLine("            target.onPopParams(params: p)")
+            appendLine("        }")
+            appendLine("        if popsCount > 0 {")
+            appendLine("            for vm in stack.suffix(popsCount) {")
+            appendLine("                Task { @MainActor in")
+            appendLine("                    vm.onDestroy()")
+            appendLine("                    vm.onCleared()")
+            appendLine("                }")
+            appendLine("            }")
+            appendLine("            stack.removeLast(popsCount)")
+            appendLine("        }")
+            appendLine("        if popsCount > 0 {")
+            appendLine("            withAnimation(.default) {")
+            appendLine("                for _ in 0..<popsCount {")
+            appendLine("                    if !path.isEmpty {")
+            appendLine("                        if let last = path.last as? RouteToken { bootstrapped.remove(last.id) }")
+            appendLine("                        path.removeLast()")
+            appendLine("                    }")
+            appendLine("                }")
+            appendLine("            }")
+            appendLine("        }")
+            appendLine("    }")
+            appendLine()
             appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
             appendLine("        if presented != nil, let prev = stack.last as? Poppable, let p = params { prev.onPopParams(params: p) }")
             appendLine("        withAnimation(animate ? .default : nil) { presented = nil }")
             appendLine("    }")
             appendLine()
-            appendLine("    // MARK: - Internals")
             appendLine("    private func buildVMAndToken(viewModelType: String, params: Any?) -> (RouteToken, ViewModel) {")
             appendLine("        func resolve<T: ViewModel>(_ type: T.Type) -> T {")
             appendLine("            let clazz = SwiftClassGenerator.companion.getClazz(type: type)")
@@ -2044,7 +2387,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        }")
             appendLine("        let vm: ViewModel = {")
             appendLine("            switch viewModelType {")
-
             for ((vm, _, _) in screens) {
                 val vmSimple = vm.substringAfterLast(".")
                 appendLine("            case \"$vmSimple\":")
@@ -2052,7 +2394,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
                 appendLine("                if let p = params { v.tryHandlePush(params: p) }")
                 appendLine("                return v")
             }
-
             appendLine("            default:")
             appendLine("                let v = resolve(UnifiedErrorScreenViewModel.self)")
             appendLine("                return v")
@@ -2066,15 +2407,21 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("    func viewFor(token: RouteToken) -> AnyView {")
             appendLine("        guard let vm = vmStore[token.id] else { return AnyView(Text(\"Missing VM\")) }")
             appendLine("        switch token.viewModelType {")
-
             for ((vm, screen, _) in screens) {
                 val vmSimple = vm.substringAfterLast(".")
                 val screenName = screen.replace(":", "")
                 appendLine("        case \"$vmSimple\":")
                 appendLine("            let typed = vm as! $vmSimple")
-                appendLine("            return AnyView(LifecycleAwareWatchView({ $screenName(vm: typed) }, onAppear: { typed.onAppearing() }, onDisappear: { typed.onDisappearing() }))")
+                appendLine("            return AnyView(LifecycleAwareWatchView({ $screenName(vm: typed) }, onAppear: {")
+                appendLine("                if !bootstrapped.contains(token.id) {")
+                appendLine("                    typed.bootstrapVmFromNavEngine()")
+                appendLine("                    bootstrapped.insert(token.id)")
+                appendLine("                }")
+                appendLine("                typed.onAppearing()")
+                appendLine("            }, onDisappear: {")
+                appendLine("                typed.onDisappearing()")
+                appendLine("            }))")
             }
-
             appendLine("        default:")
             appendLine("            return AnyView(Text(\"\"))")
             appendLine("        }")
@@ -2088,9 +2435,9 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("            }")
             appendLine("        }")
             appendLine("        vmStore[token.id] = nil")
+            appendLine("        bootstrapped.remove(token.id)")
             appendLine("    }")
             appendLine()
-            appendLine("    // For root screen injection")
             appendLine("    fileprivate func _unsafeStoreRootVM(_ vm: ViewModel, token: RouteToken) {")
             appendLine("        self.path = NavigationPath()")
             appendLine("        self.presented = nil")
@@ -2098,7 +2445,6 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("    }")
             appendLine("}")
             appendLine()
-            appendLine("// MARK: - Root container for the watchOS target")
             appendLine("struct WatchNavRootView: View {")
             appendLine("    @StateObject private var router = WatchNavigationEngine.shared")
             appendLine("    @State private var rootToken: RouteToken? = nil")
@@ -2131,75 +2477,63 @@ func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabIt
             appendLine("        let token = RouteToken(viewModelType: \"$initialViewModel\")")
             appendLine("        WatchNavigationEngine.shared.stack = [vm]")
             appendLine("        WatchNavigationEngine.shared._unsafeStoreRootVM(vm, token: token)")
+            appendLine("        vm.bootstrapVmFromNavEngine()")
+            appendLine("        WatchNavigationEngine.shared.bootstrapped.insert(token.id)")
             appendLine("        rootToken = token")
             appendLine("    }")
             appendLine("}")
             appendLine()
             appendLine("class WatchAtlasNavigationService: NSObject, @preconcurrency AtlasNavigationService {")
             appendLine("    static let shared = WatchAtlasNavigationService()")
-            appendLine("")
-            appendLine("    // MARK: - Stack APIs")
             appendLine("    func setNavigationStack(stack: [ViewModel], params: Any?) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            let names = stack.map { String(describing: type(of: $0)) }")
             appendLine("            WatchNavigationEngine.shared.setNavigationStack(stack: names, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func getNavigationStack() -> [ViewModel] {")
             appendLine("        return WatchNavigationEngine.shared.stack")
             appendLine("    }")
-            appendLine("")
-            appendLine("    // MARK: - Routing")
             appendLine("    func navigateToPage(viewModelClass: KotlinKClass, params: Any?) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func navigateToPagePushAndReplace(viewModelClass: KotlinKClass, params: Any?) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.replaceStack(with: viewModelClass.simpleName!, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func navigateToPagePushAndReplaceCurrentScreen(viewModelClass: KotlinKClass, params: Any?) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.replaceCurrentScreen(with: viewModelClass.simpleName!, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func navigateToPageModal(viewModelClass: KotlinKClass, params: Any?) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.routeWithParams(viewModelType: viewModelClass.simpleName!, params: params, isModal: true)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
-            appendLine("    // MARK: - Pops / Dismiss")
             appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.popToRoot(animate: animate, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.popPage(animate: animate, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func popPagesWithCount(countOfPages: Int32, animate: Bool, params: Any?) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.popPagesWithCount(count: Int(countOfPages), animate: animate, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func popToPage(route: String, params: Any? = nil) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.popToPage(route: route, params: params)")
             appendLine("        }")
             appendLine("    }")
-            appendLine("")
             appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
             appendLine("        DispatchQueue.main.async {")
             appendLine("            WatchNavigationEngine.shared.dismissModal(animate: animate, params: params)")

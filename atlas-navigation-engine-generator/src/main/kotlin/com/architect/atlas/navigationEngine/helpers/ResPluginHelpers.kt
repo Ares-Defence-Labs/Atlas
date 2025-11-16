@@ -40,11 +40,15 @@ internal object ResPluginHelpers {
 
         val moduleName = project.findProperty("atlas.coreModuleName")?.toString()
             ?: project.getSwiftImportModuleName()
+        val isComposeNavigation =
+            project.findProperty("atlas.composeNavigation")?.toString()?.toBooleanStrictOrNull() ?: true
 
         val projectTask = project.tasks.register(
             "generateNavAtlasEngine",
             NavigationEngineGeneratorTask::class.java
         ) {
+            androidBasePackageRef = ProjectFinder.getAndroidAppNamespace(androidApp)
+            isAndroidCompose = isComposeNavigation
             isRunningAppleWatch = cisRunningAppleWatch
             projectCoreName = moduleName
             iOSOutputFiles = iosoutputs

@@ -18,5 +18,8 @@ expect open class ViewModel() {
     // used mostly for mobile platforms
     open fun onBackground()
     open fun onForeground()
+
+    // initialization
+    fun bootstrapVmFromNavEngine()
 }
 

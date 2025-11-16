@@ -1,6 +1,7 @@
 package com.architect.atlas.architecture.mvvm
 
 import co.touchlab.crashkios.crashlytics.CrashlyticsKotlin
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,7 @@ import platform.posix.usleep
 
 private val CrashlyticsFatalHandler = CoroutineExceptionHandler { _, t ->
     runCatching {
+        Logger.e(tag = "Crashlytics Handler", messageString = t.stackTraceToString())
         CrashlyticsKotlin.sendFatalException(t)
     }
     usleep(300_000u)
@@ -25,14 +27,9 @@ actual open class ViewModel actual constructor() {
     actual val viewModelScopeWithoutCancel: CoroutineScope =
         CoroutineScope(Dispatchers.IO + CrashlyticsFatalHandler)
 
-    init {
-        viewModelScope.launch {
-            onInitialize()
-        }
-
-        viewModelScopeWithoutCancel.launch {
-            onInitializeWithoutCancel()
-        }
+    actual fun bootstrapVmFromNavEngine(){
+        viewModelScope.launch { onInitialize() }
+        viewModelScopeWithoutCancel.launch { onInitializeWithoutCancel() }
     }
 
     actual open fun onCleared() {
