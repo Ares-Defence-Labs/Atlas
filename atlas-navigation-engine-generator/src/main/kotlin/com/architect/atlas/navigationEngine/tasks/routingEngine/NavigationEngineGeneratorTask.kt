@@ -34,6 +34,9 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
     @get:Input
     abstract var outputFiles: List<File>
 
+    @get:Input
+    abstract var androidBasePackageRef: String
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val wearOSSourceFiles: ConfigurableFileCollection
@@ -108,18 +111,43 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         } else {
             logger.lifecycle("WRITING NAVIGATION TO ANDROID")
             val ants = scanViewModelAnnotations()
+            logger.lifecycle("AtlasNav: ants size         = ${ants.size}")
+
             val droidSourceFiles = androidSourceFiles.files.toList()
             val droidAnts = if (droidSourceFiles.isNotEmpty()) {
-                ants.filter { (_, _, filePath, _) -> File(filePath).isUnderAny(droidSourceFiles) }
+                val filtered = ants.filter { (_, _, filePath, _) ->
+                    File(filePath).isUnderAny(droidSourceFiles)
+                }
+                logger.lifecycle(
+                    "AtlasNav: droidSource roots = ${
+                        droidSourceFiles.joinToString { it.path }
+                    }")
+                logger.lifecycle("AtlasNav: droidAnts size    = ${filtered.size}")
+
+                if (filtered.isEmpty() && ants.isNotEmpty()) {
+                    logger.warn(
+                        "⚠️ AtlasNav: androidSourceFiles filter removed all screens. " +
+                                "Falling back to unfiltered annotations for nav."
+                    )
+                    ants
+                } else {
+                    filtered
+                }
             } else {
-                logger.warn("⚠️ No wearSourceRoots provided; Wear build will include ALL screens. Set 'wearSourceRoots' for correct filtering.")
-                emptyList()
+                logger.warn(
+                    "⚠️ AtlasNav: No androidSourceFiles provided; using all annotations for nav. " +
+                            "Configure 'androidSourceFiles' for more precise filtering."
+                )
+                ants
             }
 
+            val wearViewModelToScreen = droidAnts.map { it.first to it.second }.distinct()
 
-            // this needs to check if the device is running classical or compose
-            // requires filtering by android type
-            val wearViewModelToScreen = droidAnts.map { it.first to it.second }
+            logger.lifecycle(
+                "AtlasNav: classical screens = " +
+                        wearViewModelToScreen.joinToString { "${it.first} -> ${it.second}" }
+            )
+
             if (isAndroidCompose) {
                 generateAndroidNavigation(wearViewModelToScreen)
                 generateAndroidNavGraph(droidAnts)
@@ -145,57 +173,384 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
         }
     }
 
+    @Suppress("MemberVisibilityCanBePrivate")
     private fun scanViewModelAnnotations(): List<Quad<String, String, String, Boolean>> {
         val results = mutableListOf<Quad<String, String, String, Boolean>>()
 
-        outputFiles.forEach { subProject ->
-            subProject.walkTopDown().forEach { file ->
-                if (!file.isFile || !(file.extension.equals(
-                        "kt",
-                        true
-                    ) || file.extension.equals("swift", true))
-                ) return@forEach
+        // 1) Build the set of root directories to scan
+        val roots = linkedSetOf<File>()
 
-                val lines = file.readLines()
-                var viewModelName: String? = null
-                var screenName: String? = null
-                var isInitial = false
+        // Existing roots (whatever you had wired into outputFiles)
+        outputFiles.forEach { roots += it }
 
-                for ((index, line) in lines.withIndex()) {
-                    if (line.contains("@AtlasScreen")) {
-                        val kotlinRegex =
-                            """@AtlasScreen\s*\(\s*([\w.<>]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
-                        val swiftRegex =
-                            """@AtlasScreen\s*\(\s*([\w.<>]+)\.self(?:\s*,\s*initial\s*=\s*(true|false))?""".toRegex()
-                        val match = kotlinRegex.find(line) ?: swiftRegex.find(line)
-                        viewModelName = match?.groupValues?.get(1)
-                        isInitial =
-                            match?.groupValues?.getOrNull(2)?.toBooleanStrictOrNull() ?: false
+        // Android source roots (androidApp/src/main/kotlin etc.)
+        androidSourceFiles.files.forEach { roots += it }
 
-                        val nextLines = lines.drop(index).take(3)
-                        val funcRegex = """fun\s+(\w+)""".toRegex()
-                        val funcMatch = nextLines.firstNotNullOfOrNull { funcRegex.find(it) }
-                        screenName = funcMatch?.groupValues?.get(1)
-
-                        if (viewModelName != null && screenName != null) {
-                            results.add(
-                                Quad(
-                                    viewModelName,
-                                    screenName,
-                                    file.absolutePath,
-                                    isInitial
-                                )
-                            )
-                        }
-                    }
-                }
-            }
+        if (roots.isEmpty()) {
+            logger.warn("AtlasNav: scanViewModelAnnotations – no roots configured, returning empty list")
+            return emptyList()
         }
 
+        // Regex to match @AtlasScreen(SomeVm::class, initial = true/false)
+        val atlasRegex =
+            """@AtlasScreen\(\s*([A-Za-z0-9_.]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?\s*\)"""
+                .toRegex()
+
+        // Regex to get the screen class name from 'class FirstTestFragment : Fragment(...)'
+        val classRegex = """class\s+([A-Za-z0-9_]+)""".toRegex()
+
+        for (root in roots) {
+            if (!root.exists()) continue
+
+            root.walkTopDown()
+                .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }
+                .forEach { file ->
+                    val text = file.readText()
+
+                    // Find the first 'class X' in the file as the screen name
+                    val classMatch = classRegex.find(text) ?: return@forEach
+                    val screenName = classMatch.groupValues[1]
+
+                    // Find all @AtlasScreen(...) annotations in this file
+                    atlasRegex.findAll(text).forEach { match ->
+                        val vmFqnOrSimple =
+                            match.groupValues[1] // could be DroidStandard or com.foo.DroidStandard
+                        val vmSimpleName = vmFqnOrSimple.substringAfterLast('.')
+
+                        val initialFlag = match.groupValues.getOrNull(2)?.let {
+                            it.equals("true", ignoreCase = true)
+                        } ?: false
+
+                        results += Quad(
+                            vmSimpleName,          // first  -> ViewModel simple name, e.g. "DroidStandard"
+                            screenName,            // second -> Screen class name, e.g. "FirstTestFragment"
+                            file.absolutePath,     // third  -> file path
+                            initialFlag            // fourth -> initial = true / false
+                        )
+                    }
+                }
+        }
+
+        logger.lifecycle("AtlasNav: scanViewModelAnnotations found ${results.size} screens")
         return results
     }
 
     // classical android navigation
+    private fun generateAndroidClassicalNavigation(
+        screens: List<Pair<String, String>>,
+    ) {
+        val viewModelImports =
+            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
+
+        val screenImports =
+            screens.mapNotNull { (_, screenClass) -> findScreenImport(screenClass) }.distinct()
+
+        val androidImpl = buildString {
+            appendLine("package com.architect.atlas.navigation")
+            appendLine()
+
+            viewModelImports.forEach { appendLine("import $it") }
+            screenImports.forEach { appendLine("import $it") }
+
+            appendLine(
+                """
+import $androidBasePackageRef.R                    
+import android.os.Bundle
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.FragmentManager
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStoreOwner
+import com.architect.atlas.architecture.mvvm.ViewModel
+import com.architect.atlas.architecture.navigation.AtlasNavigationService
+import com.architect.atlas.architecture.navigation.Poppable
+import com.architect.atlas.architecture.navigation.Pushable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlin.reflect.KClass
+
+/**
+ * Classical (Fragment-based) navigation implementation for Atlas.
+ *
+ * This is generated from @AtlasScreen annotations on platform classes
+ * (e.g. Fragments) and only cares about the annotation – it does NOT
+ * require the class to extend Fragment at codegen time.
+ *
+ * At runtime, if a non-Fragment is mapped, an error will be thrown when
+ * trying to navigate to that screen.
+ */
+object AtlasFragmentNavigation : AtlasNavigationService {
+
+    private const val PUSH_KEY = "atlas_push_param"
+
+    private var hostActivity: FragmentActivity? = null
+    private var containerId: Int = android.R.id.content
+
+    // ViewModel -> Screen class (Fragment or any annotated type)
+    private val viewModelToScreenMap: Map<KClass<out ViewModel>, KClass<*>> = mapOf(
+            """.trimIndent()
+            )
+
+            // e.g. DroidStandard::class to FirstTestFragment::class
+            for ((viewModel, screenClass) in screens) {
+                appendLine("        $viewModel::class to $screenClass::class,")
+            }
+
+            appendLine(
+                """
+    )
+
+    /**
+     * Bind the classical navigation engine to a host activity and container.
+     *
+     * Example:
+     *  class TestActivity : FragmentActivity() {
+     *      override fun onCreate(savedInstanceState: Bundle?) {
+     *          super.onCreate(savedInstanceState)
+     *          setContentView(R.layout.activity_test_client)
+     *          AtlasFragmentNavigation.bind(this, R.id.nav_host_container)
+     *      }
+     *  }
+     */
+    fun bind(activity: FragmentActivity, containerId: Int = android.R.id.content) {
+        hostActivity = activity
+        this.containerId = containerId
+    }
+
+    private fun requireHost(): Pair<FragmentActivity, FragmentManager> {
+        val act = hostActivity
+            ?: error("AtlasFragmentNavigation not bound. Call AtlasFragmentNavigation.bind(activity, containerId) first.")
+        return act to act.supportFragmentManager
+    }
+
+    // region AtlasNavigationService API
+
+    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {
+        navigateInternal(viewModelClass, params, clearBackStack = false, replaceCurrent = false)
+    }
+
+    override fun <T : ViewModel> navigateToPagePushAndReplace(viewModelClass: KClass<T>, params: Any?) {
+        navigateInternal(viewModelClass, params, clearBackStack = true, replaceCurrent = false)
+    }
+
+    override fun <T : ViewModel> navigateToPagePushAndReplaceCurrentScreen(
+        viewModelClass: KClass<T>,
+        params: Any?
+    ) {
+        navigateInternal(viewModelClass, params, clearBackStack = false, replaceCurrent = true)
+    }
+
+    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {
+        // For now treat modals like a normal push.
+        navigateToPage(viewModelClass, params)
+    }
+
+    override fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any?) {
+        // Not implemented for classical Fragments right now.
+        // You could add replay / reconstruction here if needed.
+    }
+
+    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()
+
+    override fun popToRoot(animate: Boolean, params: Any?) {
+        val (_, fm) = requireHost()
+        deliverPopParamsToPrevious(params)
+        fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+    }
+
+    override fun popPage(animate: Boolean, params: Any?) {
+        val (_, fm) = requireHost()
+        deliverPopParamsToPrevious(params)
+        fm.popBackStack()
+    }
+
+    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {
+        val (_, fm) = requireHost()
+        if (countOfPages <= 0) return
+
+        deliverPopParamsToPrevious(params)
+
+        repeat(countOfPages) {
+            if (fm.backStackEntryCount == 0) return
+            fm.popBackStack()
+        }
+    }
+
+    override fun popToPage(route: String, params: Any?) {
+        val (_, fm) = requireHost()
+        deliverPopParamsToPrevious(params)
+        fm.popBackStack(route, 0)
+    }
+
+    override fun dismissModal(animate: Boolean, params: Any?) {
+        popPage(animate, params)
+    }
+
+    // endregion
+
+    // region Internal navigation helpers
+
+    private fun <T : ViewModel> navigateInternal(
+        viewModelClass: KClass<T>,
+        params: Any?,
+        clearBackStack: Boolean,
+        replaceCurrent: Boolean
+    ) {
+        val (activity, fm) = requireHost()
+
+        val screenKClass = viewModelToScreenMap[viewModelClass]
+            ?: error("No screen registered for ${'$'}viewModelClass via @AtlasScreen")
+
+        // Only enforce Fragment at runtime – generator is annotation-based.
+        val fragment = try {
+            @Suppress("UNCHECKED_CAST")
+            (screenKClass.java.newInstance() as Fragment)
+        } catch (e: Throwable) {
+            error("Screen class ${'$'}screenKClass must extend androidx.fragment.app.Fragment for classical navigation")
+        }
+
+        val fragmentTag = screenKClass.qualifiedName
+
+        val args = (fragment.arguments ?: Bundle())
+        encodeParam(params)?.let { encoded ->
+            args.putString(PUSH_KEY, encoded)
+        }
+        fragment.arguments = args
+
+        if (clearBackStack) {
+            fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        } else if (replaceCurrent && fm.backStackEntryCount > 0) {
+            fm.popBackStack()
+        }
+
+        val tx = fm.beginTransaction()
+            .setCustomAnimations(
+                R.anim.slide_in_left,    // enter
+                R.anim.slide_out_right,  // exit
+                R.anim.slide_in_left,    // popEnter
+                R.anim.slide_out_right   // popExit
+            )
+            .setReorderingAllowed(true)
+            .replace(containerId, fragment, fragmentTag)
+
+        tx.addToBackStack(fragmentTag)
+        tx.commit()
+
+        activity.runOnUiThread {
+            fm.executePendingTransactions()
+            bootstrapFragment(screenKClass)
+        }
+    }
+
+    /**
+     * Resolve VM for the given screen class and:
+     *  - deliver push params (Pushable)
+     *  - call bootstrapVmFromNavEngine()
+     */
+    private fun bootstrapFragment(screenKClass: KClass<*>) {
+        val (_, fm) = requireHost()
+        val fragmentTag = screenKClass.qualifiedName
+        val fragment = fm.findFragmentByTag(fragmentTag) ?: return
+
+        val vmKlass = viewModelToScreenMap.entries
+            .firstOrNull { it.value == screenKClass }?.key ?: return
+
+        val vm = resolveViewModel(vmKlass, owner = fragment)
+
+        val payloadRaw = fragment.arguments?.getString(PUSH_KEY)
+        if (payloadRaw != null && vm is Pushable<*>) {
+            decodeParam(payloadRaw)?.let { decoded ->
+                @Suppress("UNCHECKED_CAST")
+                (vm as Pushable<Any>).onPushParams(decoded)
+            }
+        }
+
+        vm.bootstrapVmFromNavEngine()
+    }
+
+    /**
+     * When popping, find the new top Fragment, resolve its VM,
+     * and call Poppable.onPopParams(...)
+     */
+    private fun deliverPopParamsToPrevious(params: Any?) {
+        val (_, fm) = requireHost()
+        if (params == null) return
+        if (fm.fragments.isEmpty()) return
+
+        val prev = fm.fragments.lastOrNull { it.isAdded } ?: return
+
+        val vmKlass = viewModelToScreenMap.entries
+            .firstOrNull { it.value == prev::class }?.key ?: return
+
+        val encoded = encodeParam(params) ?: return
+        val decoded = decodeParam(encoded) ?: return
+
+        val vm = resolveViewModel(vmKlass, owner = prev)
+        if (vm is Poppable<*>) {
+            @Suppress("UNCHECKED_CAST")
+            (vm as Poppable<Any>).onPopParams(decoded)
+        }
+    }
+
+    private fun resolveViewModel(
+        vmClass: KClass<out ViewModel>,
+        owner: ViewModelStoreOwner
+    ): ViewModel {
+        @Suppress("UNCHECKED_CAST")
+        val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
+        val vm = ViewModelProvider(owner)[androidVmClass]
+        @Suppress("UNCHECKED_CAST")
+        return vm as ViewModel
+    }
+
+    private fun encodeParam(param: Any?): String? =
+        param?.let {
+            when (it) {
+                is String, is Number, is Boolean -> it.toString()
+                else -> Json.encodeToString(it)
+            }
+        }
+
+    private fun decodeParam(encoded: String): Any? =
+        encoded.toIntOrNull()
+            ?: encoded.toDoubleOrNull()
+            ?: if (encoded.equals("true", true) || encoded.equals("false", true)) {
+                encoded.toBoolean()
+            } else {
+                runCatching { Json.decodeFromString<Any>(encoded) }.getOrNull() ?: encoded
+            }
+
+    // endregion
+}
+            """.trimIndent()
+            )
+        }
+
+        val androidOut = outputAndroidDir.get().asFile
+        androidOut.mkdirs()
+        File(androidOut, "AtlasFragmentNavigation.kt").writeText(androidImpl)
+    }
+
+    private fun findScreenImport(screenClassName: String): String? {
+        outputFiles.forEach { root ->
+            root.walkTopDown().forEach { file ->
+                if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
+                val lines = file.readLines()
+
+                val declarationRegex = """(class|object)\s+$screenClassName\b""".toRegex()
+                if (lines.any { declarationRegex.containsMatchIn(it) }) {
+                    val packageLine = lines.firstOrNull { it.trim().startsWith("package ") }
+                        ?.removePrefix("package ")
+                        ?.trim()
+                    return packageLine?.let { "$it.$screenClassName" }
+                }
+            }
+        }
+        return null
+    }
+
+
 
     private fun scanIosTabAnnotationsFromSwiftFiles(sourceDirs: List<File>): Map<String, List<TabEntrySwift>> {
         val tabEntries = mutableListOf<TabEntrySwift>()
@@ -595,303 +950,6 @@ abstract class NavigationEngineGeneratorTask : DefaultTask() {
                     val pkg = lines.firstOrNull { it.trim().startsWith("package ") }
                         ?.removePrefix("package ")?.trim()
                     return pkg?.let { "$it.$screenName" }
-                }
-            }
-        }
-        return null
-    }
-
-    private fun generateAndroidClassicalNavigation(
-        screens: List<Pair<String, String>>,
-    ) {
-        val viewModelImports =
-            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel) }.distinct()
-
-        // Fragment imports resolved the same way as view models
-        val fragmentImports =
-            screens.mapNotNull { (_, fragmentName) -> findFragmentImport(fragmentName) }.distinct()
-
-        val androidImpl = buildString {
-            appendLine("package com.architect.atlas.navigation")
-            appendLine()
-
-            viewModelImports.forEach { appendLine("import $it") }
-            fragmentImports.forEach { appendLine("import $it") }
-
-            appendLine(
-                """
-import android.os.Bundle
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
-import androidx.fragment.app.FragmentManager
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelStoreOwner
-import com.architect.atlas.architecture.mvvm.ViewModel
-import com.architect.atlas.architecture.navigation.AtlasNavigationService
-import com.architect.atlas.architecture.navigation.Poppable
-import com.architect.atlas.architecture.navigation.Pushable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
-import kotlin.reflect.KClass
-
-/**
- * Classical (Fragment-based) navigation implementation.
- *
- * Usage:
- *  - Host activity contains a FragmentContainerView with some id (e.g. R.id.nav_host_container)
- *  - In Activity.onCreate():
- *        AtlasFragmentNavigation.bind(this, R.id.nav_host_container)
- *  - Shared code calls AtlasNavigationService APIs as usual.
- */
-object AtlasFragmentNavigation : AtlasNavigationService {
-
-    private const val PUSH_KEY = "atlas_push_param"
-
-    private var hostActivity: FragmentActivity? = null
-    private var containerId: Int = android.R.id.content
-
-    // ViewModel -> Fragment mapping
-    private val viewModelToFragmentMap: Map<KClass<out ViewModel>, KClass<out Fragment>> = mapOf(
-            """.trimIndent()
-            )
-
-            // e.g. MyViewModel::class to MyFragment::class
-            for ((viewModel, fragment) in screens) {
-                appendLine("        $viewModel::class to $fragment::class,")
-            }
-
-            appendLine(
-                """
-    )
-
-    fun bind(activity: FragmentActivity, containerId: Int = android.R.id.content) {
-        hostActivity = activity
-        this.containerId = containerId
-    }
-
-    private fun requireHost(): Pair<FragmentActivity, FragmentManager> {
-        val act = hostActivity
-            ?: error("AtlasFragmentNavigation not bound. Call AtlasFragmentNavigation.bind(activity, containerId) first.")
-        return act to act.supportFragmentManager
-    }
-
-    // region AtlasNavigationService API
-
-    override fun <T : ViewModel> navigateToPage(viewModelClass: KClass<T>, params: Any?) {
-        navigateInternal(viewModelClass, params, clearBackStack = false, replaceCurrent = false)
-    }
-
-    override fun <T : ViewModel> navigateToPagePushAndReplace(viewModelClass: KClass<T>, params: Any?) {
-        navigateInternal(viewModelClass, params, clearBackStack = true, replaceCurrent = false)
-    }
-
-    override fun <T : ViewModel> navigateToPagePushAndReplaceCurrentScreen(
-        viewModelClass: KClass<T>,
-        params: Any?
-    ) {
-        navigateInternal(viewModelClass, params, clearBackStack = false, replaceCurrent = true)
-    }
-
-    override fun <T : ViewModel> navigateToPageModal(viewModelClass: KClass<T>, params: Any?) {
-        // For now treat modals the same as normal pages; you can wire this to show as dialog fragments later.
-        navigateToPage(viewModelClass, params)
-    }
-
-    override fun <T : ViewModel> setNavigationStack(stack: List<T>, params: Any?) {
-        // Classical fragment navigation typically doesn’t reconstruct arbitrary stacks easily.
-        // You can implement a replay here later if you really need it.
-    }
-
-    override fun <T : ViewModel> getNavigationStack(): List<T> = emptyList()
-
-    override fun popToRoot(animate: Boolean, params: Any?) {
-        val (_, fm) = requireHost()
-        deliverPopParamsToPrevious(params)
-        fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
-    }
-
-    override fun popPage(animate: Boolean, params: Any?) {
-        val (_, fm) = requireHost()
-        deliverPopParamsToPrevious(params)
-        fm.popBackStack()
-    }
-
-    override fun popPagesWithCount(countOfPages: Int, animate: Boolean, params: Any?) {
-        val (_, fm) = requireHost()
-        if (countOfPages <= 0) return
-
-        // Deliver params only once – to the new top after popping
-        deliverPopParamsToPrevious(params)
-
-        repeat(countOfPages) {
-            if (fm.backStackEntryCount == 0) return
-            fm.popBackStack()
-        }
-    }
-
-    override fun popToPage(route: String, params: Any?) {
-        val (_, fm) = requireHost()
-        deliverPopParamsToPrevious(params)
-        fm.popBackStack(route, 0)
-    }
-
-    override fun dismissModal(animate: Boolean, params: Any?) {
-        popPage(animate, params)
-    }
-
-    // endregion
-
-    // region Internal navigation helpers
-
-    private fun <T : ViewModel> navigateInternal(
-        viewModelClass: KClass<T>,
-        params: Any?,
-        clearBackStack: Boolean,
-        replaceCurrent: Boolean
-    ) {
-        val (activity, fm) = requireHost()
-
-        val fragmentKClass = viewModelToFragmentMap[viewModelClass]
-            ?: error("No Fragment registered for ${'$'}viewModelClass")
-
-        val fragmentTag = fragmentKClass.qualifiedName
-
-        // Create new Fragment instance
-        val fragment = fragmentKClass.java.newInstance()
-        val args = (fragment.arguments ?: Bundle())
-        encodeParam(params)?.let { encoded ->
-            args.putString(PUSH_KEY, encoded)
-        }
-        fragment.arguments = args
-
-        if (clearBackStack) {
-            fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
-        } else if (replaceCurrent && fm.backStackEntryCount > 0) {
-            fm.popBackStack()
-        }
-
-        val tx = fm.beginTransaction()
-            .setReorderingAllowed(true)
-            .replace(containerId, fragment, fragmentTag)
-
-        // Keep a back stack entry so popPage/popToRoot work.
-        tx.addToBackStack(fragmentTag)
-        tx.commit()
-
-        // Once transactions are applied, bootstrap the VM and deliver push params
-        activity.runOnUiThread {
-            fm.executePendingTransactions()
-            bootstrapFragment(fragmentKClass)
-        }
-    }
-
-    /**
-     * Called immediately after a Fragment is attached and transactions are applied.
-     * Resolves the associated ViewModel and calls:
-     *  - Pushable.onPushParams(...)
-     *  - ViewModel.bootstrapVmFromNavEngine()
-     */
-    private fun bootstrapFragment(fragmentKClass: KClass<out Fragment>) {
-        val (_, fm) = requireHost()
-        val fragmentTag = fragmentKClass.qualifiedName
-        val fragment = fm.findFragmentByTag(fragmentTag) ?: return
-
-        val vmKlass = viewModelToFragmentMap.entries
-            .firstOrNull { it.value == fragmentKClass }?.key ?: return
-
-        val vm = resolveViewModel(vmKlass, owner = fragment)
-
-        val payloadRaw = fragment.arguments?.getString(PUSH_KEY)
-        if (payloadRaw != null && vm is Pushable<*>) {
-            decodeParam(payloadRaw)?.let { decoded ->
-                @Suppress("UNCHECKED_CAST")
-                (vm as Pushable<Any>).onPushParams(decoded)
-            }
-        }
-
-        vm.bootstrapVmFromNavEngine()
-    }
-
-    /**
-     * When popping, this will:
-     *  - find the new top fragment
-     *  - resolve its associated VM
-     *  - call Poppable.onPopParams(...)
-     */
-    private fun deliverPopParamsToPrevious(params: Any?) {
-        val (_, fm) = requireHost()
-        if (params == null) return
-        if (fm.fragments.isEmpty()) return
-
-        // After a pop, the "previous" fragment becomes the new last attached fragment.
-        val prev = fm.fragments.lastOrNull { it.isAdded } ?: return
-
-        val vmKlass = viewModelToFragmentMap.entries
-            .firstOrNull { it.value == prev::class }?.key ?: return
-
-        val encoded = encodeParam(params) ?: return
-        val decoded = decodeParam(encoded) ?: return
-
-        val vm = resolveViewModel(vmKlass, owner = prev)
-        if (vm is Poppable<*>) {
-            @Suppress("UNCHECKED_CAST")
-            (vm as Poppable<Any>).onPopParams(decoded)
-        }
-    }
-
-    private fun resolveViewModel(
-        vmClass: KClass<out ViewModel>,
-        owner: ViewModelStoreOwner
-    ): ViewModel {
-        @Suppress("UNCHECKED_CAST")
-        val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
-        val vm = ViewModelProvider(owner)[androidVmClass]
-        @Suppress("UNCHECKED_CAST")
-        return vm as ViewModel
-    }
-
-    private fun encodeParam(param: Any?): String? =
-        param?.let {
-            when (it) {
-                is String, is Number, is Boolean -> it.toString()
-                else -> Json.encodeToString(it)
-            }
-        }
-
-    private fun decodeParam(encoded: String): Any? =
-        encoded.toIntOrNull()
-            ?: encoded.toDoubleOrNull()
-            ?: if (encoded.equals("true", true) || encoded.equals("false", true)) {
-                encoded.toBoolean()
-            } else {
-                runCatching { Json.decodeFromString<Any>(encoded) }.getOrNull() ?: encoded
-            }
-
-    // endregion
-}
-            """.trimIndent()
-            )
-        }
-
-        val androidOut = outputAndroidDir.get().asFile
-        androidOut.mkdirs()
-        File(androidOut, "AtlasFragmentNavigation.kt").writeText(androidImpl)
-    }
-
-    private fun findFragmentImport(fragmentName: String): String? {
-        outputFiles.forEach { root ->
-            root.walkTopDown().forEach { file ->
-                if (!file.isFile || !file.extension.equals("kt", true)) return@forEach
-                val lines = file.readLines()
-
-                // Look for a Fragment declaration with this name
-                val declarationRegex = """(class|object)\s+$fragmentName\b""".toRegex()
-                if (lines.any { declarationRegex.containsMatchIn(it) }) {
-                    val packageLine = lines.firstOrNull { it.trim().startsWith("package ") }
-                        ?.removePrefix("package ")
-                        ?.trim()
-                    return packageLine?.let { "$it.$fragmentName" }
                 }
             }
         }
