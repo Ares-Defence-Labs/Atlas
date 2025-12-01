@@ -5,16 +5,27 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
 import androidx.viewbinding.ViewBinding
+import com.architect.atlas.architecture.mvvm.ApplicationScope
 import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.container.dsl.AtlasDI
+import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KClass
 
 abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment() {
-    protected lateinit var binding: Binding
-    protected val viewModel: VM by lazy {
-        ViewModelProvider(this, AtlasViewModelFactory(viewModelType)).get(viewModelType.java)
+    lateinit var binding: Binding
+    val viewModel: VM by lazy {
+        AtlasDI.resolveViewModel(viewModelType)!!
+    }
+
+    private val initialized = AtomicBoolean(false)
+    private fun ensureInitialized() {
+        if (initialized.compareAndSet(false, true)) {
+            ApplicationScope.launch {
+                viewModel.onInitialize()
+            }
+        }
     }
 
     protected abstract val viewModelType: KClass<VM>
@@ -36,7 +47,7 @@ abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        viewModel.onInitialize()
+        ensureInitialized()
     }
 
     override fun onDestroy() {
@@ -56,6 +67,5 @@ abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment()
     fun resetComponent() {
         viewModel.onCleared()
         AtlasDI.resetViewModel(viewModelType)
-        viewModelStore.clear()
     }
 }

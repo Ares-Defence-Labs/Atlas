@@ -12,30 +12,30 @@ object TaskMngrHelpers {
 
     fun configureBuildFolders(project: Project) {
         val kmpExt =
-            project.extensions.getByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+            project.extensions.findByName("kotlin") as? org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
                 ?: error("Kotlin Multiplatform plugin not applied")
 
         // android main
-        val androidMain = kmpExt.sourceSets.getByName("androidMain")
-        androidMain.kotlin.srcDirs(
+        val androidMain = kmpExt.sourceSets.findByName("androidMain")
+        androidMain?.kotlin?.srcDirs(
             project.layout.buildDirectory.dir("generated/androidMain/kotlin").get().asFile,
             project.layout.buildDirectory.dir("generated/androidMain/resources").get().asFile
         )
 
-        val iosMain = kmpExt.sourceSets.getByName("iosMain")
-        iosMain.kotlin.srcDirs(
+        val iosMain = kmpExt.sourceSets.findByName("iosMain")
+        iosMain?.kotlin?.srcDirs(
             project.layout.buildDirectory.dir("generated/iosMain/kotlin").get().asFile,
             project.layout.buildDirectory.dir("generated/iosMain/resources").get().asFile
         )
 
-        val watchosMain = kmpExt.sourceSets.getByName("watchosMain")
-        watchosMain.kotlin.srcDirs(
+        val watchosMain = kmpExt.sourceSets.findByName("watchosMain")
+        watchosMain?.kotlin?.srcDirs(
             project.layout.buildDirectory.dir("generated/watchosMain/kotlin").get().asFile,
             project.layout.buildDirectory.dir("generated/watchosMain/resources").get().asFile
         )
 
-        val commonMain = kmpExt.sourceSets.getByName("commonMain")
-        commonMain.kotlin.srcDirs(
+        val commonMain = kmpExt.sourceSets.findByName("commonMain")
+        commonMain?.kotlin?.srcDirs(
             project.layout.buildDirectory.dir("generated/commonMain/kotlin").get().asFile,
             project.layout.buildDirectory.dir("generated/commonMain/resources").get().asFile
         )

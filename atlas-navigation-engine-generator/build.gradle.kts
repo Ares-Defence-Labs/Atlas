@@ -1,12 +1,10 @@
-import com.vanniktech.maven.publish.SonatypeHost
-
 plugins {
     `kotlin-dsl`
     `java-gradle-plugin`
 
     id("org.gradle.maven-publish")
     id("maven-publish")
-    id("com.vanniktech.maven.publish") version "0.28.0"
+    id("com.vanniktech.maven.publish") version "0.35.0"
     id("signing")
 }
 //////////////////////
@@ -40,7 +38,7 @@ gradlePlugin {
 dependencies{
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.8")
+    implementation("io.github.thearchitect123:atlas-plugin-common:0.1.9")
 }
 ////////////
 //////
@@ -49,7 +47,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-navEngine-generator",
-        version = "1.0.7"
+        version = "1.1.0"
     )
 
     // Configure POM metadata for the published artifact
@@ -82,7 +80,7 @@ mavenPublishing {
     }
 
     // Configure publishing to Maven Central
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral()
 
     // Enable GPG signing for all publications
     signAllPublications()

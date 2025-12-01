@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MutableAtlasFlowState<T : Any>(initialValue: T) {
+class MutableAtlasFlowState<T : Any?>(initialValue: T) {
     private val _state = MutableStateFlow(initialValue)
     private val state: StateFlow<T> get() = _state
 
