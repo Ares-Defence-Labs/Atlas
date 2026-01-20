@@ -6,4 +6,9 @@
     <string key="confirm">Are you sure you want to continue?</string>
 
     <string key="helloTest">Sample String</string>
+    <string key="welcome">Hello\nWorld</string>
+    <string key="welcometest">Hello
+        hi there
+
+        World</string>
 </AtlasStrings>

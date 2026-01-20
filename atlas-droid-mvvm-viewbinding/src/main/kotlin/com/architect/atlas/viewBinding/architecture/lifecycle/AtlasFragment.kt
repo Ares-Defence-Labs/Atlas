@@ -13,10 +13,16 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KClass
 
-abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment() {
+abstract class AtlasFragment<Binding : ViewBinding, out VM : ViewModel> : Fragment() {
     lateinit var binding: Binding
-    val viewModel: VM by lazy {
-        AtlasDI.resolveViewModel(viewModelType)!!
+
+    protected abstract val viewModelType: KClass<out VM>
+    val viewModel: VM by lazy(LazyThreadSafetyMode.NONE) {
+        val resolved = AtlasDI.resolveViewModel(viewModelType)
+            ?: error("AtlasDI returned null for ${viewModelType.qualifiedName}")
+
+        @Suppress("UNCHECKED_CAST")
+        resolved as VM
     }
 
     private val initialized = AtomicBoolean(false)
@@ -28,7 +34,6 @@ abstract class AtlasFragment<Binding : ViewBinding, VM : ViewModel> : Fragment()
         }
     }
 
-    protected abstract val viewModelType: KClass<VM>
     protected abstract fun viewBindingInflate(
         inflater: LayoutInflater,
         container: ViewGroup?

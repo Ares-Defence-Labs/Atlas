@@ -79,6 +79,7 @@ kotlin {
                 implementation("androidx.lifecycle:lifecycle-runtime-ktx:$dep")
                 implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:dep")
                 implementation(libs.androidx.lifecycle.common.jvm)
+                implementation("com.google.android.material:material:1.13.0")
             }
         }
 
@@ -117,7 +118,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-flow",
-        version = "0.4.0"
+        version = "0.4.3"
     )
 
     // Configure POM metadata for the published artifact

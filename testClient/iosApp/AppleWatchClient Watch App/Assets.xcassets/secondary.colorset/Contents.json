@@ -1,0 +1,20 @@
+{
+  "colors" : [
+    {
+      "idiom" : "universal",
+      "color" : {
+        "color-space" : "srgb",
+        "components" : {
+          "red" : "0.012",
+          "green" : "0.663",
+          "blue" : "0.957",
+          "alpha" : "1.0"
+        }
+      }
+    }
+  ],
+  "info" : {
+    "version" : 1,
+    "author" : "Atlas"
+  }
+}

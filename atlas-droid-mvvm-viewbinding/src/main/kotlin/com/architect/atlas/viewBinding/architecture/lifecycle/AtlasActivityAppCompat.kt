@@ -9,19 +9,23 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.viewbinding.ViewBinding
 import com.architect.atlas.architecture.mvvm.ApplicationScope
 import com.architect.atlas.architecture.mvvm.ViewModel
+import com.architect.atlas.container.dsl.AtlasDI
 import com.architect.atlas.viewBinding.architecture.listeners.ActivityFragmentLifecycleListener
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KClass
 
-abstract class AtlasActivityAppCompat<Binding : ViewBinding, VM : ViewModel> : AppCompatActivity() {
+abstract class AtlasActivityAppCompat<Binding : ViewBinding, out VM : ViewModel> : AppCompatActivity() {
     protected lateinit var binding: Binding
-    val viewModel: VM by lazy {
-        ViewModelProvider(this, AtlasViewModelFactory(viewModelType))
-            .get(viewModelType.java)
-    }
 
-    protected abstract val viewModelType: KClass<VM>
+    protected abstract val viewModelType: KClass<out VM>
+    val viewModel: VM by lazy(LazyThreadSafetyMode.NONE) {
+        val resolved = AtlasDI.resolveViewModel(viewModelType)
+            ?: error("AtlasDI returned null for ${viewModelType.qualifiedName}")
+
+        @Suppress("UNCHECKED_CAST")
+        resolved as VM
+    }
     protected abstract fun viewBindingInflate(): Binding
     private val initialized = AtomicBoolean(false)
     private fun ensureInitialized() {

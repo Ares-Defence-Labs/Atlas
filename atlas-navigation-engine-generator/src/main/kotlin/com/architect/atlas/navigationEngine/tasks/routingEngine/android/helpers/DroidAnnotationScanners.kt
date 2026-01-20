@@ -62,7 +62,7 @@ fun scanTabAnnotations(outputFiles: List<File>, logger: Logger): Map<String, Lis
 
 
 @Suppress("MemberVisibilityCanBePrivate")
-fun scanViewModelAnnotations(
+fun scanViewModelAnnotationsClassical(
     outputFiles: List<File>,
     logger: Logger,
     androidSourceFiles: ConfigurableFileCollection
@@ -124,5 +124,83 @@ fun scanViewModelAnnotations(
     }
 
     logger.lifecycle("AtlasNav: scanViewModelAnnotations found ${results.size} screens")
+    return results
+}
+
+@Suppress("MemberVisibilityCanBePrivate")
+fun scanViewModelAnnotationsCompose(
+    outputFiles: List<File>,
+    logger: Logger,
+    androidSourceFiles: ConfigurableFileCollection
+): List<Quad<String, String, String, Boolean>> {
+    val results = mutableListOf<Quad<String, String, String, Boolean>>()
+
+    // 1) Build the set of root directories to scan
+    val roots = linkedSetOf<File>()
+
+    // Existing roots (whatever you had wired into outputFiles)
+    outputFiles.forEach { roots += it }
+
+    // Android source roots (androidApp/src/main/kotlin etc.)
+    androidSourceFiles.files.forEach { roots += it }
+
+    if (roots.isEmpty()) {
+        logger.warn("AtlasNav: scanViewModelAnnotationsCompose – no roots configured, returning empty list")
+        return emptyList()
+    }
+
+    // Regex to match:
+    //   @AtlasScreen(DroidStandard::class, initial = true)
+    //   @AtlasScreen(viewModel = DroidStandard::class, initial = true)
+    val atlasRegex =
+        """@AtlasScreen\(\s*(?:viewModel\s*=\s*)?([A-Za-z0-9_.]+)::class(?:\s*,\s*initial\s*=\s*(true|false))?(?:\s*,\s*isTabHolder\s*=\s*(true|false))?\s*\)"""
+            .toRegex()
+
+    // Regex to get the *function* name from 'fun GreetingView(...'
+    val funRegex = """fun\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(""".toRegex()
+
+    for (root in roots) {
+        if (!root.exists()) continue
+
+        root.walkTopDown()
+            .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }
+            .forEach { file ->
+                val text = file.readText()
+
+                // Find all @AtlasScreen(...) annotations in this file
+                atlasRegex.findAll(text).forEach { match ->
+                    val vmFqnOrSimple =
+                        match.groupValues[1] // could be DroidStandard or com.foo.DroidStandard
+                    val vmSimpleName = vmFqnOrSimple.substringAfterLast('.')
+
+                    val initialFlag = match.groupValues.getOrNull(2)?.let {
+                        it.equals("true", ignoreCase = true)
+                    } ?: false
+
+                    // Look for the FIRST `fun` *after* this annotation as the screen function
+                    val afterAnnotation = text.substring(match.range.last + 1)
+                    val funMatch = funRegex.find(afterAnnotation)
+
+                    if (funMatch == null) {
+                        logger.warn(
+                            "AtlasNav: @AtlasScreen for $vmSimpleName in ${file.name} " +
+                                    "but no following function declaration found"
+                        )
+                        return@forEach
+                    }
+
+                    val functionName = funMatch.groupValues[1] // e.g. GreetingView
+
+                    results += Quad(
+                        vmSimpleName,          // first  -> ViewModel simple name, e.g. "DroidStandard"
+                        functionName,          // second -> Composable function name, e.g. "GreetingView"
+                        file.absolutePath,     // third  -> file path
+                        initialFlag            // fourth -> initial = true / false
+                    )
+                }
+            }
+    }
+
+    logger.lifecycle("AtlasNav: scanViewModelAnnotationsCompose found ${results.size} screens")
     return results
 }

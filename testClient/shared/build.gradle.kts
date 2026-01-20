@@ -35,7 +35,7 @@ kotlin {
         ).forEach {
         it.binaries.framework {
             baseName = "shared"
-            isStatic = true
+            isStatic = false
             export(projects.atlasCoreShared)
             export(libs.atlas.flow)
             export(libs.coroutines.core)

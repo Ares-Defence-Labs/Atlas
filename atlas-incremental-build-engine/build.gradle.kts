@@ -7,7 +7,7 @@ plugins {
     id("com.vanniktech.maven.publish") version "0.35.0"
     id("signing")
 }
-////////
+//////////
 //repositories {
 //    google()
 //    mavenCentral()
@@ -36,18 +36,16 @@ gradlePlugin {
 }
 
 dependencies{
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
-    implementation("com.android.tools.build:gradle:8.2.0")
     implementation("io.github.thearchitect123:atlas-plugin-common:0.1.9")
 }
-
-//
+////
+////
 mavenPublishing {
     // Define coordinates for the published artifact
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-incremental-engine",
-        version = "0.3.7"
+        version = "0.4.6"
     )
 
     // Configure POM metadata for the published artifact

@@ -28,6 +28,10 @@ actual open class ViewModel actual constructor() {
 
     }
 
+    actual open fun onAfterAppearing(){
+
+    }
+
     actual open suspend fun onInitialize() {
 
     }

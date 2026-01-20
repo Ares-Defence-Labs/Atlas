@@ -6,7 +6,7 @@ import com.architect.atlas.navigationEngine.helpers.isUnderAny
 import com.architect.atlas.navigationEngine.tasks.models.Quad
 import com.architect.atlas.navigationEngine.tasks.models.TabEntry
 import com.architect.atlas.navigationEngine.tasks.routingEngine.android.helpers.scanTabAnnotations
-import com.architect.atlas.navigationEngine.tasks.routingEngine.android.helpers.scanViewModelAnnotations
+import com.architect.atlas.navigationEngine.tasks.routingEngine.android.helpers.scanViewModelAnnotationsCompose
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -52,7 +52,8 @@ abstract class ComposeNavigationEngineGeneratorTask : DefaultTask() {
 
     init {
         group = "AtlasNavigation"
-        description = "Generates the platform-specific navigation engine implementations (Compose targets only)"
+        description =
+            "Generates the platform-specific navigation engine implementations (Compose targets only)"
 
         outputs.upToDateWhen {
             val file = inputHashFile.orNull?.asFile
@@ -62,13 +63,13 @@ abstract class ComposeNavigationEngineGeneratorTask : DefaultTask() {
 
     @TaskAction
     fun generateNavigatorClass() {
-        logger.lifecycle("WRITING NAVIGATION TO ANDROID")
-        val ants = scanViewModelAnnotations(outputFiles, logger, androidSourceFiles)
+        logger.lifecycle("WRITING NAVIGATION TO ANDROID -- Compose")
+        val ants = scanViewModelAnnotationsCompose(outputFiles, logger, androidSourceFiles)
         val droidSourceFiles = androidSourceFiles.files.toList()
         val droidAnts = if (droidSourceFiles.isNotEmpty()) {
             val filtered = ants.filter { (_, _, filePath, _) ->
                 File(filePath).isUnderAny(droidSourceFiles)
-            }
+            }.distinct()
             logger.lifecycle(
                 "AtlasNav: droidSource roots = ${
                     droidSourceFiles.joinToString { it.path }
@@ -95,7 +96,7 @@ abstract class ComposeNavigationEngineGeneratorTask : DefaultTask() {
         val wearViewModelToScreen = droidAnts.map { it.first to it.second }.distinct()
 
         logger.lifecycle(
-            "AtlasNav: classical screens = " +
+            "AtlasNav: compose screens = " +
                     wearViewModelToScreen.joinToString { "${it.first} -> ${it.second}" }
         )
 
@@ -109,6 +110,7 @@ abstract class ComposeNavigationEngineGeneratorTask : DefaultTask() {
             val sourceFiles = wearOSSourceFiles.files.toList()
             val wearAnts = if (sourceFiles.isNotEmpty()) {
                 ants.filter { (_, _, filePath, _) -> File(filePath).isUnderAny(sourceFiles) }
+                    .distinct()
             } else {
                 logger.warn("⚠️ No wearSourceRoots provided; Wear build will include ALL screens. Set 'wearSourceRoots' for correct filtering.")
                 emptyList()
@@ -124,7 +126,8 @@ abstract class ComposeNavigationEngineGeneratorTask : DefaultTask() {
         isWearOS: Boolean = false
     ) {
         val viewModelImports =
-            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel, outputFiles) }.distinct()
+            screens.mapNotNull { (viewModel, _) -> findViewModelImport(viewModel, outputFiles) }
+                .distinct()
 
         val androidImpl = buildString {
             appendLine("package com.architect.atlas.navigation")
@@ -809,7 +812,7 @@ inline fun <reified VM : ViewModel> HandleLifecycle(
 
     // tab navigation
 
-    fun generateTabNavigationServices(tabsByHolder: Map<String, List<TabEntry>>) {
+    private fun generateTabNavigationServices(tabsByHolder: Map<String, List<TabEntry>>) {
         tabsByHolder.forEach { (holder, tabs) ->
             val sortedTabs = tabs.sortedBy { it.position }
             val distinctTabs = sortedTabs.distinctBy { it.viewModel to it.screen }

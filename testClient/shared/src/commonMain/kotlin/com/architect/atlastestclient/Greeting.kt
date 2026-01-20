@@ -10,7 +10,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 class Greeting {
-    private val platform: Platform = getPlatform()
+
 
     fun greet(): String {
         return "";

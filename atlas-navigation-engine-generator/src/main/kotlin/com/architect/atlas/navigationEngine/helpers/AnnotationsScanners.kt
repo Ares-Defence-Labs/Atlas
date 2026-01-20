@@ -1,9 +1,7 @@
 package com.architect.atlas.navigationEngine.helpers
 
-import com.architect.atlas.navigationEngine.tasks.models.Quad
 import com.architect.atlas.navigationEngine.tasks.models.TabEntrySwift
 import java.io.File
-
 
 fun findViewModelImport(viewModelName: String, outputFiles: List<File>): String? {
     outputFiles.forEach { root ->

@@ -5,18 +5,48 @@ import android.text.TextWatcher
 import android.widget.EditText
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.architect.atlas.atlasflow.MutableAtlasFlowState
 import com.architect.atlas.atlasflow.bind
 import kotlinx.coroutines.DisposableHandle
-import kotlinx.coroutines.flow.MutableStateFlow
+
+import com.google.android.material.textfield.TextInputLayout
+
+fun TextInputLayout.bindSectionError(
+    lifecycleOwner: LifecycleOwner,
+    errorFlow: MutableAtlasFlowState<String?>,
+    treatBlankAsNull: Boolean = true
+): DisposableHandle {
+    return errorFlow.asStateFlow().bind(lifecycleOwner.lifecycleScope) { message ->
+        val effective = if (treatBlankAsNull && message.isNullOrBlank()) null else message
+
+        isErrorEnabled = effective != null
+        error = effective
+    }
+}
+
+
+fun TextInputLayout.bindSectionErrorOptional(
+    lifecycleOwner: LifecycleOwner,
+    errorFlow: MutableAtlasFlowState<String>,
+    treatBlankAsNull: Boolean = true
+): DisposableHandle {
+    return errorFlow.asStateFlow().bind(lifecycleOwner.lifecycleScope) { message ->
+        val effective = if (treatBlankAsNull && message.isNotBlank()) null else message
+
+        isErrorEnabled = effective != null
+        error = effective
+    }
+}
+
 
 fun EditText.bindTwoWayText(
     lifecycleOwner: LifecycleOwner,
-    state: MutableStateFlow<String>
+    state: MutableAtlasFlowState<String>
 ): DisposableHandle {
     val watcher = object : TextWatcher {
         override fun afterTextChanged(s: Editable?) {
-            if (state.value != s.toString()) {
-                state.value = s.toString()
+            if (state.getCurrentValue() != s.toString()) {
+                state.postValueOnMainThread(s.toString())
             }
         }
 
@@ -26,7 +56,7 @@ fun EditText.bindTwoWayText(
 
     addTextChangedListener(watcher)
 
-    val job = state.bind(lifecycleOwner.lifecycleScope) { value ->
+    val job = state.asStateFlow().bind(lifecycleOwner.lifecycleScope) { value ->
         if (text.toString() != value) {
             setText(value)
             setSelection(value.length)
@@ -39,4 +69,12 @@ fun EditText.bindTwoWayText(
             job.dispose()
         }
     }
+}
+
+
+fun EditText.bindText(
+    lifecycleOwner: LifecycleOwner,
+    flow: MutableAtlasFlowState<String>
+): DisposableHandle {
+    return flow.asStateFlow().bind(lifecycleOwner.lifecycleScope) { setText(it) }
 }

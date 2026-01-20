@@ -1,12 +1,10 @@
 import SwiftUI
 import shared
-import BottomSheet
 
 //@AtlasSwiftTab(CoreDashboardTabViewModel::class, position = 0, holder = TabParentViewModel::class)
 struct ContentView: View {
     let vm: CoreDashboardTabViewModel
     
-    let sample = SheetTransitioningDelegate()
     var body: some View {
         Text("Dashboard Screen")
             .background(Color.red)
@@ -35,7 +33,7 @@ class BottomSheetHostController {
             sheet.largestUndimmedDetentIdentifier = .medium
         }
 
-        UIApplication.topViewController?.present(newSheet, animated: true)
+     //   UIApplication.topViewController?.present(newSheet, animated: true)
         currentSheet = newSheet
     }
 

@@ -3,21 +3,21 @@ package com.architect.atlas.atlasflow.bindings
 import android.widget.RadioGroup
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.architect.atlas.atlasflow.MutableAtlasFlowState
 import com.architect.atlas.atlasflow.bind
 import kotlinx.coroutines.DisposableHandle
-import kotlinx.coroutines.flow.MutableStateFlow
 
 fun RadioGroup.bindCheckedId(
     lifecycleOwner: LifecycleOwner,
-    state: MutableStateFlow<Int>
+    state: MutableAtlasFlowState<Int>
 ): DisposableHandle {
     val listener = RadioGroup.OnCheckedChangeListener { _, checkedId ->
-        if (state.value != checkedId) state.value = checkedId
+        if (state.getCurrentValue() != checkedId) state.postValueOnMainThread(checkedId)
     }
 
     setOnCheckedChangeListener(listener)
 
-    val job = state.bind(lifecycleOwner.lifecycleScope) {
+    val job = state.asStateFlow().bind(lifecycleOwner.lifecycleScope) {
         if (checkedRadioButtonId != it) check(it)
     }
 

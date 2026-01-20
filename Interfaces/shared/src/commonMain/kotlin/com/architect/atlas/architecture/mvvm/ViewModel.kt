@@ -10,6 +10,7 @@ expect open class ViewModel() {
     open fun onCleared()
 
     open fun onAppearing()
+    open fun onAfterAppearing()
     open fun onDisappearing()
     open suspend fun onInitialize()
     open suspend fun onInitializeWithoutCancel()

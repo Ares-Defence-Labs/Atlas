@@ -37,12 +37,11 @@ gradlePlugin {
 }
 
 dependencies{
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.0")
     implementation("net.coobird:thumbnailator:0.4.20")
     implementation("com.android.tools.build:gradle:8.2.0")
-    implementation("org.apache.pdfbox:fontbox:2.0.30")
     implementation("io.github.thearchitect123:atlas-plugin-common:0.1.9")
 
+    implementation("org.apache.pdfbox:fontbox:2.0.30")
     implementation("org.apache.xmlgraphics:batik-transcoder:1.16")
     implementation("org.apache.xmlgraphics:batik-codec:1.16")
     implementation("org.apache.xmlgraphics:batik-dom:1.16")
@@ -56,7 +55,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-res-generator",
-        version = "0.6.5"
+        version = "0.6.8"
     )
 
     // Configure POM metadata for the published artifact

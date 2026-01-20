@@ -3,7 +3,7 @@ package com.architect.atlas.navigationEngine.tasks.routingEngine.android
 import com.architect.atlas.navigationEngine.helpers.findScreenImport
 import com.architect.atlas.navigationEngine.helpers.findViewModelImport
 import com.architect.atlas.navigationEngine.helpers.isUnderAny
-import com.architect.atlas.navigationEngine.tasks.routingEngine.android.helpers.scanViewModelAnnotations
+import com.architect.atlas.navigationEngine.tasks.routingEngine.android.helpers.scanViewModelAnnotationsClassical
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
@@ -53,7 +53,7 @@ abstract class ClassicalNavigationEngineGeneratorTask : DefaultTask() {
     @TaskAction
     fun generateNavigatorClass() {
         logger.lifecycle("WRITING NAVIGATION TO ANDROID")
-        val ants = scanViewModelAnnotations(outputFiles, logger, androidSourceFiles)
+        val ants = scanViewModelAnnotationsClassical(outputFiles, logger, androidSourceFiles)
         val droidSourceFiles = androidSourceFiles.files.toList()
         val droidAnts = if (droidSourceFiles.isNotEmpty()) {
             val filtered = ants.filter { (_, _, filePath, _) ->

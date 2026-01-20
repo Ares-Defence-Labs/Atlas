@@ -27,6 +27,10 @@ actual open class ViewModel : androidx.lifecycle.ViewModel() {
 
     }
 
+    actual open fun onAfterAppearing(){
+
+    }
+
     actual open fun onDisappearing() {
 
     }

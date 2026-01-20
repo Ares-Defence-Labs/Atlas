@@ -16,6 +16,7 @@ class NavigationEngineGenPlugin : Plugin<Project> {
 
             val isIOSTarget = project.isWatchBuildNow() || project.isIPhoneBuildNow()
             if (isIOSTarget) {
+                logger.lifecycle("Running iOS Navigation")
                 val isAppleWatch = project.isWatchBuildNow()
                 if (isAppleWatch) {
                     val watchTask = ResPluginHelpers.getAppleWatchNavGenTask(project)
@@ -33,9 +34,12 @@ class NavigationEngineGenPlugin : Plugin<Project> {
                     }
                 }
             } else {
+
                 val isComposeNavigation =
                     project.findProperty("atlas.composeNavigation")?.toString()?.toBooleanStrictOrNull()
                         ?: true
+
+                logger.lifecycle("Running Android Navigation, is Compose - $isComposeNavigation")
 
                 if (isComposeNavigation) {
                     val composeTask = ResPluginHelpers.getAndroidComposeNavGenTask(project)

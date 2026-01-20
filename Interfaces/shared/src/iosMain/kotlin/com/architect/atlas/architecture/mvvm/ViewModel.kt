@@ -40,6 +40,10 @@ actual open class ViewModel actual constructor() {
 
     }
 
+    actual open fun onAfterAppearing(){
+
+    }
+
     actual open fun onDisappearing() {
 
     }

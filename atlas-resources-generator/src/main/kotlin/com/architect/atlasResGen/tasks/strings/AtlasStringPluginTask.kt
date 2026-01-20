@@ -16,7 +16,7 @@ import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
 @CacheableTask
-abstract class AtlasStringPluginTask : DefaultTask(){
+abstract class AtlasStringPluginTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
@@ -40,9 +40,50 @@ abstract class AtlasStringPluginTask : DefaultTask(){
         }
     }
 
+    private fun unescapeXmlBackslashSequences(raw: String): String {
+        return raw
+            .replace("\\'", "'")
+            .replace("\\\"", "\"")
+
+            .replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\\r", "\r")
+            .replace("\\t", "\t")
+    }
+
+    private fun kotlinSingleLineLiteral(raw: String): String {
+        // Normal "..." string
+        return buildString {
+            append('"')
+            for (ch in raw) {
+                when (ch) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\n' -> append("\\n")
+                    '\r' -> append("\\r")
+                    '\t' -> append("\\t")
+                    '$' -> append("\\$")
+                    else -> append(ch)
+                }
+            }
+            append('"')
+        }
+    }
+
+    private fun kotlinTripleQuotedLiteral(raw: String): String {
+        val normalised = raw
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
+            .replace("$", "\\$")
+            .replace("\"\"\"", "\"\"\\\"\"")
+
+        return "\"\"\"${normalised.trimIndent()}\"\"\""
+    }
+
     @TaskAction
     fun generateStringClass() {
-        val inputXmlFile = File(projectRootDir.get().asFile, "src/commonMain/resources/strings/strings.xml")
+        val inputXmlFile =
+            File(projectRootDir.get().asFile, "src/commonMain/resources/strings/strings.xml")
         if (!inputXmlFile.exists()) {
             logger.warn("❗️No strings.xml file found at: ${inputXmlFile.absolutePath}")
             return
@@ -62,9 +103,17 @@ abstract class AtlasStringPluginTask : DefaultTask(){
         for (i in 0 until stringElements.length) {
             val node = stringElements.item(i)
             val key = node.attributes?.getNamedItem("key")?.nodeValue ?: continue
-            val value = node.textContent.replace("\"", "\\\"")
+            val rawValue = node.textContent ?: ""
 
-            stringBuilder.appendLine("        const val $key = \"$value\"")
+            val cookedValue = unescapeXmlBackslashSequences(rawValue)
+
+            val literal = if (cookedValue.contains('\n') || cookedValue.contains('\r')) {
+                kotlinTripleQuotedLiteral(cookedValue)
+            } else {
+                kotlinSingleLineLiteral(cookedValue)
+            }
+
+            stringBuilder.appendLine("        const val $key = $literal")
         }
 
         stringBuilder.appendLine("    }")

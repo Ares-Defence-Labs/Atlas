@@ -216,6 +216,13 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
                override func viewDidAppear(_ animated: Bool) {
                     super.viewDidAppear(animated)
                     viewModel.onAppearing()
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            if self.navigationController?.topViewController === self {
+                self.viewModel.onAfterAppearing()
+            }
+        }
                }
                
                override func viewWillDisappear(_ animated: Bool) {

@@ -3,18 +3,18 @@ package com.architect.atlas.atlasflow.bindings
 import android.widget.SeekBar
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.architect.atlas.atlasflow.MutableAtlasFlowState
 import com.architect.atlas.atlasflow.bind
 import kotlinx.coroutines.DisposableHandle
-import kotlinx.coroutines.flow.MutableStateFlow
 
 fun SeekBar.bindProgress(
     lifecycleOwner: LifecycleOwner,
-    state: MutableStateFlow<Int>
+    state: MutableAtlasFlowState<Int>
 ): DisposableHandle {
     setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-            if (fromUser && state.value != progress) {
-                state.value = progress
+            if (fromUser && state.getCurrentValue() != progress) {
+                state.postValueOnMainThread(progress)
             }
         }
 
@@ -22,7 +22,7 @@ fun SeekBar.bindProgress(
         override fun onStopTrackingTouch(seekBar: SeekBar?) {}
     })
 
-    val job = state.bind(lifecycleOwner.lifecycleScope) {
+    val job = state.asStateFlow().bind(lifecycleOwner.lifecycleScope) {
         if (progress != it) progress = it
     }
 

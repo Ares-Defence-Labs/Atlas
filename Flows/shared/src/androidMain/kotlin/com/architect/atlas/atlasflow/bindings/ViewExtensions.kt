@@ -3,34 +3,34 @@ package com.architect.atlas.atlasflow.bindings
 import android.view.View
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import com.architect.atlas.atlasflow.MutableAtlasFlowState
 import com.architect.atlas.atlasflow.bind
 import kotlinx.coroutines.DisposableHandle
-import kotlinx.coroutines.flow.StateFlow
 
 fun View.bindVisibility(
     lifecycleOwner: LifecycleOwner,
-    flow: StateFlow<Boolean>
+    flow: MutableAtlasFlowState<Boolean>
 ): DisposableHandle {
-    return flow.bind(lifecycleOwner.lifecycleScope) { visible ->
+    return flow.asStateFlow().bind(lifecycleOwner.lifecycleScope) { visible ->
         visibility = if (visible) View.VISIBLE else View.INVISIBLE
     }
 }
 
 fun View.bindGone(
     lifecycleOwner: LifecycleOwner,
-    flow: StateFlow<Boolean>
+    flow: MutableAtlasFlowState<Boolean>
 ): DisposableHandle {
-    return flow.bind(lifecycleOwner.lifecycleScope) { visible ->
+    return flow.asStateFlow().bind(lifecycleOwner.lifecycleScope) { visible ->
         visibility = if (visible) View.VISIBLE else View.GONE
     }
 }
 
 fun <T> View.bindVisibility(
     lifecycleOwner: LifecycleOwner,
-    flow: StateFlow<T>,
+    flow: MutableAtlasFlowState<T>,
     isVisible: (T) -> Boolean
 ): DisposableHandle {
-    return flow.bind(lifecycleOwner.lifecycleScope) { value ->
+    return flow.asStateFlow().bind(lifecycleOwner.lifecycleScope) { value ->
         visibility = if (isVisible(value)) View.VISIBLE else View.GONE
     }
 }
