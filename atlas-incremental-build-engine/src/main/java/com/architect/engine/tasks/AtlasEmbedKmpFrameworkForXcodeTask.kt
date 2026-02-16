@@ -30,6 +30,7 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
     @get:Input
     abstract val allowForceLegacy: Property<Boolean>
 
+    /** Xcode TARGET_BUILD_DIR (or BUILT_PRODUCTS_DIR). */
     @get:Input
     abstract val targetBuildDir: Property<String>
 
@@ -48,6 +49,10 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
     @get:Input
     abstract val frameworksFolderPath: Property<String> // FRAMEWORKS_FOLDER_PATH
 
+    /** Xcode WRAPPER_NAME (e.g. otriOS.app or Extension.appex) */
+    @get:Input
+    abstract val wrapperName: Property<String>
+
     @get:Input
     abstract val codeSigningAllowed: Property<String> // CODE_SIGNING_ALLOWED (YES/NO)
 
@@ -56,7 +61,7 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
 
     init {
         group = "AtlasXcode"
-        description = "Embeds raw KMP .framework into Xcode build products BEFORE Swift compile and into app bundle"
+        description = "Embeds raw KMP .framework into Xcode build products AND inside the .app bundle (fixes Generic Archive)"
     }
 
     @TaskAction
@@ -73,11 +78,18 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
 
         val isWatch = sdk.startsWith("watch", ignoreCase = true)
         val isSim = eff.contains("simulator", ignoreCase = true) || sdk.contains("simulator", ignoreCase = true)
-
         val forceLegacy = allowForceLegacy.getOrElse(false)
 
+        val requestedArchs: Set<String> = archsStr
+            .split(Regex("\\s+"))
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        fun wantsArch(a: String) = requestedArchs.contains(a)
+
         logger.lifecycle("🔎 SDK_NAME=$sdk (watch=$isWatch, sim=$isSim) CONFIGURATION=$cfg ARCHS='$archsStr'")
-        logger.lifecycle("🔎 forceLegacy=$forceLegacy buildTypeDir=$buildTypeDir")
+        logger.lifecycle("🔎 requestedArchs=$requestedArchs forceLegacy=$forceLegacy buildTypeDir=$buildTypeDir")
         logger.lifecycle("📦 build/bin root: ${buildDir.resolve("bin").absolutePath}")
 
         fun binFrameworkDir(target: String): File =
@@ -86,15 +98,14 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
         fun frameworkBinary(frameworkDir: File) = File(frameworkDir, module)
 
         // -------------------------
-        // 1) Locate / prepare source framework
+        // 1) Locate / prepare source framework (ARCH-aware)
         // -------------------------
-
         val preparedFramework: File = when {
+            // watchOS simulator
             isWatch && isSim -> {
-                // watch simulator: arm64 preferred, x64 fallback
                 val simArm64 = binFrameworkDir("watchosSimulatorArm64").takeIf { it.exists() }
                 val simX64 = binFrameworkDir("watchosX64").takeIf { it.exists() }
-                (simArm64 ?: simX64) ?: missingOrFail(
+                simArm64 ?: simX64 ?: missingOrFail(
                     "No watchOS simulator framework found",
                     lookedFor = listOf(
                         binFrameworkDir("watchosSimulatorArm64"),
@@ -103,73 +114,83 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
                 )
             }
 
+            // watchOS device
             isWatch && !isSim -> {
-                // watch device:
-                // - Prefer modern device target if present
-                // - Else use legacy watchosArm64 + (optional) watchosArm64_32 if forceLegacy=true
-                val modern = binFrameworkDir("watchosDeviceArm64").takeIf { it.exists() }
-                if (modern != null && !forceLegacy) {
-                    modern
-                } else {
-                    val arm64 = binFrameworkDir("watchosArm64").takeIf { it.exists() }
-                    val arm64_32 = binFrameworkDir("watchosArm64_32").takeIf { it.exists() }
-                    val arm32 = binFrameworkDir("watchosArm32").takeIf { it.exists() } // rare fallback
-                    val base = modern ?: arm64 ?: arm32 ?: missingOrFail(
-                        "No watchOS device framework found",
+                // Your folder naming:
+                //  - arm64 device: watchosDeviceArm64
+                //  - arm64_32 device: watchosArm64  (yes, odd, but that's what you have)
+                val deviceArm64 = binFrameworkDir("watchosDeviceArm64").takeIf { it.exists() }
+                val deviceArm64_32 = binFrameworkDir("watchosArm64").takeIf { it.exists() }
+                val legacyArm32 = binFrameworkDir("watchosArm32").takeIf { it.exists() }
+
+                val wantsArm64 = wantsArch("arm64")
+                val wantsArm64_32 = wantsArch("arm64_32")
+                val wantsArmv7k = wantsArch("armv7k")
+
+                val picked: File = when {
+                    wantsArm64_32 -> deviceArm64_32 ?: missingOrFail(
+                        "Xcode requests arm64_32, but watchosArm64 framework not found",
+                        lookedFor = listOf(binFrameworkDir("watchosArm64"))
+                    )
+
+                    wantsArm64 -> deviceArm64 ?: missingOrFail(
+                        "Xcode requests arm64, but watchosDeviceArm64 framework not found",
+                        lookedFor = listOf(binFrameworkDir("watchosDeviceArm64"))
+                    )
+
+                    wantsArmv7k -> legacyArm32 ?: missingOrFail(
+                        "Xcode requests armv7k/arm32, but watchosArm32 framework not found",
+                        lookedFor = listOf(binFrameworkDir("watchosArm32"))
+                    )
+
+                    else -> missingOrFail(
+                        "Unsupported watch ARCHS='$archsStr' (refusing to guess)",
                         lookedFor = listOf(
                             binFrameworkDir("watchosDeviceArm64"),
                             binFrameworkDir("watchosArm64"),
-                            binFrameworkDir("watchosArm64_32"),
                             binFrameworkDir("watchosArm32")
                         )
                     )
+                }
 
-                    // If forceLegacy=true and we have both arm64 + arm64_32, merge binaries into one fat framework
-                    val needMerge = forceLegacy && (arm64 != null || modern != null) && (arm64_32 != null)
+                // Optional legacy merge: arm64 + arm64_32 only
+                val needMerge = forceLegacy && deviceArm64 != null && deviceArm64_32 != null
+                if (!needMerge) {
+                    picked
+                } else {
+                    val tempFramework = buildDir.resolve("atlas/tmp-fat-watch-device/$module.framework")
+                    if (tempFramework.exists()) tempFramework.deleteRecursively()
+                    tempFramework.parentFile.mkdirs()
 
-                    if (!needMerge) {
-                        // If modern exists, prefer it. Else arm64/arm32.
-                        modern ?: arm64 ?: arm32!!
-                    } else {
-                        val tempFramework = buildDir.resolve("atlas/tmp-fat-watch-device/$module.framework")
-                        if (tempFramework.exists()) tempFramework.deleteRecursively()
-                        tempFramework.parentFile.mkdirs()
+                    deviceArm64!!.copyRecursively(tempFramework, overwrite = true)
 
-                        // Copy one of them as the base (prefer modern, else arm64)
-                        val baseToCopy = modern ?: arm64!!
-                        baseToCopy.copyRecursively(tempFramework, overwrite = true)
+                    val mergedBin = frameworkBinary(tempFramework)
+                    val a = frameworkBinary(deviceArm64)
+                    val b = frameworkBinary(deviceArm64_32!!)
 
-                        val mergedBin = frameworkBinary(tempFramework)
-                        val a = (modern ?: arm64!!).let(::frameworkBinary)
-                        val b = frameworkBinary(arm64_32!!)
+                    mergeOrCopyBinaries(
+                        execOps = execOps,
+                        mergedBin = mergedBin,
+                        inputs = listOf(a, b),
+                        lipoOut = ByteArrayOutputStream(),
+                        lipoErr = ByteArrayOutputStream()
+                    )
 
-                        val out = ByteArrayOutputStream()
-                        val err = ByteArrayOutputStream()
-
-                        mergeOrCopyBinaries(
-                            execOps = execOps,
-                            mergedBin = mergedBin,
-                            inputs = listOfNotNull(a, b),
-                            lipoOut = out,
-                            lipoErr = err
-                        )
-
-                        logger.lifecycle("📦 Prepared fat watch device framework (arm64 + arm64_32) → ${tempFramework.absolutePath}")
-                        tempFramework
-                    }
+                    logger.lifecycle("📦 Prepared fat watch device framework (arm64 + arm64_32) → ${tempFramework.absolutePath}")
+                    tempFramework
                 }
             }
 
+            // iOS simulator
             !isWatch && isSim -> {
-                // iOS simulator
                 binFrameworkDir("iosSimulatorArm64").takeIf { it.exists() } ?: missingOrFail(
                     "No iOS simulator framework found",
                     lookedFor = listOf(binFrameworkDir("iosSimulatorArm64"))
                 )
             }
 
+            // iOS device
             else -> {
-                // iOS device
                 binFrameworkDir("iosArm64").takeIf { it.exists() } ?: missingOrFail(
                     "No iOS device framework found",
                     lookedFor = listOf(binFrameworkDir("iosArm64"))
@@ -178,9 +199,8 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
         }
 
         // -------------------------
-        // 2) Copy to STABLE compile-time dir (your own stable cache)
+        // 2) Copy to STABLE cache
         // -------------------------
-
         val stablePlatformDirName = when {
             isWatch && isSim -> "watchos-simulator"
             isWatch && !isSim -> "watchos-device"
@@ -203,24 +223,42 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
         logger.lifecycle("✅ Stable framework ready: ${stableFramework.absolutePath}")
 
         // -------------------------
-        // 3) Copy to BUILT_PRODUCTS_DIR for Swift compile-time import
-        //    (THIS is what removes the need for OTHER_SWIFT_FLAGS)
+        // 3) Copy to compile-time frameworks dir (safe)
+        //    IMPORTANT: do NOT put the .framework at the root of TARGET_BUILD_DIR
+        //    because that creates a top-level archived product -> Generic Archive.
         // -------------------------
-
         val builtProductsDir = File(targetBuildDir.get())
-        if (!builtProductsDir.exists()) builtProductsDir.mkdirs()
+        builtProductsDir.mkdirs()
 
-        val compileTimeFramework = builtProductsDir.resolve("$module.framework")
+        val compileFrameworksDir = builtProductsDir.resolve("Frameworks")
+        compileFrameworksDir.mkdirs()
+
+        val compileTimeFramework = compileFrameworksDir.resolve("$module.framework")
         if (compileTimeFramework.exists()) compileTimeFramework.deleteRecursively()
         stableFramework.copyRecursively(compileTimeFramework, overwrite = true)
 
-        logger.lifecycle("✅ Copied for Swift compile-time (-F BUILT_PRODUCTS_DIR): ${compileTimeFramework.absolutePath}")
+        logger.lifecycle("✅ Copied for compile-time (-F .../Frameworks): ${compileTimeFramework.absolutePath}")
 
         // -------------------------
-        // 4) Embed into app bundle frameworks folder (runtime packaging)
+        // 4) Embed into the app/appex bundle Frameworks folder (runtime)
+        //    FIX: must be inside WRAPPER_NAME/Frameworks, not Products/Applications/Frameworks
         // -------------------------
+        val wrapper = wrapperName.get().ifBlank { System.getenv("WRAPPER_NAME") ?: "" }
+        if (wrapper.isBlank()) {
+            throw GradleException("WRAPPER_NAME is empty; cannot embed framework into app bundle.")
+        }
 
-        val fwFolder = frameworksFolderPath.get().ifBlank { "Frameworks" }
+        val fwFolderRaw = frameworksFolderPath.get().ifBlank {
+            System.getenv("FRAMEWORKS_FOLDER_PATH") ?: "Frameworks"
+        }
+
+        // If FRAMEWORKS_FOLDER_PATH doesn't already include the wrapper, force it.
+        val fwFolder = if (fwFolderRaw.contains(".app/") || fwFolderRaw.contains(".appex/")) {
+            fwFolderRaw
+        } else {
+            "$wrapper/Frameworks"
+        }
+
         val runtimeFrameworksDir = builtProductsDir.resolve(fwFolder)
         runtimeFrameworksDir.mkdirs()
 
@@ -233,10 +271,9 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
         // -------------------------
         // 5) Codesign (if allowed)
         // -------------------------
-
         maybeCodesign(runtimeFramework)
 
-        logger.lifecycle("✅ Embedded raw KMP framework: ${runtimeFramework.absolutePath}")
+        logger.lifecycle("✅ Embedded raw KMP framework into bundle: ${runtimeFramework.absolutePath}")
     }
 
     private fun missingOrFail(message: String, lookedFor: List<File>): File {
@@ -320,6 +357,7 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
                     errorOutput = lipoErr
                 }
                 execOps.exec {
+                    isIgnoreExitValue = true
                     commandLine("xcrun", "lipo", "-info", mergedBin.absolutePath)
                 }
             }

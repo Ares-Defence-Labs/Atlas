@@ -39,13 +39,13 @@ dependencies{
     implementation("io.github.thearchitect123:atlas-plugin-common:0.1.9")
 }
 ////
-////
+//////
 mavenPublishing {
     // Define coordinates for the published artifact
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-incremental-engine",
-        version = "0.4.6"
+        version = "0.5.0"
     )
 
     // Configure POM metadata for the published artifact

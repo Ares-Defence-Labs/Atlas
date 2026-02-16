@@ -40,13 +40,18 @@ internal object ResPluginHelpers {
 
         val action = System.getenv("ACTION")?.trim().orEmpty()
         val archiveAction = System.getenv("ARCHIVE_ACTION")?.trim().orEmpty()
-        val isArchive = action.equals("install", ignoreCase = true) || archiveAction.equals("install", ignoreCase = true)
+        val isArchive = action.equals("install", ignoreCase = true) || archiveAction.equals(
+            "install",
+            ignoreCase = true
+        )
         if (isArchive) return "Release"
 
-        val forceRelease = project.findProperty("atlas.forceRelease")?.toString()?.toBooleanStrictOrNull() ?: false
+        val forceRelease =
+            project.findProperty("atlas.forceRelease")?.toString()?.toBooleanStrictOrNull() ?: false
         if (forceRelease) return "Release"
 
-        val forceDebug = project.findProperty("atlas.forceDebug")?.toString()?.toBooleanStrictOrNull() ?: false
+        val forceDebug =
+            project.findProperty("atlas.forceDebug")?.toString()?.toBooleanStrictOrNull() ?: false
         if (forceDebug) return "Debug"
 
         val requested = project.gradle.startParameter.taskNames.joinToString(" ").lowercase()
@@ -57,6 +62,7 @@ internal object ResPluginHelpers {
         }
     }
 
+    // Registration / wiring (your getIncrementalBuilderTask)
     fun getIncrementalBuilderTask(project: Project): TaskProvider<AtlasEmbedKmpFrameworkForXcodeTask> {
         val isRunningAppleWatch =
             project.isWatchBuildNow() || (project.findProperty("atlas.forceAppleWatch")?.toString()
@@ -100,12 +106,13 @@ internal object ResPluginHelpers {
                 watchSimTaskName?.let { n -> project.tasks.findByName(n)?.let(deps::add) }
                     ?: project.logger.warn("⚠️ Watch simulator link task not found for buildType=$buildType")
             } else {
-                project.tasks.findByName("link${buildType}FrameworkWatchosDeviceArm64")?.let(deps::add)
+                project.tasks.findByName("link${buildType}FrameworkWatchosDeviceArm64")
+                    ?.let(deps::add)
+
                 val legacyNames = buildList {
                     add("link${buildType}FrameworkWatchosArm64")
-                    if (forceLegacy) add("link${buildType}FrameworkWatchosArm64_32")
-                    add("link${buildType}FrameworkWatchosArm32") // fallback
-                    add("link${buildType}FrameworkWatchosFat")  // fallback
+//                    add("link${buildType}FrameworkWatchosArm32") // fallback
+//                    add("link${buildType}FrameworkWatchosFat")   // fallback
                 }
 
                 legacyNames.forEach { name ->
@@ -142,6 +149,9 @@ internal object ResPluginHelpers {
             effectivePlatformName.set(System.getenv("EFFECTIVE_PLATFORM_NAME") ?: "")
             archs.set(System.getenv("ARCHS") ?: "")
             frameworksFolderPath.set(System.getenv("FRAMEWORKS_FOLDER_PATH") ?: "Frameworks")
+
+            wrapperName.set(System.getenv("WRAPPER_NAME") ?: "")
+
             codeSigningAllowed.set(System.getenv("CODE_SIGNING_ALLOWED") ?: "NO")
             expandedCodeSignIdentity.set(System.getenv("EXPANDED_CODE_SIGN_IDENTITY") ?: "")
         }

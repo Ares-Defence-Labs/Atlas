@@ -26,18 +26,17 @@ kotlin {
     val iosSimulatorArm64 = iosSimulatorArm64()
 
     listOf(iosArm64, iosSimulatorArm64,
-
         watchosArm64(),
-        watchosArm32(),
-        watchosX64(),
+//        watchosArm32(),
+//        watchosX64(),
         watchosSimulatorArm64(),
-
+        watchosDeviceArm64(),
         ).forEach {
         it.binaries.framework {
             baseName = "shared"
             isStatic = false
             export(projects.atlasCoreShared)
-            export(libs.atlas.flow)
+            //export(libs.atlas.flow)
             export(libs.coroutines.core)
 
             val swiftExtras = project.file("src/iosMain/swift")
@@ -51,7 +50,7 @@ kotlin {
         kotlin.applyDefaultHierarchyTemplate()
         val commonMain by getting {
             dependencies {
-                implementation("io.github.thearchitect123:kmpEssentials:2.1.3")
+                implementation("io.github.thearchitect123:kmpEssentials:2.7.7")
 
                 api(projects.atlasCoreShared)
                 api(libs.atlas.flow)

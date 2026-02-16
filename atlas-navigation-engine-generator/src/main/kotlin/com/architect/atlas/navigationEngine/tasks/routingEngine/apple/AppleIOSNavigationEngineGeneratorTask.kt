@@ -24,6 +24,7 @@ import java.io.File
 abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
     @get:OutputDirectory
     abstract val outputIosDir: DirectoryProperty
+
     @get:Input
     abstract var iOSOutputFiles: List<File>
 
@@ -66,6 +67,29 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
     }
 
     private fun generateIOSNavigation(screens: List<ScreenMetadata>) {
+        // ---------------------------------------------------------------------
+        // Build a deterministic "root tab holder VM" -> "TabsNavigation class" map
+        // so LifecycleAwareHostingController.willMove can teardown tabs correctly.
+        // ---------------------------------------------------------------------
+        val tabHolders = scanIosTabAnnotationsFromSwiftFiles(iOSOutputFiles)
+        // tabHolders: List<Pair<String, List<TabEntrySwift>>>  (holderVM, tabs)
+
+        val holderToTabsNavClass = java.util.TreeMap<String, String>() // stable output
+        for ((holder, _) in tabHolders) {
+            // holder is e.g. "RootRelayScreenViewModel"
+            val tabsNavClass = "${holder.removeSuffix("ViewModel")}TabsNavigation"
+            holderToTabsNavClass[holder] = tabsNavClass
+        }
+
+        val teardownTabHoldersSwift = buildString {
+            for ((holder, tabsNavClass) in holderToTabsNavClass) {
+                appendLine("                          if viewModelName.hasSuffix(\"$holder\") {")
+                appendLine("                              let tabs = $tabsNavClass.shared()")
+                appendLine("                              tabs.teardownTabs()")
+                appendLine("                          }")
+            }
+        }.trimEnd()
+
         val iosImpl = buildString {
             appendLine("import SwiftUI")
             appendLine("import UIKit")
@@ -75,6 +99,7 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
             appendLine("public class NavigationEngine: NSObject {")
             appendLine("    static let shared = NavigationEngine()")
             appendLine("    var stack: [ViewModel] = []")
+            appendLine()
             appendLine("    @MainActor public func routeWithParams(viewModelType: String, params: Any? = nil, isModal: Bool = false) {")
             appendLine("        let nav = UIApplication.globalRootNav")
             appendLine("        switch viewModelType {")
@@ -101,10 +126,10 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        default: break")
             appendLine("        }")
             appendLine("    }")
-
-            appendLine("   func setNavigationStack(stack: [String], params: Any?) { }")
-            appendLine("   func getNavigationStack() -> [String] { return stack.map { String(describing: $0) } }")
-
+            appendLine()
+            appendLine("    func setNavigationStack(stack: [String], params: Any?) { }")
+            appendLine("    func getNavigationStack() -> [String] { return stack.map { String(describing: \$0) } }")
+            appendLine()
             appendLine("    func popToRoot(animate: Bool = true, params: Any? = nil) {")
             appendLine("        if let prev = stack.first as? Poppable {")
             appendLine("            if let pc = params {")
@@ -114,8 +139,8 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        if stack.count > 1 { stack.removeSubrange(1..<stack.count) }")
             appendLine("        UIApplication.globalRootNav?.popToRootViewController(animated: animate)")
             appendLine("    }")
-
-            appendLine("     func popPage(animate: Bool = true, params: Any? = nil) {")
+            appendLine()
+            appendLine("    func popPage(animate: Bool = true, params: Any? = nil) {")
             appendLine("        if stack.count >= 2 {")
             appendLine("            let prev = stack[stack.count - 2] as? Poppable")
             appendLine("            if let pc = params {")
@@ -125,8 +150,8 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        if !stack.isEmpty { stack.removeLast() }")
             appendLine("        UIApplication.globalRootNav?.popViewController(animated: animate)")
             appendLine("    }")
-
-            appendLine("     func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
+            appendLine()
+            appendLine("    func popPagesWithCount(count: Int, animate: Bool = true, params: Any? = nil) {")
             appendLine("        guard let nav = UIApplication.globalRootNav else { return }")
             appendLine("        let targetIndex = max(nav.viewControllers.count - count, 1)")
             appendLine("        let target = nav.viewControllers[targetIndex - 1]")
@@ -139,29 +164,30 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
             appendLine("        stack.removeLast(min(count, stack.count))")
             appendLine("        nav.popToViewController(target, animated: animate)")
             appendLine("    }")
-
-            appendLine("     func popToPage(route: String, params: Any?) { }")
-            appendLine("     func dismissModal(animate: Bool = true, params: Any? = nil) {")
+            appendLine()
+            appendLine("    func popToPage(route: String, params: Any?) { }")
+            appendLine()
+            appendLine("    func dismissModal(animate: Bool = true, params: Any? = nil) {")
             appendLine("        UIApplication.globalRootNav?.presentedViewController?.dismiss(animated: animate)")
             appendLine("    }")
-
             appendLine()
-            appendLine("@MainActor")
-            appendLine("func createViewController(viewModelType: String, viewModel: ViewModel) -> UIViewController? {")
+            appendLine("    @MainActor")
+            appendLine("    func createViewController(viewModelType: String, viewModel: ViewModel) -> UIViewController? {")
+
             for ((vm, screen, _) in screens) {
                 val vmSimpleName = vm.substringAfterLast(".")
                 val screenName = screen.replace(":", "")
-
-                appendLine("    if viewModelType.hasSuffix(\"$vmSimpleName\") {")
-                appendLine("        let vm = viewModel as! $vm")
-                appendLine("        let view = $screenName(vm: vm)")
-                appendLine("        return LifecycleAwareHostingController(rootView: view, viewModel: vm, viewModelName: \"$vmSimpleName\")")
-                appendLine("    }")
+                appendLine("        if viewModelType.hasSuffix(\"$vmSimpleName\") {")
+                appendLine("            let vm = viewModel as! $vm")
+                appendLine("            let view = $screenName(vm: vm)")
+                appendLine("            return LifecycleAwareHostingController(rootView: view, viewModel: vm, viewModelName: \"$vmSimpleName\")")
+                appendLine("        }")
             }
 
-            appendLine("    return nil")
+            appendLine("        return nil")
             appendLine("    }")
-            appendLine("    }")
+            appendLine("}")
+            appendLine()
 
             val initial = screens.firstOrNull { it.isInitial }
             val initialViewModel = initial?.viewModel ?: "/* MissingInitialVM */"
@@ -169,87 +195,90 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
 
             appendLine(
                 """
-            struct UIKitNavWrapperView: UIViewControllerRepresentable {
-                func makeUIViewController(context: Context) -> UIViewController {
-                    let vmName = SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)
-                    let resolved = AtlasDI.companion.resolveServiceNullableByName(
-                            clazz: vmName
-                        ) as! $initialViewModel
-                    let root = $initialScreen(
-                        vm: resolved
-                    )
-                    let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved, viewModelName: vmName)
-                    let navController = UINavigationController(rootViewController: hostingController)
-                    UIApplication.globalRootNav = navController
-                    return navController
-                }
+struct UIKitNavWrapperView: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        let vmName = SwiftClassGenerator.companion.getClazz(type: $initialViewModel.self)
+        let resolved = AtlasDI.companion.resolveServiceNullableByName(
+            clazz: vmName
+        ) as! $initialViewModel
 
-                func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-            }
-            
-            protocol LifecycleAwareHosting {
-                var viewModel: ViewModel { get }
-            }
+        let root = $initialScreen(vm: resolved)
+        let hostingController = LifecycleAwareHostingController(rootView: root, viewModel: resolved, viewModelName: vmName)
 
-            class LifecycleAwareHostingController<Content: View>: UIHostingController<Content>, @preconcurrency LifecycleAwareHosting {
-               let viewModel: ViewModel
-               let viewModelName: String
-               private var didBootstrap = false
-               init(rootView: Content, viewModel: ViewModel, viewModelName: String) {
-                   self.viewModel = viewModel
-                   self.viewModelName = viewModelName
-                   super.init(rootView: rootView)
-               }
-               
-               @objc required dynamic init?(coder aDecoder: NSCoder) {
-                   fatalError("init(coder:) has not been implemented")
-               }
-               
-               override func viewDidLoad() {
-                   super.viewDidLoad()
-                   if !didBootstrap {
-                       didBootstrap = true
-                       viewModel.bootstrapVmFromNavEngine()
-                   }
-               }
-               
-               override func viewDidAppear(_ animated: Bool) {
-                    super.viewDidAppear(animated)
-                    viewModel.onAppearing()
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        let navController = UINavigationController(rootViewController: hostingController)
+        UIApplication.globalRootNav = navController
+        return navController
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+}
+
+protocol LifecycleAwareHosting {
+    var viewModel: ViewModel { get }
+}
+
+class LifecycleAwareHostingController<Content: View>: UIHostingController<Content>, @preconcurrency LifecycleAwareHosting {
+    let viewModel: ViewModel
+    let viewModelName: String
+    private var didBootstrap = false
+
+    init(rootView: Content, viewModel: ViewModel, viewModelName: String) {
+        self.viewModel = viewModel
+        self.viewModelName = viewModelName
+        super.init(rootView: rootView)
+    }
+
+    @objc required dynamic init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        if !didBootstrap {
+            didBootstrap = true
+            viewModel.bootstrapVmFromNavEngine()
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        viewModel.onAppearing()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
             if self.navigationController?.topViewController === self {
                 self.viewModel.onAfterAppearing()
             }
         }
-               }
-               
-               override func viewWillDisappear(_ animated: Bool) {
-                   viewModel.onDisappearing()
-               }
-               
-               override func willMove(toParent parent: UIViewController?) {
-                   if parent == nil {
-                       Task { @MainActor in
-                           self.viewModel.onDestroy()
-                           self.viewModel.onCleared()
-                           AtlasDI.companion.resetViewModelByName(clazz: viewModelName)
-                       }
-                   }
-                   super.willMove(toParent: parent)
-               }
-            }
+    }
 
-            extension UIApplication {
-                static var globalRootNav: UINavigationController?
-                var rootNav: UINavigationController? {
-                    return (self.connectedScenes.first as? UIWindowScene)?
-                        .windows
-                        .first(where: { $0.isKeyWindow })?
-                        .rootViewController as? UINavigationController
-                }
+    override func viewWillDisappear(_ animated: Bool) {
+        viewModel.onDisappearing()
+    }
+
+    override func willMove(toParent parent: UIViewController?) {
+        if parent == nil {
+            $teardownTabHoldersSwift
+
+            Task { @MainActor in
+                self.viewModel.onDestroy()
+                self.viewModel.onCleared()
+                AtlasDI.companion.resetViewModelByName(clazz: viewModelName)
             }
+        }
+        super.willMove(toParent: parent)
+    }
+}
+
+extension UIApplication {
+    static var globalRootNav: UINavigationController?
+    var rootNav: UINavigationController? {
+        return (self.connectedScenes.first as? UIWindowScene)?
+            .windows
+            .first(where: { $0.isKeyWindow })?
+            .rootViewController as? UINavigationController
+    }
+}
             """.trimIndent()
             )
         }
@@ -679,218 +708,271 @@ abstract class AppleIOSNavigationEngineGeneratorTask : DefaultTask() {
         file.parentFile.mkdirs()
 
         val importSection = """
-    import UIKit
-    import SwiftUI
-    import $projectCoreName
-    """.trimIndent()
+import UIKit
+import SwiftUI
+import $projectCoreName
+""".trimIndent()
 
-        val tabIndicesEntries = tabs.joinToString(",\n") { tab ->
-            val viewModelName = tab.viewModel.substringAfterLast(".")
-            "\"$viewModelName\": ${tab.position}"
-        }
+        // Ensure deterministic output
+        val sortedTabs = tabs.sortedBy { it.position }
 
-        val tabMappingEntries = tabs.joinToString(",\n") { tab ->
-            val viewModelName = tab.viewModel.substringAfterLast(".")
-            val screenName = tab.screen.removeSuffix(".swift")
-            val widgetName = screenName.replace("Screen", "Widget")
+        // -----------------------------
+        // tabIndices: ["HomeTabScreenViewModel": 0, ...]
+        // -----------------------------
+        val tabIndicesEntries = sortedTabs
+            .joinToString(",\n") { tab ->
+                val viewModelName = tab.viewModel.substringAfterLast(".")
+                "\"$viewModelName\": ${tab.position}"
+            }
 
-            """"$viewModelName": {
-                let vmName = SwiftClassGenerator.companion.getClazz(type: $viewModelName.self)
+        // -----------------------------
+        // tabMapping: ["HomeTabScreenViewModel": { ... }, ...]
+        // -----------------------------
+        val tabMappingEntries = sortedTabs
+            .joinToString(",\n") { tab ->
+                val viewModelSimpleName = tab.viewModel.substringAfterLast(".")
+                val screenName = tab.screen.removeSuffix(".swift")
+                val widgetName = screenName.replace("Screen", "Widget")
+
+                """"$viewModelSimpleName": {
+                let vmName = SwiftClassGenerator.companion.getClazz(type: $viewModelSimpleName.self)
                 let vm = AtlasDI.companion.resolveServiceNullableByName(
                     clazz: vmName
-                ) as! $viewModelName
+                ) as! $viewModelSimpleName
                 return LifecycleAwareHostingController(rootView: $widgetName(vm: vm), viewModel: vm, viewModelName: vmName)
             }"""
-        }
+            }
 
+        // -----------------------------
+        // className: <Holder>TabsNavigation
+        // -----------------------------
         val className = "${holder.removeSuffix("ViewModel")}TabsNavigation"
 
+        // -----------------------------
+        // allTabViewModelNames(): [String]
+        // Auto-generated from @AtlasSwiftTab scan results
+        // -----------------------------
+        val allTabViewModelClazzLines = sortedTabs
+            .map { tab ->
+                val vmSimple = tab.viewModel.substringAfterLast(".")
+                """SwiftClassGenerator.companion.getClazz(type: $vmSimple.self)"""
+            }
+            .distinct()
+            .joinToString(separator = ",\n                        ")
+
+        // -----------------------------
+        // Swift file body
+        // -----------------------------
         val classCode = """
-            extension AnyTransition {
-                static var slideFromRight: AnyTransition {
-                    .asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
-                }
+extension AnyTransition {
+    static var slideFromRight: AnyTransition {
+        .asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
+    }
 
-                static var slideFromLeft: AnyTransition {
-                    .asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing))
+    static var slideFromLeft: AnyTransition {
+        .asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing))
+    }
+}
+
+@MainActor
+struct LifecycleTabAwareHostingView<Content: View, VM: ViewModel>: View {
+    @StateObject private var viewModel: VM
+    @State private var didBootstrap = false
+    let content: (VM) -> Content
+
+    init(viewModel: VM, @ViewBuilder content: @escaping (VM) -> Content) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.content = content
+    }
+
+    var body: some View {
+        content(viewModel)
+            .onAppear {
+                if !didBootstrap {
+                    didBootstrap = true
+                    viewModel.bootstrapVmFromNavEngine()
                 }
+                viewModel.onAppearing()
             }
-            
-    @MainActor
-    struct LifecycleTabAwareHostingView<Content: View, VM: ViewModel>: View {
-        @StateObject private var viewModel: VM
-        @State private var didBootstrap = false
-        let content: (VM) -> Content
-
-        init(viewModel: VM, @ViewBuilder content: @escaping (VM) -> Content) {
-            _viewModel = StateObject(wrappedValue: viewModel)
-            self.content = content
-        }
-
-        var body: some View {
-            content(viewModel)
-                .onAppear {
-                    if !didBootstrap {
-                        didBootstrap = true
-                        viewModel.bootstrapVmFromNavEngine()
-                    }
-                    viewModel.onAppearing()
-                }
-                .onDisappear { viewModel.onDisappearing() }
-        }
-    }
-
-    protocol AtlasTabItemView {
-        associatedtype Selected: View
-        associatedtype Deselected: View
-
-        @ViewBuilder func selectedTabItem() -> Selected
-        @ViewBuilder func deselectedTabItem() -> Deselected
-    }
-
-    @MainActor
-    @ViewBuilder
-    func buildTabScreen<T: ViewModel, Content: View>(
-        _ type: T.Type,
-        tag: Int,
-        screenBuilder: @escaping (T) -> Content
-    ) -> some View {
-        let vm = AtlasDI.companion.resolveServiceNullableByName(
-            clazz: SwiftClassGenerator.companion.getClazz(type: type)
-        ) as! T
-
-        LifecycleTabAwareHostingView(viewModel: vm) {
-            screenBuilder(${'$'}0)
-        }
-    }
-    
-    @MainActor
-    @ViewBuilder
-    func buildTab<T: ViewModel, Content: View, SelectedTabItem: View, DeselectedTabItem: View>(
-        _ type: T.Type,
-        selectedTabIndex: Binding<Int>,
-        tabIndex: Int,
-        selectedTabItemBuilder: () -> SelectedTabItem,
-        deselectedTabItemBuilder: () -> DeselectedTabItem,
-        screenBuilder: @escaping (T) -> Content
-    ) -> some View {
-        let vm = AtlasDI.companion.resolveServiceNullableByName(
-            clazz: SwiftClassGenerator.companion.getClazz(type: type)
-        ) as! T
-
-        LifecycleTabAwareHostingView(viewModel: vm) { vm in
-            screenBuilder(vm)
-        }
-        .tag(tabIndex)
-        .tabItem {
-            if selectedTabIndex.wrappedValue == tabIndex {
-                selectedTabItemBuilder()
-            } else {
-                deselectedTabItemBuilder()
+            .onDisappear {
+                viewModel.onDisappearing()
             }
+    }
+}
+
+protocol AtlasTabItemView {
+    associatedtype Selected: View
+    associatedtype Deselected: View
+
+    @ViewBuilder func selectedTabItem() -> Selected
+    @ViewBuilder func deselectedTabItem() -> Deselected
+}
+
+@MainActor
+@ViewBuilder
+func buildTabScreen<T: ViewModel, Content: View>(
+    _ type: T.Type,
+    tag: Int,
+    screenBuilder: @escaping (T) -> Content
+) -> some View {
+    let vm = AtlasDI.companion.resolveServiceNullableByName(
+        clazz: SwiftClassGenerator.companion.getClazz(type: type)
+    ) as! T
+
+    LifecycleTabAwareHostingView(viewModel: vm) {
+        screenBuilder($0)
+    }
+}
+
+@MainActor
+@ViewBuilder
+func buildTab<T: ViewModel, Content: View, SelectedTabItem: View, DeselectedTabItem: View>(
+    _ type: T.Type,
+    selectedTabIndex: Binding<Int>,
+    tabIndex: Int,
+    selectedTabItemBuilder: () -> SelectedTabItem,
+    deselectedTabItemBuilder: () -> DeselectedTabItem,
+    screenBuilder: @escaping (T) -> Content
+) -> some View {
+    let vm = AtlasDI.companion.resolveServiceNullableByName(
+        clazz: SwiftClassGenerator.companion.getClazz(type: type)
+    ) as! T
+
+    LifecycleTabAwareHostingView(viewModel: vm) { vm in
+        screenBuilder(vm)
+    }
+    .tag(tabIndex)
+    .tabItem {
+        if selectedTabIndex.wrappedValue == tabIndex {
+            selectedTabItemBuilder()
+        } else {
+            deselectedTabItemBuilder()
         }
     }
+}
 
-    @MainActor
-    @ViewBuilder
-    func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabItemView>(
-        fabTabIndex: Int,
-        selectedTabIndex: Binding<Int>,
-        viewModelType: T.Type,
-        itemView: ItemView,
-        @ViewBuilder fabContainer: @escaping (T) -> Content
-    ) -> some View {
-        let vm = AtlasDI.companion.resolveServiceNullableByName(
-            clazz: SwiftClassGenerator.companion.getClazz(type: viewModelType)
-        ) as! T
+@MainActor
+@ViewBuilder
+func buildFloatingActionButton<T: ViewModel, Content: View, ItemView: AtlasTabItemView>(
+    fabTabIndex: Int,
+    selectedTabIndex: Binding<Int>,
+    viewModelType: T.Type,
+    itemView: ItemView,
+    @ViewBuilder fabContainer: @escaping (T) -> Content
+) -> some View {
+    let vm = AtlasDI.companion.resolveServiceNullableByName(
+        clazz: SwiftClassGenerator.companion.getClazz(type: viewModelType)
+    ) as! T
 
-        GeometryReader { geometry in
-            VStack {
+    GeometryReader { geometry in
+        VStack {
+            Spacer()
+            HStack {
                 Spacer()
-                HStack {
-                    Spacer()
-                    
-                    Button(action: {
-                        selectedTabIndex.wrappedValue = fabTabIndex
-                    }) {
-                        ZStack {
-                            fabContainer(vm)
-                                .frame(width: 84, height: 84)
-                                .clipShape(Circle())
-                                .shadow(radius: 4)
-                            
-                            if selectedTabIndex.wrappedValue == fabTabIndex {
-                                itemView.selectedTabItem()
-                            } else {
-                                itemView.deselectedTabItem()
-                            }
+
+                Button(action: { selectedTabIndex.wrappedValue = fabTabIndex }) {
+                    ZStack {
+                        fabContainer(vm)
+                            .frame(width: 84, height: 84)
+                            .clipShape(Circle())
+                            .shadow(radius: 4)
+
+                        if selectedTabIndex.wrappedValue == fabTabIndex {
+                            itemView.selectedTabItem()
+                        } else {
+                            itemView.deselectedTabItem()
                         }
                     }
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 48)
-                    
-                    Spacer()
                 }
+                .padding(.bottom, geometry.safeAreaInsets.bottom + 48)
+
+                Spacer()
             }
-            .edgesIgnoringSafeArea(.bottom)
+        }
+        .edgesIgnoringSafeArea(.bottom)
+    }
+}
+
+@MainActor
+extension $className {
+    func allTabViewModelNames() -> [String] {
+        [
+            $allTabViewModelClazzLines
+        ]
+    }
+
+    func teardownTabs() {
+        selectedTabIndex = 0
+        currentTab = nil
+
+        for clazz in allTabViewModelNames() {
+            if let vm = AtlasDI.companion.resolveServiceNullableByName(clazz: clazz) as? ViewModel {
+                vm.onDestroy()
+                vm.onCleared()
+            }
+            AtlasDI.companion.resetViewModelByName(clazz: clazz)
         }
     }
+}
+
+@MainActor
+class $className: NSObject, ObservableObject, @preconcurrency AtlasTabNavigationService {
+    static func shared() -> $className {
+        AtlasDI.companion.resolveServiceNullableByName(
+            clazz: SwiftClassGenerator.companion.getClazz(type: AtlasTabNavigationService.self)
+        ) as! $className
+    }
+
+    @Published private(set) var selectedTabIndex: Int = 0
+
+    private let tabIndices: [String: Int] = [
+        $tabIndicesEntries
+    ]
+
+    private let tabMapping: [String: () -> UIViewController] = [
+        $tabMappingEntries
+    ]
+
+    private var currentTab: ViewModel?
 
     @MainActor
-    class $className: NSObject, ObservableObject, @preconcurrency AtlasTabNavigationService {
-        static func shared() -> $className{
-            AtlasDI.companion.resolveServiceNullableByName(clazz: SwiftClassGenerator.companion.getClazz(type: AtlasTabNavigationService.self)) as! $className
-        }
-
-        @Published private(set) var selectedTabIndex: Int = 0
-
-        private let tabIndices: [String: Int] = [
-            $tabIndicesEntries
-        ]
-
-        private let tabMapping: [String: () -> UIViewController] = [
-            $tabMappingEntries
-        ]
-
-        private var currentTab: ViewModel?
-
-        @MainActor
-        func navigateToTabIndex(viewModelClass: KotlinKClass, params: Any? = nil) {
-            guard let viewModelName = viewModelClass.simpleName else { return }
-            if let index = tabIndices[viewModelName] {
-                selectedTabIndex = index
-            }
-        }
-
-        func getSelectedTabIndex() -> Int {
-            return selectedTabIndex
-        }
-
-        func setSelectedTabIndex(_ index: Int) {
+    func navigateToTabIndex(viewModelClass: KotlinKClass, params: Any? = nil) {
+        guard let viewModelName = viewModelClass.simpleName else { return }
+        if let index = tabIndices[viewModelName] {
             selectedTabIndex = index
         }
-
-        func routeToTab(viewModelType: String) -> UIViewController {
-            currentTab = nil
-            guard let builder = tabMapping[viewModelType] else {
-                fatalError("No tab registered for \\(viewModelType)")
-            }
-            let vc = builder()
-            currentTab = (vc as? LifecycleAwareHosting)?.viewModel
-            return vc
-        }
-
-        func getCurrentTabViewModel() -> ViewModel? {
-            return currentTab
-        }
     }
-    """.trimIndent()
+
+    func getSelectedTabIndex() -> Int {
+        selectedTabIndex
+    }
+
+    func setSelectedTabIndex(_ index: Int) {
+        selectedTabIndex = index
+    }
+
+    func routeToTab(viewModelType: String) -> UIViewController {
+        currentTab = nil
+        guard let builder = tabMapping[viewModelType] else {
+            fatalError("No tab registered for \\(viewModelType)")
+        }
+        let vc = builder()
+        currentTab = (vc as? LifecycleAwareHosting)?.viewModel
+        return vc
+    }
+
+    func getCurrentTabViewModel() -> ViewModel? {
+        currentTab
+    }
+}
+""".trimIndent()
 
         file.writeText(
             """
-        $importSection
+$importSection
 
-        $classCode
-        """.trimIndent()
+$classCode
+""".trimIndent()
         )
     }
 }
