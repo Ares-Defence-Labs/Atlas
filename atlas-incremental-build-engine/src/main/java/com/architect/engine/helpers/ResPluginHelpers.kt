@@ -139,6 +139,7 @@ internal object ResPluginHelpers {
 
             moduleName.set(sharedModuleName)
             projectBuildDir.set(project.layout.buildDirectory)
+            configurationBuildDir.set(System.getenv("CONFIGURATION_BUILD_DIR") ?: "")
 
             allowMissing.set(false)
             allowForceLegacy.set(forceLegacy)

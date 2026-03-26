@@ -45,7 +45,7 @@ mavenPublishing {
     coordinates(
         groupId = "io.github.thearchitect123",
         artifactId = "atlas-incremental-engine",
-        version = "0.5.0"
+        version = "0.5.2"
     )
 
     // Configure POM metadata for the published artifact

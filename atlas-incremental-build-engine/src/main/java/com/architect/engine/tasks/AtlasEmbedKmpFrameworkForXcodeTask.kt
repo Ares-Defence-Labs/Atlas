@@ -35,6 +35,9 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
     abstract val targetBuildDir: Property<String>
 
     @get:Input
+    abstract val configurationBuildDir: Property<String>
+
+    @get:Input
     abstract val configuration: Property<String>
 
     @get:Input
@@ -64,216 +67,242 @@ abstract class AtlasEmbedKmpFrameworkForXcodeTask @Inject constructor(
         description = "Embeds raw KMP .framework into Xcode build products AND inside the .app bundle (fixes Generic Archive)"
     }
 
+    private fun missing(message: String): Nothing {
+        throw GradleException(message)
+    }
+
+
+    private fun prepareWatchDeviceFramework(
+        buildDir: File,
+        module: String,
+        buildTypeDir: String,
+        execOps: ExecOperations
+    ): File {
+
+        fun binFrameworkDir(target: String) =
+            buildDir.resolve("bin/$target/$buildTypeDir/$module.framework")
+
+        fun frameworkBinary(frameworkDir: File) =
+            frameworkDir.resolve(module)
+
+        val deviceArm64Dir   = binFrameworkDir("watchosDeviceArm64")  // arm64 (Series 9+)
+        val deviceArm64_32Dir = binFrameworkDir("watchosArm64")       // arm64_32 (Series 7–8)
+
+        val arm64Framework   = deviceArm64Dir.takeIf { it.exists() }
+        val arm64_32Framework = deviceArm64_32Dir.takeIf { it.exists() }
+
+        if (arm64Framework == null && arm64_32Framework == null) {
+            error(
+                """
+            ❌ No watchOS device frameworks found.
+            Looked for:
+             - ${deviceArm64Dir.absolutePath}
+             - ${deviceArm64_32Dir.absolutePath}
+            """.trimIndent()
+            )
+        }
+
+        // If both exist → build FAT framework
+        if (arm64Framework != null && arm64_32Framework != null) {
+
+            val fatFrameworkDir =
+                buildDir.resolve("atlas/tmp-fat-watch-device/$module.framework")
+
+            if (fatFrameworkDir.exists()) fatFrameworkDir.deleteRecursively()
+            fatFrameworkDir.parentFile.mkdirs()
+
+            // Copy skeleton (resources, modulemap, headers, etc)
+            arm64_32Framework.copyRecursively(fatFrameworkDir, overwrite = true)
+
+            val mergedBinary = frameworkBinary(fatFrameworkDir)
+            val bin32 = frameworkBinary(arm64_32Framework)
+            val bin64 = frameworkBinary(arm64Framework)
+
+            logger.lifecycle("🔧 Creating FAT watchOS framework")
+            logger.lifecycle("   arm64_32: ${bin32.absolutePath}")
+            logger.lifecycle("   arm64   : ${bin64.absolutePath}")
+
+            execOps.exec {
+                commandLine(
+                    "xcrun", "lipo",
+                    "-create",
+                    "-output", mergedBinary.absolutePath,
+                    bin32.absolutePath,
+                    bin64.absolutePath
+                )
+            }
+
+            // Verify architectures
+            execOps.exec {
+                isIgnoreExitValue = true
+                commandLine("xcrun", "lipo", "-info", mergedBinary.absolutePath)
+            }
+
+            logger.lifecycle("📦 FAT watch device framework ready → ${fatFrameworkDir.absolutePath}")
+
+            return fatFrameworkDir
+        }
+
+        // Only one slice available (fallback)
+        val chosen = arm64Framework ?: arm64_32Framework!!
+
+        logger.lifecycle("ℹ️ Only one watchOS device slice found → using ${chosen.name}")
+
+        return chosen
+    }
+
     @TaskAction
     fun embedFrameworkForXcode() {
+
         val module = moduleName.get()
         val buildDir = projectBuildDir.get().asFile
 
         val cfg = configuration.get().ifBlank { "Debug" }
-        val buildTypeDir = if (cfg.equals("Debug", ignoreCase = true)) "debugFramework" else "releaseFramework"
+        val buildTypeDir = if (cfg.equals("Debug", true)) "debugFramework" else "releaseFramework"
 
         val sdk = sdkName.get().ifBlank { System.getenv("SDK_NAME") ?: "" }
         val eff = effectivePlatformName.get().ifBlank { System.getenv("EFFECTIVE_PLATFORM_NAME") ?: "" }
         val archsStr = archs.get().ifBlank { System.getenv("ARCHS") ?: "" }
 
-        val isWatch = sdk.startsWith("watch", ignoreCase = true)
-        val isSim = eff.contains("simulator", ignoreCase = true) || sdk.contains("simulator", ignoreCase = true)
+        val isWatch = sdk.startsWith("watch", true)
+        val isSim = eff.contains("simulator", true) || sdk.contains("simulator", true)
         val forceLegacy = allowForceLegacy.getOrElse(false)
 
-        val requestedArchs: Set<String> = archsStr
-            .split(Regex("\\s+"))
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .toSet()
+        logger.lifecycle("🔎 SDK_NAME=$sdk (watch=$isWatch sim=$isSim)")
+        logger.lifecycle("🔎 CONFIGURATION=$cfg ARCHS=$archsStr")
 
-        fun wantsArch(a: String) = requestedArchs.contains(a)
-
-        logger.lifecycle("🔎 SDK_NAME=$sdk (watch=$isWatch, sim=$isSim) CONFIGURATION=$cfg ARCHS='$archsStr'")
-        logger.lifecycle("🔎 requestedArchs=$requestedArchs forceLegacy=$forceLegacy buildTypeDir=$buildTypeDir")
-        logger.lifecycle("📦 build/bin root: ${buildDir.resolve("bin").absolutePath}")
-
-        fun binFrameworkDir(target: String): File =
+        fun binFrameworkDir(target: String) =
             buildDir.resolve("bin/$target/$buildTypeDir/$module.framework")
 
+        fun binary(frameworkDir: File) = File(frameworkDir, module)
         fun frameworkBinary(frameworkDir: File) = File(frameworkDir, module)
+        // ---------------------------------------------------
+        // 1️⃣ Locate framework slice
+        // ---------------------------------------------------
 
-        // -------------------------
-        // 1) Locate / prepare source framework (ARCH-aware)
-        // -------------------------
         val preparedFramework: File = when {
-            // watchOS simulator
             isWatch && isSim -> {
-                val simArm64 = binFrameworkDir("watchosSimulatorArm64").takeIf { it.exists() }
-                val simX64 = binFrameworkDir("watchosX64").takeIf { it.exists() }
-                simArm64 ?: simX64 ?: missingOrFail(
-                    "No watchOS simulator framework found",
-                    lookedFor = listOf(
-                        binFrameworkDir("watchosSimulatorArm64"),
-                        binFrameworkDir("watchosX64")
-                    )
-                )
+                binFrameworkDir("watchosSimulatorArm64")
+                    .takeIf { it.exists() }
+                    ?: binFrameworkDir("watchosX64")
+                    ?: missing("watchOS simulator framework missing")
             }
 
-            // watchOS device
             isWatch && !isSim -> {
-                // Your folder naming:
-                //  - arm64 device: watchosDeviceArm64
-                //  - arm64_32 device: watchosArm64  (yes, odd, but that's what you have)
-                val deviceArm64 = binFrameworkDir("watchosDeviceArm64").takeIf { it.exists() }
-                val deviceArm64_32 = binFrameworkDir("watchosArm64").takeIf { it.exists() }
-                val legacyArm32 = binFrameworkDir("watchosArm32").takeIf { it.exists() }
-
-                val wantsArm64 = wantsArch("arm64")
-                val wantsArm64_32 = wantsArch("arm64_32")
-                val wantsArmv7k = wantsArch("armv7k")
-
-                val picked: File = when {
-                    wantsArm64_32 -> deviceArm64_32 ?: missingOrFail(
-                        "Xcode requests arm64_32, but watchosArm64 framework not found",
-                        lookedFor = listOf(binFrameworkDir("watchosArm64"))
-                    )
-
-                    wantsArm64 -> deviceArm64 ?: missingOrFail(
-                        "Xcode requests arm64, but watchosDeviceArm64 framework not found",
-                        lookedFor = listOf(binFrameworkDir("watchosDeviceArm64"))
-                    )
-
-                    wantsArmv7k -> legacyArm32 ?: missingOrFail(
-                        "Xcode requests armv7k/arm32, but watchosArm32 framework not found",
-                        lookedFor = listOf(binFrameworkDir("watchosArm32"))
-                    )
-
-                    else -> missingOrFail(
-                        "Unsupported watch ARCHS='$archsStr' (refusing to guess)",
-                        lookedFor = listOf(
-                            binFrameworkDir("watchosDeviceArm64"),
-                            binFrameworkDir("watchosArm64"),
-                            binFrameworkDir("watchosArm32")
-                        )
-                    )
-                }
-
-                // Optional legacy merge: arm64 + arm64_32 only
-                val needMerge = forceLegacy && deviceArm64 != null && deviceArm64_32 != null
-                if (!needMerge) {
-                    picked
-                } else {
-                    val tempFramework = buildDir.resolve("atlas/tmp-fat-watch-device/$module.framework")
-                    if (tempFramework.exists()) tempFramework.deleteRecursively()
-                    tempFramework.parentFile.mkdirs()
-
-                    deviceArm64!!.copyRecursively(tempFramework, overwrite = true)
-
-                    val mergedBin = frameworkBinary(tempFramework)
-                    val a = frameworkBinary(deviceArm64)
-                    val b = frameworkBinary(deviceArm64_32!!)
-
-                    mergeOrCopyBinaries(
-                        execOps = execOps,
-                        mergedBin = mergedBin,
-                        inputs = listOf(a, b),
-                        lipoOut = ByteArrayOutputStream(),
-                        lipoErr = ByteArrayOutputStream()
-                    )
-
-                    logger.lifecycle("📦 Prepared fat watch device framework (arm64 + arm64_32) → ${tempFramework.absolutePath}")
-                    tempFramework
-                }
+                prepareWatchDeviceFramework(
+                    buildDir = buildDir,
+                    module = module,
+                    buildTypeDir = buildTypeDir,
+                    execOps = execOps
+                )
             }
 
-            // iOS simulator
             !isWatch && isSim -> {
-                binFrameworkDir("iosSimulatorArm64").takeIf { it.exists() } ?: missingOrFail(
-                    "No iOS simulator framework found",
-                    lookedFor = listOf(binFrameworkDir("iosSimulatorArm64"))
-                )
+                binFrameworkDir("iosSimulatorArm64")
+                    .takeIf { it.exists() }
+                    ?: missing("iOS simulator framework missing")
             }
 
-            // iOS device
             else -> {
-                binFrameworkDir("iosArm64").takeIf { it.exists() } ?: missingOrFail(
-                    "No iOS device framework found",
-                    lookedFor = listOf(binFrameworkDir("iosArm64"))
-                )
+                binFrameworkDir("iosArm64")
+                    .takeIf { it.exists() }
+                    ?: missing("iOS device framework missing")
             }
         }
 
-        // -------------------------
-        // 2) Copy to STABLE cache
-        // -------------------------
-        val stablePlatformDirName = when {
+        // ---------------------------------------------------
+        // 2️⃣ Copy to stable cache
+        // ---------------------------------------------------
+
+        val stablePlatform = when {
             isWatch && isSim -> "watchos-simulator"
-            isWatch && !isSim -> "watchos-device"
+            isWatch -> "watchos-device"
             !isWatch && isSim -> "ios-simulator"
             else -> "ios-device"
         }
 
-        val stableDir = buildDir.resolve("atlas/xcode-frameworks/$stablePlatformDirName/$cfg")
+        val stableDir = buildDir.resolve("atlas/xcode-frameworks/$stablePlatform/$cfg")
         val stableFramework = stableDir.resolve("$module.framework")
 
         stableDir.mkdirs()
         if (stableFramework.exists()) stableFramework.deleteRecursively()
-        preparedFramework.copyRecursively(stableFramework, overwrite = true)
+        preparedFramework.copyRecursively(stableFramework, true)
 
-        val moduleMap = stableFramework.resolve("Modules/module.modulemap")
-        if (!moduleMap.exists()) {
-            throw GradleException("module.modulemap missing in stable framework: ${moduleMap.absolutePath}")
+        require(stableFramework.resolve("Modules/module.modulemap").exists()) {
+            "module.modulemap missing in ${stableFramework.absolutePath}"
         }
 
-        logger.lifecycle("✅ Stable framework ready: ${stableFramework.absolutePath}")
+        logger.lifecycle("✅ Stable framework ready")
 
-        // -------------------------
-        // 3) Copy to compile-time frameworks dir (safe)
-        //    IMPORTANT: do NOT put the .framework at the root of TARGET_BUILD_DIR
-        //    because that creates a top-level archived product -> Generic Archive.
-        // -------------------------
-        val builtProductsDir = File(targetBuildDir.get())
-        builtProductsDir.mkdirs()
+        // ---------------------------------------------------
+        // 3️⃣ Compile-time staging (SAFE)
+        // ---------------------------------------------------
 
-        val compileFrameworksDir = builtProductsDir.resolve("Frameworks")
+        val compileRoot = configurationBuildDir.orNull?.takeIf { it.isNotBlank() }
+            ?: System.getenv("CONFIGURATION_BUILD_DIR")
+            ?: buildDir.resolve("atlas/tmp-xcode-compile").absolutePath
+
+        val compileProductsDir = File(compileRoot)
+
+        if (looksLikeArchiveProductsApplications(compileProductsDir)) {
+            throw GradleException(
+                "Refusing to stage compile frameworks into Archive Products/Applications:\n" +
+                        compileProductsDir.absolutePath
+            )
+        }
+
+        val compileFrameworksDir = compileProductsDir.resolve("Frameworks")
         compileFrameworksDir.mkdirs()
 
-        val compileTimeFramework = compileFrameworksDir.resolve("$module.framework")
-        if (compileTimeFramework.exists()) compileTimeFramework.deleteRecursively()
-        stableFramework.copyRecursively(compileTimeFramework, overwrite = true)
+        val compileFW = compileFrameworksDir.resolve("$module.framework")
+        if (compileFW.exists()) compileFW.deleteRecursively()
+        stableFramework.copyRecursively(compileFW, true)
 
-        logger.lifecycle("✅ Copied for compile-time (-F .../Frameworks): ${compileTimeFramework.absolutePath}")
+        logger.lifecycle("✅ Compile-time staging OK → ${compileFW.absolutePath}")
 
-        // -------------------------
-        // 4) Embed into the app/appex bundle Frameworks folder (runtime)
-        //    FIX: must be inside WRAPPER_NAME/Frameworks, not Products/Applications/Frameworks
-        // -------------------------
-        val wrapper = wrapperName.get().ifBlank { System.getenv("WRAPPER_NAME") ?: "" }
-        if (wrapper.isBlank()) {
-            throw GradleException("WRAPPER_NAME is empty; cannot embed framework into app bundle.")
-        }
+        // ---------------------------------------------------
+        // 4️⃣ Runtime embed inside .app / .appex
+        // ---------------------------------------------------
 
-        val fwFolderRaw = frameworksFolderPath.get().ifBlank {
-            System.getenv("FRAMEWORKS_FOLDER_PATH") ?: "Frameworks"
-        }
+        val runtimeRoot = targetBuildDir.orNull?.takeIf { it.isNotBlank() }
+            ?: System.getenv("TARGET_BUILD_DIR")
+            ?: return // nothing to embed
 
-        // If FRAMEWORKS_FOLDER_PATH doesn't already include the wrapper, force it.
-        val fwFolder = if (fwFolderRaw.contains(".app/") || fwFolderRaw.contains(".appex/")) {
-            fwFolderRaw
-        } else {
-            "$wrapper/Frameworks"
-        }
+        val wrapper = wrapperName.orNull?.takeIf { it.isNotBlank() }
+            ?: System.getenv("WRAPPER_NAME")
+            ?: return
 
-        val runtimeFrameworksDir = builtProductsDir.resolve(fwFolder)
+        val fwFolderRaw = frameworksFolderPath.orNull?.takeIf { it.isNotBlank() }
+            ?: System.getenv("FRAMEWORKS_FOLDER_PATH")
+            ?: "Frameworks"
+
+        val fwFolder =
+            if (fwFolderRaw.contains(".app/") || fwFolderRaw.contains(".appex/"))
+                fwFolderRaw
+            else
+                "$wrapper/Frameworks"
+
+        val runtimeFrameworksDir = File(runtimeRoot).resolve(fwFolder)
         runtimeFrameworksDir.mkdirs()
 
-        val runtimeFramework = runtimeFrameworksDir.resolve("$module.framework")
-        if (runtimeFramework.exists()) runtimeFramework.deleteRecursively()
-        stableFramework.copyRecursively(runtimeFramework, overwrite = true)
+        val runtimeFW = runtimeFrameworksDir.resolve("$module.framework")
+        if (runtimeFW.exists()) runtimeFW.deleteRecursively()
+        stableFramework.copyRecursively(runtimeFW, true)
 
-        logger.lifecycle("➡️ Embedding ${stableFramework.absolutePath} → ${runtimeFramework.absolutePath}")
+        logger.lifecycle("➡️ Embedded into bundle → ${runtimeFW.absolutePath}")
 
-        // -------------------------
-        // 5) Codesign (if allowed)
-        // -------------------------
-        maybeCodesign(runtimeFramework)
+        // ---------------------------------------------------
+        // 5️⃣ Codesign if required
+        // ---------------------------------------------------
 
-        logger.lifecycle("✅ Embedded raw KMP framework into bundle: ${runtimeFramework.absolutePath}")
+        maybeCodesign(runtimeFW)
+
+        logger.lifecycle("✅ Atlas embed complete")
+    }
+
+    private fun looksLikeArchiveProductsApplications(dir: File): Boolean {
+        val p = dir.absolutePath.replace('\\', '/')
+        return p.endsWith("/Products/Applications") || p.contains("/InstallationBuildProductsLocation/Products/Applications")
     }
 
     private fun missingOrFail(message: String, lookedFor: List<File>): File {
