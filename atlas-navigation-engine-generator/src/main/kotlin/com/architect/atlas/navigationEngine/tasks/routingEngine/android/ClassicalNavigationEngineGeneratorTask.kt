@@ -107,6 +107,7 @@ abstract class ClassicalNavigationEngineGeneratorTask : DefaultTask() {
                 """
 import $androidBasePackageRef.R                    
 import android.os.Bundle
+import com.architect.atlas.container.dsl.AtlasDI
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentManager
@@ -307,7 +308,7 @@ object AtlasFragmentNavigation : AtlasNavigationService {
         val vmKlass = viewModelToScreenMap.entries
             .firstOrNull { it.value == screenKClass }?.key ?: return
 
-        val vm = resolveViewModel(vmKlass, owner = fragment)
+        val vm = AtlasDI.resolveViewModel(vmKlass)
 
         val payloadRaw = fragment.arguments?.getString(PUSH_KEY)
         if (payloadRaw != null && vm is Pushable<*>) {
@@ -317,7 +318,7 @@ object AtlasFragmentNavigation : AtlasNavigationService {
             }
         }
 
-        vm.bootstrapVmFromNavEngine()
+        vm?.bootstrapVmFromNavEngine()
     }
 
     /**
@@ -337,22 +338,11 @@ object AtlasFragmentNavigation : AtlasNavigationService {
         val encoded = encodeParam(params) ?: return
         val decoded = decodeParam(encoded) ?: return
 
-        val vm = resolveViewModel(vmKlass, owner = prev)
+        val vm = AtlasDI.resolveViewModel(vmKlass)
         if (vm is Poppable<*>) {
             @Suppress("UNCHECKED_CAST")
             (vm as Poppable<Any>).onPopParams(decoded)
         }
-    }
-
-    private fun resolveViewModel(
-        vmClass: KClass<out ViewModel>,
-        owner: ViewModelStoreOwner
-    ): ViewModel {
-        @Suppress("UNCHECKED_CAST")
-        val androidVmClass = vmClass.java as Class<androidx.lifecycle.ViewModel>
-        val vm = ViewModelProvider(owner)[androidVmClass]
-        @Suppress("UNCHECKED_CAST")
-        return vm as ViewModel
     }
 
     private fun encodeParam(param: Any?): String? =

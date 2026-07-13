@@ -317,6 +317,7 @@ abstract class AppleWatchNavigationEngineGeneratorTask : DefaultTask() {
             appendLine("            Task { @MainActor in")
             appendLine("                vm.onDestroy()")
             appendLine("                vm.onCleared()")
+            appendLine("                AtlasDI.companion.resetViewModelByName(clazz: token.viewModelType)")
             appendLine("            }")
             appendLine("        }")
             appendLine("        vmStore[token.id] = nil")

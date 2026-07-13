@@ -20,7 +20,6 @@ class AtlasDIProcessor : Plugin<Project> {
 
             val dataSets = project.providers
                 .gradleProperty("atlas.extraViewModelBaseClasses")
-                .forUseAtConfigurationTime()
                 .orNull
                 ?.split(",")
                 ?.map { it.trim() }
@@ -131,10 +130,13 @@ class AtlasDIProcessor : Plugin<Project> {
 
         fun recurse(proj: Project) {
             if (!visited.add(proj)) return
+
             proj.configurations
                 .flatMap { it.dependencies }
                 .filterIsInstance<ProjectDependency>()
-                .map { it.dependencyProject }
+                .mapNotNull { dep ->
+                    runCatching { proj.project(dep.path) }.getOrNull()
+                }
                 .forEach { dep ->
                     val dir = File(dep.projectDir, "src/commonMain/kotlin")
                     if (dir.exists()) result += dir

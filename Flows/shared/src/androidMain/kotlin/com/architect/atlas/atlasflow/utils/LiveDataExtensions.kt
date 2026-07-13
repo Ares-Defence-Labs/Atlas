@@ -9,7 +9,24 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-fun <T : Any> MutableAtlasFlowState<T>.bind(
+fun <T : Any?> MutableAtlasFlowState<T>.bind(
+    lifecycleOwner: LifecycleOwner,
+    observer: (T?) -> Unit
+): Closeable {
+    val job: Job = lifecycleOwner.lifecycleScope.launch {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            asStateFlow().collect { value ->
+                observer(value)
+            }
+        }
+    }
+
+    return Closeable {
+        job.cancel()
+    }
+}
+
+fun <T : Any?> MutableAtlasFlowState<T?>.bindNullable(
     lifecycleOwner: LifecycleOwner,
     observer: (T?) -> Unit
 ): Closeable {

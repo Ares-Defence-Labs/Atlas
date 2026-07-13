@@ -135,6 +135,12 @@ abstract class ComposeNavigationEngineGeneratorTask : DefaultTask() {
             viewModelImports.forEach { appendLine("import $it") }
             appendLine(
                 """
+                    import androidx.compose.foundation.background
+                    import androidx.compose.foundation.layout.Box
+                    import androidx.compose.foundation.layout.fillMaxSize
+                    import androidx.compose.ui.Modifier
+                    import androidx.compose.ui.draw.clipToBounds
+                    import androidx.compose.material3.MaterialTheme
 import android.app.Activity
 import android.app.Application
 import android.net.Uri
@@ -671,6 +677,14 @@ object AtlasNavigation : AtlasNavigationService {
 
             appendLine(
                 """
+                    
+                      import androidx.compose.foundation.background
+                    import androidx.compose.foundation.layout.Box
+                    import androidx.compose.foundation.layout.fillMaxSize
+                    import androidx.compose.ui.Modifier
+                    import androidx.compose.ui.draw.clipToBounds
+                    import androidx.compose.material3.MaterialTheme
+                    
 import com.architect.atlas.architecture.navigation.Pushable
 import com.architect.atlas.architecture.mvvm.ViewModel
 import com.architect.atlas.navigation.AtlasNavigation
@@ -719,7 +733,11 @@ fun AtlasNavGraph() {
         onDispose { AtlasNavigation.bindToNavController(controller = navController, activity = null) }
     }
     CompositionLocalProvider(LocalAtlasNavController provides navController) {
-        NavHost(navController = navController, startDestination = "$start") {
+        NavHost(navController = navController, startDestination = "$start",
+         modifier = Modifier
+        .fillMaxSize()
+        .clipToBounds()
+        .background(MaterialTheme.colorScheme.background)) {
 ${
                     screens.joinToString("\n") { (viewModel, screen) ->
                         """            screen<$viewModel>("$screen") { $screen(it) }"""
@@ -741,19 +759,44 @@ inline fun <reified VM : ViewModel> NavGraphBuilder.screen(
         route = "${'$'}route?pushParam={pushParam}",
         arguments = listOf(navArgument("pushParam") { nullable = true; defaultValue = null }),
         enterTransition = {
-            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(250))
-        },
-        exitTransition = { ExitTransition.None },
-        popEnterTransition = { EnterTransition.None },
-        popExitTransition = {
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(250))
-        },
+    slideIntoContainer(
+        AnimatedContentTransitionScope.SlideDirection.Left,
+        animationSpec = tween(300)
+    )
+},
+exitTransition = {
+    slideOutOfContainer(
+        AnimatedContentTransitionScope.SlideDirection.Left,
+        animationSpec = tween(300)
+    )
+},
+popEnterTransition = {
+    slideIntoContainer(
+        AnimatedContentTransitionScope.SlideDirection.Right,
+        animationSpec = tween(300)
+    )
+},
+popExitTransition = {
+    slideOutOfContainer(
+        AnimatedContentTransitionScope.SlideDirection.Right,
+        animationSpec = tween(300)
+    )
+}
     ) { backStackEntry ->
         val vm: VM = viewModel(
             modelClass = VM::class.java,
             viewModelStoreOwner = backStackEntry
         )
-        HandleLifecycle<VM>(vm) { content(vm) }
+        HandleLifecycle<VM>(vm) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        content(vm)
+    }
+}
     }
 }
             """.trimIndent()
